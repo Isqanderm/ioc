@@ -30,6 +30,12 @@ jobs:
       - name: Build project
         run: npm run build
 
+      - name: Config git
+        run: |
+          export HUSKY=0
+          git config --global user.email "ci@nexus-ioc.tech"
+          git config --global user.name "CI"
+
       - name: Generate changelog
         run: npm run release
 
@@ -47,9 +53,6 @@ jobs:
       - name: Commit changelog
         if: env.changes == 'true'
         run: |
-          export HUSKY=0
-          git config --global user.email "ci@nexus-ioc.tech"
-          git config --global user.name "CI"
           git add .
           git commit -m "chore(release): update changelog"
 
