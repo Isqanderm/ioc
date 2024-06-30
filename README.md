@@ -1,8 +1,20 @@
-![npm](https://img.shields.io/npm/v/athena-ioc)
-![license](https://img.shields.io/npm/l/athena-ioc)
+![npm](https://img.shields.io/npm/v/nexus-ioc)
+![license](https://img.shields.io/npm/l/nexus-ioc)
 ![build](https://img.shields.io/github/actions/workflow/status/Isqanderm/ioc/build.yml)
 
-Athena IoC is a powerful and flexible Inversion of Control (IoC) container for TypeScript applications. Inspired by Angular and NestJS, it leverages decorators to provide a simple and efficient way to manage dependencies and modules.
+Nexus IoC is a powerful and flexible Inversion of Control (IoC) container for TypeScript applications. Inspired by Angular and NestJS, it leverages decorators to provide a simple and efficient way to manage dependencies and modules.
+
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Usage](#usage)
+- [License](#license)
+- [Author](#author)
+- [Contributing](#contributing)
+- [Acknowledgements](#acknowledgements)
+- [Wiki](#wiki)
 
 ## Features
 
@@ -14,7 +26,7 @@ Athena IoC is a powerful and flexible Inversion of Control (IoC) container for T
 ## Installation
 
 ```bash
-npm install athena-ioc reflect-metadata
+npm install nexus-ioc reflect-metadata
 ```
 
 ## Quick Start
@@ -24,18 +36,29 @@ npm install athena-ioc reflect-metadata
 Create a module and a provider using decorators.
 
 ```typescript
-import { Module } from 'athena-ioc';
-import { Injectable } from 'athena-ioc';
+import {Module, Injectable} from 'nexus-ioc';
+import {Inject} from "./inject";
+
+@Injectable()
+class DependencyService {
+  public readonly name = 'World';
+}
 
 @Injectable()
 export class AppService {
+  constructor(
+    @Inject(DependencyService)
+    private readonly dependencyService: DependencyService,
+  ) {
+  }
+
   getHello(): string {
-    return 'Hello World!';
+    return `Hello ${this.dependencyService.name}!`;
   }
 }
 
 @Module({
-  providers: [AppService],
+  providers: [AppService, DependencyService],
 })
 export class AppModule {}
 ```
@@ -45,14 +68,20 @@ export class AppModule {}
 Create and bootstrap your application.
 
 ```typescript
-import { AthenaFactory } from 'athena-ioc';
+import { NexusApplicationsServer } from 'nexus-ioc';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await AthenaFactory.create(AppModule);
+  const app = await NexusApplicationsServer.create(AppModule)
+    .bootstrap();
+  
+  const appService = app.get<AppService>(AppService);
+  
+  console.log(appService.getHello());
 }
 
 bootstrap();
+
 ```
 
 ## License
@@ -61,7 +90,7 @@ This project is licensed under the MIT License. See the LICENSE file for details
 
 ## Author
 
-Isqanderm (Aleksandr Melnik) - LinkedIn
+Isqanderm (Aleksandr Melnik) - [LinkedIn](www.linkedin.com/in/isqander-melnik)
 
 ## Contributing
 
@@ -71,4 +100,6 @@ Contributions are welcome! Please open an issue or submit a pull request.
 
 Special thanks to the developers of Angular and NestJS for the inspiration.
 
+## Wiki
 
+For more detailed documentation, please visit the [Wiki](https://github.com/Isqanderm/ioc/wiki).

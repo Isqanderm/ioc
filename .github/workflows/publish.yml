@@ -33,18 +33,28 @@ jobs:
       - name: Generate changelog
         run: npm run changelog
 
+      - name: Check for changelog changes
+        id: check_changes
+        run: |
+          if git diff --quiet CHANGELOG.md; then
+            echo "No changes in CHANGELOG.md"
+            echo "changes=false" >> $GITHUB_ENV
+          else
+            echo "Changes detected in CHANGELOG.md"
+            echo "changes=true" >> $GITHUB_ENV
+          fi
+
       - name: Commit changelog
+        if: env.changes == 'true'
         run: |
           export HUSKY=0
           git config --global user.email "ci@nexus-ioc.tech"
           git config --global user.name "CI"
           git add CHANGELOG.md
-          git diff --exit-code CHANGELOG.md > /dev/null || (
-            git add CHANGELOG.md
-            git commit -m "chore(release): update changelog"
-          )
+          git commit -m "chore(release): update changelog"
 
       - name: Push changes
+        if: env.changes == 'true'
         uses: ad-m/github-push-action@master
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
