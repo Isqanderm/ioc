@@ -36,8 +36,7 @@ npm install nexus-ioc reflect-metadata
 Create a module and a provider using decorators.
 
 ```typescript
-import {Module, Injectable} from 'nexus-ioc';
-import {Inject} from "./inject";
+import { Module, Injectable, Inject } from 'nexus-ioc';
 
 @Injectable()
 class DependencyService {
@@ -69,7 +68,7 @@ Create and bootstrap your application.
 
 ```typescript
 import { NexusApplicationsServer } from 'nexus-ioc';
-import { AppModule } from './app.module';
+import { AppModule, AppService } from './app.module';
 
 async function bootstrap() {
   const app = await NexusApplicationsServer.create(AppModule)
