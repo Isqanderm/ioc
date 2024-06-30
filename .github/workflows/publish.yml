@@ -11,7 +11,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false # otherwise, the token used is the GITHUB_TOKEN, instead of your personal access token.
+          fetch-depth: 0 # otherwise, there would be errors pushing refs to the destination repository.
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -33,31 +36,13 @@ jobs:
       - name: Config git
         run: |
           export HUSKY=0
-          git config --global user.email "ci@nexus-ioc.tech"
-          git config --global user.name "CI"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
 
       - name: Generate changelog
         run: npm run release
 
-      - name: Check for changelog changes
-        id: check_changes
-        run: |
-          if git diff --quiet CHANGELOG.md; then
-            echo "No changes in CHANGELOG.md"
-            echo "changes=false" >> $GITHUB_ENV
-          else
-            echo "Changes detected in CHANGELOG.md"
-            echo "changes=true" >> $GITHUB_ENV
-          fi
-
-      - name: Commit changelog
-        if: env.changes == 'true'
-        run: |
-          git add .
-          git commit -m "chore(release): update changelog"
-
       - name: Push changes
-        if: env.changes == 'true'
         uses: ad-m/github-push-action@master
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
