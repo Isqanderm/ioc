@@ -9,7 +9,6 @@ Nexus IoC is a powerful and flexible Inversion of Control (IoC) container for Ty
 - [Features](#features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
-- [Usage](#usage)
 - [License](#license)
 - [Author](#author)
 - [Contributing](#contributing)
