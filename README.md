@@ -66,7 +66,7 @@ export class AppModule {}
 Create and bootstrap your application.
 
 ```typescript
-import { NexusApplicationsServer } from 'nexus-ioc';
+import { NexusApplicationsServer } from 'nexus-ioc/dist/server';
 import { AppModule, AppService } from './app.module';
 
 async function bootstrap() {
