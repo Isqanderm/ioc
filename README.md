@@ -9,7 +9,6 @@ Nexus IoC is a powerful and flexible Inversion of Control (IoC) container for Ty
 - [Features](#features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
-- [Usage](#usage)
 - [License](#license)
 - [Author](#author)
 - [Contributing](#contributing)
@@ -67,7 +66,7 @@ export class AppModule {}
 Create and bootstrap your application.
 
 ```typescript
-import { NexusApplicationsServer } from 'nexus-ioc';
+import { NexusApplicationsServer } from 'nexus-ioc/dist/server';
 import { AppModule, AppService } from './app.module';
 
 async function bootstrap() {
