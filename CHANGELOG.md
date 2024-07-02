@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.7](https://github.com/Isqanderm/ioc/compare/v0.1.6...v0.1.7) (2024-07-02)
+
+
+### Features
+
+* **container:** add forRoot/forRootAsync ([533c1c4](https://github.com/Isqanderm/ioc/commit/533c1c4a6bc99a611584574e5b4717416f86af0f))
+
 ### [0.1.6](https://github.com/Isqanderm/ioc/compare/v0.1.5...v0.1.6) (2024-07-02)
 
 
