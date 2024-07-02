@@ -1,10 +1,11 @@
+import type { DynamicModule } from "../dynamic-module.interface";
 import type { InjectionToken } from "../injection-token.interface";
 import type { Module } from "../module-types.interface";
 import type { ModuleContainerInterface } from "./module-container.interface";
 import type { ModuleGraphInterface } from "./module-graph.interface";
 
 export interface ContainerBaseInterface {
-	addModule(module: Module): Promise<ModuleContainerInterface>;
+	addModule(module: Module | DynamicModule): Promise<ModuleContainerInterface>;
 	replaceModule(
 		moduleToReplace: Module,
 		newModule: Module,

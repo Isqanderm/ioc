@@ -1,6 +1,7 @@
 import { Container } from "../core/modules/container";
 import { ContainerNotCompiledError } from "../errors/container-not-compiled.error";
 import type {
+	DynamicModule,
 	InjectionToken,
 	Module,
 	ModuleContainerInterface,
@@ -25,7 +26,9 @@ export class TestingContainer implements ModuleTestingContainerInterface {
 		return new TestingContainer(metatype);
 	}
 
-	async addModule(metatype: Module): Promise<ModuleContainerInterface> {
+	async addModule(
+		metatype: Module | DynamicModule,
+	): Promise<ModuleContainerInterface> {
 		return this.container.addModule(metatype);
 	}
 

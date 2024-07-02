@@ -1,6 +1,7 @@
 import "reflect-metadata";
 import {
 	type ContainerInterface,
+	type DynamicModule,
 	type HashUtilInterface,
 	MODULE_TOKEN_WATERMARK,
 	type Module,
@@ -24,7 +25,9 @@ export class ModulesContainer implements ModulesContainerInterface {
 		private readonly container: ContainerInterface,
 	) {}
 
-	async addModule(module: Module): Promise<ModuleContainerInterface> {
+	async addModule(
+		module: Module | DynamicModule,
+	): Promise<ModuleContainerInterface> {
 		const cacheModule = await this.getModule(module);
 
 		if (cacheModule) {
@@ -34,7 +37,9 @@ export class ModulesContainer implements ModulesContainerInterface {
 		return this.setModule(module);
 	}
 
-	getModule(module: Module): ModuleContainerInterface | undefined {
+	getModule(
+		module: Module | DynamicModule,
+	): ModuleContainerInterface | undefined {
 		return this.getModuleFromCache(module);
 	}
 
@@ -53,7 +58,9 @@ export class ModulesContainer implements ModulesContainerInterface {
 		return newModuleContainer;
 	}
 
-	private async setModule(module: Module): Promise<ModuleContainerInterface> {
+	private async setModule(
+		module: Module | DynamicModule,
+	): Promise<ModuleContainerInterface> {
 		const moduleContainer = await this.moduleContainerFactory.create(
 			module,
 			this.container,
@@ -65,7 +72,7 @@ export class ModulesContainer implements ModulesContainerInterface {
 	}
 
 	private getModuleFromCache(
-		module: Module,
+		module: Module | DynamicModule,
 	): ModuleContainerInterface | undefined {
 		const token = Reflect.getMetadata(MODULE_TOKEN_WATERMARK, module) as Token;
 

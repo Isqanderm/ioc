@@ -31,7 +31,7 @@ export class ModuleContainer implements ModuleContainerInterface {
 	}
 
 	get imports(): Promise<ModuleContainerInterface[]> {
-		let modules: Module[];
+		let modules: (Module | DynamicModule)[];
 		if (isDynamicModule(this.metatype)) {
 			modules = this.metatype.imports || [];
 		} else {
@@ -43,7 +43,9 @@ export class ModuleContainer implements ModuleContainerInterface {
 		return new Promise<ModuleContainerInterface[]>((resolved) => {
 			async function run() {
 				const imports = await Promise.all(
-					modules.map((item: Module) => self.container.addModule(item)),
+					modules.map((item: Module | DynamicModule) => {
+						return self.container.addModule(item);
+					}),
 				);
 
 				resolved(imports);
