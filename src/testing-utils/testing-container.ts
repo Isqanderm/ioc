@@ -1,10 +1,13 @@
 import { Container } from "../core/modules/container";
-import type { InjectionToken } from "../interfaces/injection-token.interface";
-import type { ModuleMetadata } from "../interfaces/module-metadata.interface";
-import type { Module } from "../interfaces/module-types.interface";
-import type { ModuleContainerInterface } from "../interfaces/modules/module-container.interface";
-import type { ModuleGraphInterface } from "../interfaces/modules/module-graph.interface";
-import type { ModuleTestingContainerInterface } from "../interfaces/testing/module-testing-container.interface";
+import { ContainerNotCompiledError } from "../errors/container-not-compiled.error";
+import type {
+	InjectionToken,
+	Module,
+	ModuleContainerInterface,
+	ModuleGraphInterface,
+	ModuleMetadata,
+} from "../interfaces";
+import type { ModuleTestingContainerInterface } from "../interfaces/testing";
 import { HashTestingUtil } from "./hash-testing-util";
 import { TestingCreator } from "./testing-creator";
 
@@ -14,6 +17,7 @@ export class TestingContainer implements ModuleTestingContainerInterface {
 	private readonly moduleTestingCreator = new TestingCreator();
 	private _moduleContainer: ModuleContainerInterface | null = null;
 	private _module: Module | null = null;
+	private containerCompiled = false;
 
 	private constructor(private readonly metatype: ModuleMetadata) {}
 
@@ -34,11 +38,15 @@ export class TestingContainer implements ModuleTestingContainerInterface {
 	async replaceModule(
 		metatypeToReplace: Module,
 		newMetatype: Module,
-	): Promise<ModuleContainerInterface | null> {
+	): Promise<ModuleContainerInterface> {
 		return this.container.replaceModule(metatypeToReplace, newMetatype);
 	}
 
 	get<T>(token: InjectionToken): Promise<T | undefined> {
+		if (!this.containerCompiled) {
+			throw new ContainerNotCompiledError();
+		}
+
 		return this.container.get<T>(token);
 	}
 
@@ -47,18 +55,33 @@ export class TestingContainer implements ModuleTestingContainerInterface {
 		this._moduleContainer = await this.container.addModule(this._module);
 
 		await this.container.run(this._moduleContainer.metatype as Module);
+
+		this.containerCompiled = true;
+
 		return this._moduleContainer;
 	}
 
 	get module() {
+		if (!this.containerCompiled) {
+			throw new ContainerNotCompiledError();
+		}
+
 		return this._module;
 	}
 
 	get moduleContainer() {
+		if (!this.containerCompiled) {
+			throw new ContainerNotCompiledError();
+		}
+
 		return this._moduleContainer;
 	}
 
 	get graph(): ModuleGraphInterface {
+		if (!this.containerCompiled) {
+			throw new ContainerNotCompiledError();
+		}
+
 		return this.container.graph;
 	}
 }
