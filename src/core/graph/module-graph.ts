@@ -101,6 +101,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 		const metatype = isDynamicModule(module.metatype)
 			? module.metatype.module
 			: module.metatype;
+
 		const isGlobal = isGlobalModule(metatype);
 
 		this.addNode(module.token, {

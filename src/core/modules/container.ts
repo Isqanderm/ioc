@@ -28,10 +28,10 @@ export class Container implements ContainerInterface {
 	public async replaceModule(
 		moduleToReplace: Module,
 		newModule: Module,
-	): Promise<ModuleContainerInterface | null> {
-		return (
-			(await this.modulesContainer.replaceModule(moduleToReplace, newModule)) ||
-			null
+	): Promise<ModuleContainerInterface> {
+		return await this.modulesContainer.replaceModule(
+			moduleToReplace,
+			newModule,
 		);
 	}
 

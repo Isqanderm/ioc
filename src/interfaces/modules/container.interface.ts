@@ -8,7 +8,7 @@ export interface ContainerBaseInterface {
 	replaceModule(
 		moduleToReplace: Module,
 		newModule: Module,
-	): Promise<ModuleContainerInterface | null>;
+	): Promise<ModuleContainerInterface>;
 	getModule(module: Module): Promise<ModuleContainerInterface | undefined>;
 	get<T>(token: InjectionToken): Promise<T | undefined>;
 }
