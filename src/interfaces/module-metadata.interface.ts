@@ -3,7 +3,7 @@ import type { InjectionToken } from "./injection-token.interface";
 import type { Module, Provider } from "./module-types.interface";
 
 export interface ModuleMetadata {
-	imports?: (Module | DynamicModule | Promise<DynamicModule>)[];
+	imports?: (Module | DynamicModule)[];
 	exports?: InjectionToken[];
 	providers?: Provider[];
 }

@@ -1,5 +1,6 @@
 import type {
 	ContainerInterface,
+	DynamicModule,
 	HashUtilInterface,
 	InjectionToken,
 	Module,
@@ -21,7 +22,9 @@ export class Container implements ContainerInterface {
 
 	constructor(private readonly hashUtils: HashUtilInterface) {}
 
-	public async addModule(module: Module): Promise<ModuleContainerInterface> {
+	public async addModule(
+		module: Module | DynamicModule,
+	): Promise<ModuleContainerInterface> {
 		return await this.modulesContainer.addModule(module);
 	}
 
