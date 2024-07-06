@@ -1,12 +1,13 @@
-import { Module } from "../decorators/module";
-import type { ModuleMetadata } from "../interfaces/module-metadata.interface";
-import type { Type } from "../interfaces/type.interface";
+import type { ModuleMetadata, Type } from "../interfaces";
 
-export class TestingCreator {
-	create(metatype: ModuleMetadata): Type<unknown> {
+export class TestingCreator<T extends ModuleMetadata> {
+	create(
+		metatype: T,
+		moduleDecorator: (metadata: T) => ClassDecorator,
+	): Type<unknown> {
 		const module = class {};
 
-		Module(metatype)(module);
+		moduleDecorator(metatype)(module);
 
 		return module;
 	}

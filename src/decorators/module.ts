@@ -10,8 +10,7 @@ export function Module(metadata: ModuleMetadata): ClassDecorator {
 	const propsKeys = Object.keys(metadata);
 	validateModuleKeys(propsKeys);
 
-	// biome-ignore lint/complexity/noBannedTypes: <explanation>
-	return (target: Function) => {
+	return (target) => {
 		Reflect.defineMetadata(MODULE_WATERMARK, true, target);
 		Reflect.defineMetadata(
 			MODULE_METADATA.IMPORTS,

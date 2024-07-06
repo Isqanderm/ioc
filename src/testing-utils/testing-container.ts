@@ -1,51 +1,62 @@
 import { Container } from "../core/modules/container";
+import { Module as ModuleDecorator } from "../decorators/module";
 import { ContainerNotCompiledError } from "../errors/container-not-compiled.error";
 import type {
 	DynamicModule,
+	GraphPluginInterface,
 	InjectionToken,
 	Module,
 	ModuleContainerInterface,
 	ModuleGraphInterface,
 	ModuleMetadata,
+	ScannerPluginInterface,
 } from "../interfaces";
 import type { ModuleTestingContainerInterface } from "../interfaces/testing";
 import { HashTestingUtil } from "./hash-testing-util";
 import { TestingCreator } from "./testing-creator";
 
-export class TestingContainer implements ModuleTestingContainerInterface {
+export class TestingContainer<T extends ModuleMetadata = ModuleMetadata>
+	implements ModuleTestingContainerInterface<T>
+{
+	private readonly graphPlugins: GraphPluginInterface[] = [];
+	private readonly scannerPlugins: ScannerPluginInterface[] = [];
 	private readonly hashTestingUtil = new HashTestingUtil();
 	private readonly container = new Container(this.hashTestingUtil);
-	private readonly moduleTestingCreator = new TestingCreator();
+	private readonly moduleTestingCreator = new TestingCreator<T>();
 	private _moduleContainer: ModuleContainerInterface | null = null;
+	private _moduleDecorator: <D extends T>(metadata: D) => ClassDecorator =
+		ModuleDecorator;
 	private _module: Module | null = null;
 	private containerCompiled = false;
 
-	private constructor(private readonly metatype: ModuleMetadata) {}
+	private constructor(private readonly metatype: T) {}
 
-	static createTestingContainer(metatype: ModuleMetadata) {
-		return new TestingContainer(metatype);
+	public static createTestingContainer<
+		M extends ModuleMetadata = ModuleMetadata,
+	>(metatype: M): TestingContainer<M> {
+		return new TestingContainer<M>(metatype);
 	}
 
-	async addModule(
+	public async addModule(
 		metatype: Module | DynamicModule,
 	): Promise<ModuleContainerInterface> {
 		return this.container.addModule(metatype);
 	}
 
-	async getModule(
+	public async getModule(
 		metatype: Module,
 	): Promise<ModuleContainerInterface | undefined> {
 		return this.container.getModule(metatype);
 	}
 
-	async replaceModule(
+	public async replaceModule(
 		metatypeToReplace: Module,
 		newMetatype: Module,
 	): Promise<ModuleContainerInterface> {
 		return this.container.replaceModule(metatypeToReplace, newMetatype);
 	}
 
-	get<T>(token: InjectionToken): Promise<T | undefined> {
+	public get<T>(token: InjectionToken): Promise<T | undefined> {
 		if (!this.containerCompiled) {
 			throw new ContainerNotCompiledError();
 		}
@@ -53,18 +64,28 @@ export class TestingContainer implements ModuleTestingContainerInterface {
 		return this.container.get<T>(token);
 	}
 
-	async compile(): Promise<ModuleContainerInterface> {
-		this._module = this.moduleTestingCreator.create(this.metatype);
+	public async compile(): Promise<ModuleContainerInterface> {
+		this._module = this.moduleTestingCreator.create(
+			this.metatype,
+			this._moduleDecorator,
+		);
 		this._moduleContainer = await this.container.addModule(this._module);
 
-		await this.container.run(this._moduleContainer.metatype as Module);
+		await this.container.run(
+			this._moduleContainer.metatype as Module,
+			this.graphPlugins,
+		);
 
 		this.containerCompiled = true;
+
+		for (const scannerPlugin of this.scannerPlugins) {
+			await scannerPlugin.scan(this.container.graph);
+		}
 
 		return this._moduleContainer;
 	}
 
-	get module() {
+	public get module() {
 		if (!this.containerCompiled) {
 			throw new ContainerNotCompiledError();
 		}
@@ -72,7 +93,7 @@ export class TestingContainer implements ModuleTestingContainerInterface {
 		return this._module;
 	}
 
-	get moduleContainer() {
+	public get moduleContainer() {
 		if (!this.containerCompiled) {
 			throw new ContainerNotCompiledError();
 		}
@@ -80,11 +101,32 @@ export class TestingContainer implements ModuleTestingContainerInterface {
 		return this._moduleContainer;
 	}
 
-	get graph(): ModuleGraphInterface {
+	public get graph(): ModuleGraphInterface {
 		if (!this.containerCompiled) {
 			throw new ContainerNotCompiledError();
 		}
 
 		return this.container.graph;
+	}
+
+	public addScannerPlugin(
+		scanner: ScannerPluginInterface | ScannerPluginInterface[],
+	): this {
+		const plugins = Array.isArray(scanner) ? scanner : [scanner];
+		this.scannerPlugins.push(...plugins);
+		return this;
+	}
+
+	public addGraphPlugin(
+		plugin: GraphPluginInterface | GraphPluginInterface[],
+	): this {
+		const plugins = Array.isArray(plugin) ? plugin : [plugin];
+		this.graphPlugins.push(...plugins);
+		return this;
+	}
+
+	public setModuleDecorator(decorator: (metadata: T) => ClassDecorator): this {
+		this._moduleDecorator = decorator;
+		return this;
 	}
 }
