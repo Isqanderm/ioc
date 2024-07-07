@@ -15,7 +15,6 @@
 		}
 	},
 	"files": {
-		"include": ["*.ts", "*.tsx", "*.json"],
-		"ignore": ["package-lock.json", "dist"]
+		"include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.json"]
 	}
 }
