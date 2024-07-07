@@ -4,13 +4,15 @@ import type {
 	NexusApplicationInterface,
 	ScannerPluginInterface,
 } from "../interfaces";
+import type { GraphPluginInterface } from "../interfaces/plugins/graph-plugin.interface";
 import { HashUtilBrowser } from "../utils/hash-utils.browser";
 import { Container } from "./modules/container";
 
 export class NexusApplicationsBrowser implements NexusApplicationInterface {
 	private readonly hashUtil = new HashUtilBrowser();
-	private readonly container = new Container(this.hashUtil);
+	private readonly graphPlugins: GraphPluginInterface[] = [];
 	private readonly scannerPlugins: ScannerPluginInterface[] = [];
+	private readonly container = new Container(this.hashUtil);
 
 	private constructor(private readonly rootModule: Module) {}
 
@@ -19,7 +21,7 @@ export class NexusApplicationsBrowser implements NexusApplicationInterface {
 	}
 
 	async bootstrap(): Promise<this> {
-		await this.container.run(this.rootModule);
+		await this.container.run(this.rootModule, this.graphPlugins);
 
 		for (const scannerPlugin of this.scannerPlugins) {
 			await scannerPlugin.scan(this.container.graph);
@@ -28,8 +30,17 @@ export class NexusApplicationsBrowser implements NexusApplicationInterface {
 		return this;
 	}
 
-	addScannerPlugin(scanner: ScannerPluginInterface): this {
-		this.scannerPlugins.push(scanner);
+	addScannerPlugin(
+		scanner: ScannerPluginInterface | ScannerPluginInterface[],
+	): this {
+		const plugins = Array.isArray(scanner) ? scanner : [scanner];
+		this.scannerPlugins.push(...plugins);
+		return this;
+	}
+
+	addGraphPlugin(plugin: GraphPluginInterface | GraphPluginInterface[]): this {
+		const plugins = Array.isArray(plugin) ? plugin : [plugin];
+		this.graphPlugins.push(...plugins);
 		return this;
 	}
 

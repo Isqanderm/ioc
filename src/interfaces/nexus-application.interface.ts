@@ -1,8 +1,7 @@
 import type { InjectionToken } from "./injection-token.interface";
-import type { ScannerPluginInterface } from "./plugins";
+import type { ModulePluginInterface } from "./plugins/module-plugin.interface";
 
-export interface NexusApplicationInterface {
+export interface NexusApplicationInterface extends ModulePluginInterface {
 	bootstrap(): Promise<this>;
-	addScannerPlugin(scanner: ScannerPluginInterface): this;
 	get<T>(token: InjectionToken): Promise<T | undefined>;
 }
