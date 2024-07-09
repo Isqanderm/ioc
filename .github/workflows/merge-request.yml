@@ -33,10 +33,10 @@ jobs:
           npm ci
 
       - name: Run lint
-        run: npx lerna exec npm run code:check:ci
+        run: npm run code:check:ci
 
       - name: Run tests
-        run: npx lerna exec npm run test
+        run: npm run test
 
   require_successful_tests_to_merge:
     runs-on: ubuntu-latest

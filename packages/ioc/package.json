@@ -49,6 +49,7 @@
 		"code:lint": "npx @biomejs/biome lint --write",
 		"code:check": "npx @biomejs/biome check",
 		"code:check:ci": "npx @biomejs/biome ci",
-		"code:check:apply": "npx @biomejs/biome check --write"
+		"code:check:apply": "npx @biomejs/biome check --write",
+		"prepublishOnly": "npm run clean && npm run code:check && npm run build"
 	}
 }

@@ -13,5 +13,14 @@
 		"parser": {
 			"unsafeParameterDecoratorsEnabled": true
 		}
+	},
+	"files": {
+		"include": [
+			"src/**/*.ts",
+			"src/**/*.tsx",
+			"src/**/*.json",
+			"__test__/**/*.ts",
+			"__test__/**/*.tsx"
+		]
 	}
 }
