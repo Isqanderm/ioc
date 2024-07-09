@@ -23,11 +23,11 @@
 		"lint-staged": "^15.2.7"
 	},
 	"scripts": {
-		"test": "npx lerna exec npm run test",
-		"prepare": "husky",
+		"test": "npx lerna exec --since origin/main -- npm run test",
+		"code:check:ci": "npx lerna exec --since origin/main -- npm run code:check:ci",
 		"changelog": "conventional-changelog -p angular -i CHANGELOG.md -s",
 		"commit": "cz",
-		"code:check:ci": "npx lerna exec npm run code:check:ci"
+		"prepare": "husky"
 	},
 	"config": {
 		"commitizen": {
