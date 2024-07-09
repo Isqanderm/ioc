@@ -1,9 +1,7 @@
 {
 	"name": "root",
 	"private": true,
-	"workspaces": [
-		"packages/*"
-	],
+	"workspaces": ["packages/*"],
 	"version": "independent",
 	"command": {
 		"version": {
@@ -37,9 +35,6 @@
 		}
 	},
 	"lint-staged": {
-		"*.{js,jsx,ts,tsx,json}": [
-			"npx @biomejs/biome lint . --write",
-			"git add"
-		]
+		"*.{js,jsx,ts,tsx}": ["npx @biomejs/biome lint . --write", "git add"]
 	}
 }
