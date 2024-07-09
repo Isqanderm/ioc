@@ -1,0 +1,8 @@
+node_modules
+.idea
+coverage
+
+
+dist
+__test__build__
+tsconfig.tsbuildinfo

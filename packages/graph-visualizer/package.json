@@ -1,0 +1,55 @@
+{
+	"name": "nexus-ioc-graph-visualizer",
+	"version": "0.1.3",
+	"description": "Graph visualizer for Nexus-IoC Container",
+	"author": "Isqanderm <aleksandr.melnik.personal@gmail.com> (https://www.linkedin.com/in/isqander-melnik)",
+	"homepage": "https://github.com/Isqanderm/ioc#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Isqanderm/ioc.git"
+	},
+	"bugs": {
+		"url": "https://github.com/Isqanderm/ioc/issues"
+	},
+	"keywords": [
+		"IoC",
+		"dependency injection",
+		"inversion control",
+		"typescript",
+		"DI",
+		"framework",
+		"container",
+		"nexus-ioc",
+		"graph-visualizer"
+	],
+	"files": ["dist", "package.json", "LICENSE", "README.md"],
+	"main": "./dist/index.js",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"type": "commonjs",
+	"license": "MIT",
+	"peerDependencies": {
+		"nexus-ioc": "^0.1.0",
+		"reflect-metadata": "^0.1.12 || ^0.2.0"
+	},
+	"devDependencies": {
+		"jest": "^29.7.0",
+		"nexus-ioc": "^0.1.9",
+		"reflect-metadata": "^0.2.2",
+		"sinon": "^18.0.0",
+		"ts-jest": "^29.1.5",
+		"ts-node": "^10.9.2",
+		"typescript": "^5.5.3"
+	},
+	"scripts": {
+		"build": "tsc ./src/index.ts --declaration --sourceMap --outDir ./dist",
+		"clean": "rm -rf ./dist",
+		"test": "jest",
+		"test:watch": "jest --watch",
+		"code:format": "npx @biomejs/biome format --write src __test__",
+		"code:lint": "npx @biomejs/biome lint --apply src __test__",
+		"code:check": "npx @biomejs/biome check src __test__",
+		"code:check:apply": "npx @biomejs/biome check --apply src __test__",
+		"prepublishOnly": "npm run clean && npm run code:check && npm run build"
+	}
+}

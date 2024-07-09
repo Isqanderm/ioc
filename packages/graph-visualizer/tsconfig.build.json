@@ -1,0 +1,35 @@
+{
+	"ts-node": {
+		"files": true
+	},
+	"compilerOptions": {
+		"target": "ES2021",
+		"module": "CommonJS",
+		"moduleResolution": "node",
+		"lib": ["ES2021", "dom"],
+		"sourceMap": true,
+		"outDir": "./dist",
+		"rootDir": "./src",
+		"esModuleInterop": true,
+		"emitDecoratorMetadata": true,
+		"experimentalDecorators": true,
+
+		"composite": true,
+		"declaration": true,
+		"noImplicitAny": false,
+		"skipLibCheck": true,
+		"noUnusedLocals": false,
+		"importHelpers": true,
+		"removeComments": false,
+		"allowImportingTsExtensions": false,
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"moduleDetection": "auto",
+		"noLib": false,
+		"useUnknownInCatchVariables": false,
+		"allowJs": false,
+		"strict": true,
+		"strictNullChecks": true,
+		"types": ["node", "jest"]
+	}
+}
