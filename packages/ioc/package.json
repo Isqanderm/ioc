@@ -1,6 +1,6 @@
 {
 	"name": "nexus-ioc",
-	"version": "0.1.9",
+	"version": "0.1.10",
 	"description": "A powerful IoC container for TypeScript applications",
 	"author": "Isqanderm <aleksandr.melnik.personal@gmail.com> (https://www.linkedin.com/in/isqander-melnik)",
 	"homepage": "https://github.com/Isqanderm/ioc#readme",
@@ -20,7 +20,12 @@
 		"framework",
 		"container"
 	],
-	"files": ["dist", "package.json", "LICENSE", "README.md"],
+	"files": [
+		"dist",
+		"package.json",
+		"LICENSE",
+		"README.md"
+	],
 	"main": "./dist/index.js",
 	"module": "./dist/index.js",
 	"types": "./dist/index.d.ts",

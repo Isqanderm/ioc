@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.10](https://github.com/Isqanderm/ioc/compare/v0.1.9...v0.1.10) (2024-07-16)
+
+
+### Features
+
+* **graph-visualizer:** add graph-visualizer package ([69bb005](https://github.com/Isqanderm/ioc/commit/69bb00585c395d7766675d1a4620320efed14736))
+* **graph:** add container inheritance ([e5c0571](https://github.com/Isqanderm/ioc/commit/e5c05711f301314ec545881a6356db7c9f0de612)), closes [#21](https://github.com/Isqanderm/ioc/issues/21)
+
 ### [0.1.9](https://github.com/Isqanderm/ioc/compare/v0.1.8...v0.1.9) (2024-07-07)
 
 
