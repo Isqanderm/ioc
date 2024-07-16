@@ -1,6 +1,6 @@
 {
 	"name": "nexus-ioc",
-	"version": "0.1.11",
+	"version": "0.1.12",
 	"description": "A powerful IoC container for TypeScript applications",
 	"author": "Isqanderm <aleksandr.melnik.personal@gmail.com> (https://www.linkedin.com/in/isqander-melnik)",
 	"homepage": "https://github.com/Isqanderm/ioc#readme",
@@ -54,7 +54,6 @@
 		"code:lint": "npx @biomejs/biome lint --write",
 		"code:check": "npx @biomejs/biome check",
 		"code:check:ci": "npx @biomejs/biome ci",
-		"code:check:apply": "npx @biomejs/biome check --write",
-		"prepublishOnly": "npm run clean && npm run code:check && npm run build"
+		"code:check:apply": "npx @biomejs/biome check --write"
 	}
 }
