@@ -15,6 +15,5 @@ export interface ModuleTestingContainerInterface<T extends ModuleMetadata>
 			metadata: M,
 		) => ClassDecorator,
 	): this;
-
 	compile(): Promise<ModuleContainerInterface>;
 }

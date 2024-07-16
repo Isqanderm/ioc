@@ -1,13 +1,14 @@
 import type {
+	ContainerBaseInterface,
 	ContainerInterface,
 	DynamicModule,
+	GraphPluginInterface,
 	HashUtilInterface,
 	InjectionToken,
 	Module,
 	ModuleContainerInterface,
 	ModuleGraphInterface,
 } from "../../interfaces";
-import type { GraphPluginInterface } from "../../interfaces/plugins/graph-plugin.interface";
 import { ModuleGraph } from "../graph/module-graph";
 import { Resolver } from "../resolver/resolver";
 import { ModulesContainer } from "./modules-container";
@@ -20,6 +21,7 @@ export class Container implements ContainerInterface {
 
 	private _graph: ModuleGraphInterface | null = null;
 	private moduleGraphResolver: Resolver | null = null;
+	private _parent?: ContainerBaseInterface;
 
 	constructor(private readonly hashUtils: HashUtilInterface) {}
 
@@ -55,7 +57,9 @@ export class Container implements ContainerInterface {
 	): Promise<void> {
 		const root = await this.modulesContainer.addModule(rootModule);
 
-		this._graph = new ModuleGraph(root, graphPlugins);
+		// TODO: fix types
+		// @ts-ignore
+		this._graph = new ModuleGraph(root, graphPlugins, this._parent?.graph);
 
 		this.moduleGraphResolver = new Resolver(this._graph);
 
@@ -64,5 +68,10 @@ export class Container implements ContainerInterface {
 
 	get graph() {
 		return this._graph as ModuleGraphInterface;
+	}
+
+	parent(parentContainer: ContainerBaseInterface): this {
+		this._parent = parentContainer;
+		return this;
 	}
 }

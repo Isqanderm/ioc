@@ -1,4 +1,5 @@
 import {
+	type ContainerBaseInterface,
 	EdgeTypeEnum,
 	type InjectionToken,
 	type ModuleGraphInterface,

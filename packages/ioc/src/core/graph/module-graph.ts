@@ -3,10 +3,10 @@ import {
 	type Edge,
 	EdgeTypeEnum,
 	type FactoryProvider,
+	type GraphPluginInterface,
 	type InjectionToken,
 	type ModuleContainerInterface,
 	type ModuleGraphInterface,
-	type ModuleGraphPlugin,
 	type Node,
 	NodeTypeEnum,
 	PROPERTY_DEPS_METADATA,
@@ -14,7 +14,6 @@ import {
 	SELF_DECLARED_DEPS_METADATA,
 	type Type,
 } from "../../interfaces";
-import type { GraphPluginInterface } from "../../interfaces/plugins/graph-plugin.interface";
 import {
 	getDependencyToken,
 	getProviderScope,
@@ -35,14 +34,15 @@ export class ModuleGraph implements ModuleGraphInterface {
 	constructor(
 		private readonly _root: ModuleContainerInterface,
 		private readonly plugins: GraphPluginInterface[] = [],
+		private readonly parentGraph?: ModuleGraphInterface,
 	) {}
 
 	public get nodes() {
-		return this._nodes;
+		return new Map([...this._nodes, ...(this.parentGraph?.nodes || [])]);
 	}
 
 	public get edges() {
-		return this._edges;
+		return new Map([...this._edges, ...(this.parentGraph?.edges || [])]);
 	}
 
 	public async compile() {
@@ -53,19 +53,35 @@ export class ModuleGraph implements ModuleGraphInterface {
 	}
 
 	public getNode(token: InjectionToken): Node {
-		return this._nodes.get(token) as Node;
+		return (
+			(this._nodes.get(token) as Node) ||
+			(this.parentGraph?.nodes.get(token) as Node)
+		);
 	}
 
 	public getEdge(token: InjectionToken) {
-		return this._edges.get(token) || [];
+		return this._edges.get(token) || this.parentGraph?.edges.get(token) || [];
 	}
 
-	getAllEdges(): Edge[][] {
-		return [...this._edges.values()];
+	public getAllEdges(): Edge[][] {
+		return [
+			...this._edges.values(),
+			...(this.parentGraph?.edges.values() || []),
+		];
 	}
 
-	getAllNodes(): Node[] {
-		return [...this._nodes.values()];
+	public getAllNodes(): Node[] {
+		return [
+			...this._nodes.values(),
+			...(this.parentGraph?.nodes.values() || []),
+		];
+	}
+
+	public getGlobalModules(): ModuleContainerInterface[] {
+		return [
+			...this._globalModules.values(),
+			...(this.parentGraph?.getGlobalModules() || []),
+		];
 	}
 
 	private addEdge(token: InjectionToken, edge: Edge) {
@@ -397,7 +413,8 @@ export class ModuleGraph implements ModuleGraphInterface {
 		moduleContainer: ModuleContainerInterface,
 		dependencyToken: InjectionToken,
 	): Promise<boolean> {
-		for (const globalModule of this._globalModules.values()) {
+		const globalModules = this.getGlobalModules();
+		for (const globalModule of globalModules) {
 			if (
 				globalModule.exports.some((provider) => provider === dependencyToken)
 			) {
@@ -438,7 +455,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 			queue.push(...(await currentModule.imports));
 		}
 
-		return false;
+		return !!this.parentGraph?.getNode(dependencyToken) || false;
 	}
 
 	private async detectCircularDependencies(): Promise<void> {
