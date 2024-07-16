@@ -2,6 +2,7 @@ import { Container } from "../core/modules/container";
 import { Module as ModuleDecorator } from "../decorators/module";
 import { ContainerNotCompiledError } from "../errors/container-not-compiled.error";
 import type {
+	ContainerBaseInterface,
 	DynamicModule,
 	GraphPluginInterface,
 	InjectionToken,
@@ -28,6 +29,7 @@ export class TestingContainer<T extends ModuleMetadata = ModuleMetadata>
 		ModuleDecorator;
 	private _module: Module | null = null;
 	private containerCompiled = false;
+	private _parent?: ContainerBaseInterface;
 
 	private constructor(private readonly metatype: T) {}
 
@@ -70,6 +72,10 @@ export class TestingContainer<T extends ModuleMetadata = ModuleMetadata>
 			this._moduleDecorator,
 		);
 		this._moduleContainer = await this.container.addModule(this._module);
+
+		if (this._parent) {
+			this.container.parent(this._parent);
+		}
 
 		await this.container.run(
 			this._moduleContainer.metatype as Module,
@@ -127,6 +133,11 @@ export class TestingContainer<T extends ModuleMetadata = ModuleMetadata>
 
 	public setModuleDecorator(decorator: (metadata: T) => ClassDecorator): this {
 		this._moduleDecorator = decorator;
+		return this;
+	}
+
+	parent(parentContainer: ContainerBaseInterface): this {
+		this._parent = parentContainer;
 		return this;
 	}
 }

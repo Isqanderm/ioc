@@ -65,4 +65,5 @@ export interface ModuleGraphInterface {
 	getAllEdges(): Edge[][];
 	nodes: Map<InjectionToken, Node>;
 	edges: Map<InjectionToken, Edge[]>;
+	getGlobalModules(): ModuleContainerInterface[];
 }
