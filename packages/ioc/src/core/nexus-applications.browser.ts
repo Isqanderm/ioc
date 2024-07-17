@@ -1,10 +1,10 @@
 import type {
-	GraphPluginInterface,
 	InjectionToken,
 	Module,
 	NexusApplicationInterface,
 	ScannerPluginInterface,
 } from "../interfaces";
+import type { GraphPluginInterface } from "../interfaces/plugins/graph-plugin.interface";
 import { HashUtilBrowser } from "../utils/hash-utils.browser";
 import { Container } from "./modules/container";
 
@@ -41,11 +41,6 @@ export class NexusApplicationsBrowser implements NexusApplicationInterface {
 	addGraphPlugin(plugin: GraphPluginInterface | GraphPluginInterface[]): this {
 		const plugins = Array.isArray(plugin) ? plugin : [plugin];
 		this.graphPlugins.push(...plugins);
-		return this;
-	}
-
-	parent(container: NexusApplicationsBrowser): this {
-		this.container.parent(container.container);
 		return this;
 	}
 
