@@ -1,0 +1,66 @@
+{
+	"name": "@nexus-ioc/cli",
+	"version": "0.1.0",
+	"description": "CLI tools for Nexus IoC",
+	"author": "Isqanderm <aleksandr.melnik.personal@gmail.com> (https://www.linkedin.com/in/isqander-melnik)",
+	"homepage": "https://github.com/Isqanderm/ioc#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Isqanderm/ioc.git"
+	},
+	"bugs": {
+		"url": "https://github.com/Isqanderm/ioc/issues"
+	},
+	"keywords": [
+		"IoC",
+		"dependency injection",
+		"inversion control",
+		"typescript",
+		"DI",
+		"framework",
+		"container",
+		"CLI"
+	],
+	"files": [
+		"dist",
+		"package.json",
+		"LICENSE",
+		"README.md"
+	],
+	"bin": {
+		"nexus-cli": "dist/index.js"
+	},
+	"main": "./dist/index.js",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"license": "MIT",
+	"peerDependencies": {
+		"reflect-metadata": "^0.1.12 || ^0.2.0"
+	},
+	"devDependencies": {
+		"@types/jest": "^29.5.12",
+		"jest": "^29.7.0",
+		"reflect-metadata": "^0.1.12 || ^0.2.0",
+		"sinon": "^18.0.0",
+		"ts-jest": "^29.1.4",
+		"ts-node": "^10.9.2",
+		"nexus-ioc": "^0.2.0",
+		"nexus-ioc-testing": "^0.2.0"
+	},
+	"dependencies": {
+		"prettier": "^3.3.3",
+		"ts-morph": "^23.0.0"
+	},
+	"scripts": {
+		"build": "tsc",
+		"test:ready": "npm run build",
+		"test": "jest",
+		"clean": "rm -rf ./dist",
+		"test:watch": "jest --watch",
+		"code:format": "npx @biomejs/biome format --write",
+		"code:lint": "npx @biomejs/biome lint --write",
+		"code:check": "npx @biomejs/biome check",
+		"code:check:ci": "npx @biomejs/biome ci",
+		"code:check:apply": "npx @biomejs/biome check --write"
+	}
+}
