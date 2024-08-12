@@ -1,4 +1,4 @@
-import type { ModuleMetadata, Type } from "../interfaces";
+import type { ModuleMetadata, Type } from "nexus-ioc";
 
 export class TestingCreator<T extends ModuleMetadata> {
 	create(

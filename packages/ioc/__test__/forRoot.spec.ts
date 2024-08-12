@@ -1,5 +1,5 @@
+import { Test } from "nexus-ioc-testing";
 import { type DynamicModule, Inject, Injectable, NsModule } from "../src";
-import { TestingContainer } from "../src/testing-utils";
 
 describe("forRoot/forRootAsync", () => {
 	describe("forRoot", () => {
@@ -33,7 +33,7 @@ describe("forRoot/forRootAsync", () => {
 			})
 			class AppModule {}
 
-			const container = await TestingContainer.createTestingContainer({
+			const container = await Test.createModule({
 				imports: [AppModule, GlobalModule.forRoot()],
 				providers: [],
 			}).compile();
@@ -85,7 +85,7 @@ describe("forRoot/forRootAsync", () => {
 			})
 			class AppModule {}
 
-			const container = await TestingContainer.createTestingContainer({
+			const container = await Test.createModule({
 				imports: [AppModule, GlobalModule.forRootAsync()],
 			}).compile();
 

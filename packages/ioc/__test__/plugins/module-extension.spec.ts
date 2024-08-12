@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import { Test } from "nexus-ioc-testing";
 import {
 	Injectable,
 	type ModuleMetadata,
@@ -9,7 +10,6 @@ import {
 	type ScannerPluginInterface,
 	Scope,
 } from "../../src";
-import { TestingContainer } from "../../src/testing-utils";
 
 interface ModuleExtensionSpec extends ModuleMetadata {
 	controllers: Provider[];
@@ -61,13 +61,12 @@ describe("Module extension", () => {
 		@Controller()
 		class AppController {}
 
-		const container =
-			await TestingContainer.createTestingContainer<ModuleExtensionSpec>({
-				controllers: [AppController],
-			})
-				.setModuleDecorator(ModuleWithControllers)
-				.addScannerPlugin(controllerScanner)
-				.compile();
+		const container = await Test.createModule<ModuleExtensionSpec>({
+			controllers: [AppController],
+		})
+			.setModuleDecorator(ModuleWithControllers)
+			.addScannerPlugin(controllerScanner)
+			.compile();
 
 		const appController = await container.get<AppController>(AppController);
 

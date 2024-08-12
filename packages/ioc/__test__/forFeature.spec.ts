@@ -1,5 +1,5 @@
+import { Test } from "nexus-ioc-testing";
 import { type DynamicModule, Injectable, NsModule } from "../src";
-import { TestingContainer } from "../src/testing-utils";
 
 describe("forFeature/forFeatureAsync", () => {
 	describe("forFeature", () => {
@@ -20,7 +20,7 @@ describe("forFeature/forFeatureAsync", () => {
 				}
 			}
 
-			const container = await TestingContainer.createTestingContainer({
+			const container = await Test.createModule({
 				imports: [FeatureModule.forFeature()],
 			}).compile();
 
@@ -60,7 +60,7 @@ describe("forFeature/forFeatureAsync", () => {
 				}
 			}
 
-			const container = await TestingContainer.createTestingContainer({
+			const container = await Test.createModule({
 				imports: [FeatureModule.forFeatureAsync()],
 			}).compile();
 
