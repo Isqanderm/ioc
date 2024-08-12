@@ -1,4 +1,4 @@
-import { Inject, Injectable, Module } from "nexus-ioc";
+import { Inject, Injectable, NsModule } from "nexus-ioc";
 import { NexusApplicationsServer } from "nexus-ioc/dist/server";
 import { GraphScannerVisualizer } from "../src";
 
@@ -15,11 +15,11 @@ class CircleModule {}
 class FirstModule {}
 class SecondModule {}
 
-Module({
+NsModule({
 	imports: [SecondModule],
 })(FirstModule);
 
-Module({
+NsModule({
 	imports: [FirstModule],
 })(SecondModule);
 
@@ -29,7 +29,7 @@ class HttpService {
 	@Inject("ASYNC_FACTORY") private readonly factoryResult: string = "";
 }
 
-@Module({
+@NsModule({
 	imports: [FirstModule, SecondModule, CircleModule],
 	providers: [
 		HttpService,
@@ -70,7 +70,7 @@ class AppService implements IAppService {
 	) {}
 }
 
-@Module({
+@NsModule({
 	imports: [TransportModule],
 	providers: [
 		{
@@ -86,7 +86,7 @@ class AppService implements IAppService {
 })
 class AppModule {}
 
-Module({
+NsModule({
 	imports: [AppModule],
 	providers: [
 		{

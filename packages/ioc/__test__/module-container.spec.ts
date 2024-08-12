@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import { Module } from "../src/decorators/module";
+import { NsModule } from "../src/decorators/NsModule";
 import { TestingContainer } from "../src/testing";
 
 describe("ModuleContainer", () => {
@@ -39,7 +39,7 @@ describe("ModuleContainer", () => {
 	});
 
 	it("should handle modules with imports", async () => {
-		@Module({
+		@NsModule({
 			providers: [ServiceA, ServiceB],
 			exports: [ServiceA],
 		})

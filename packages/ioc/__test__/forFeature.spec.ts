@@ -1,4 +1,4 @@
-import { type DynamicModule, Injectable, Module } from "../src";
+import { type DynamicModule, Injectable, NsModule } from "../src";
 import { TestingContainer } from "../src/testing-utils";
 
 describe("forFeature/forFeatureAsync", () => {
@@ -9,7 +9,7 @@ describe("forFeature/forFeatureAsync", () => {
 				useValue: { feature: true },
 			};
 
-			@Module({})
+			@NsModule({})
 			class FeatureModule {
 				static forFeature(): DynamicModule {
 					return {
@@ -40,7 +40,7 @@ describe("forFeature/forFeatureAsync", () => {
 				featureEnabled = true;
 			}
 
-			@Module({})
+			@NsModule({})
 			class FeatureModule {
 				static forFeatureAsync(): DynamicModule {
 					return {

@@ -2,7 +2,7 @@ import "reflect-metadata";
 import {
 	Injectable,
 	type ModuleMetadata,
-	Module as NexusModule,
+	NsModule as NexusModule,
 	type Node,
 	type Provider,
 	type ScannerGraphInterface,

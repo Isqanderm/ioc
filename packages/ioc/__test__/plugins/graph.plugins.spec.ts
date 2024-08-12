@@ -4,11 +4,11 @@ import {
 	type GraphPluginInterface,
 	Inject,
 	Injectable,
-	Module,
 	type ModuleContainerInterface,
 	type ModuleGraphPlugin,
 	type Node,
 	NodeTypeEnum,
+	NsModule,
 } from "../../src";
 import { TestingContainer } from "../../src/testing-utils";
 
@@ -48,7 +48,7 @@ describe("Graph plugins", () => {
 	describe("onAddModuleImportEdge", () => {
 		let container: TestingContainer;
 		beforeEach(() => {
-			@Module({})
+			@NsModule({})
 			class ImportModule {}
 
 			@Injectable()
@@ -84,7 +84,7 @@ describe("Graph plugins", () => {
 	describe("onAddProviderNode", () => {
 		let container: TestingContainer;
 		beforeEach(() => {
-			@Module({})
+			@NsModule({})
 			class ImportModule {}
 
 			@Injectable()
@@ -152,7 +152,7 @@ describe("Graph plugins", () => {
 	describe("parseModule", () => {
 		let container: TestingContainer;
 		beforeEach(() => {
-			@Module({})
+			@NsModule({})
 			class ImportModule {}
 
 			@Injectable()

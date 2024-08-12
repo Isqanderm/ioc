@@ -4,9 +4,9 @@ import { ModuleGraph } from "../src/core/graph/module-graph";
 import { ModuleContainerFactory } from "../src/core/modules/module-container-factory";
 import { ModuleTokenFactory } from "../src/core/modules/module-token-factory";
 import { Resolver } from "../src/core/resolver/resolver";
+import { NsModule } from "../src/decorators/NsModule";
 import { Inject } from "../src/decorators/inject";
 import { Injectable } from "../src/decorators/injectable";
-import { Module } from "../src/decorators/module";
 import type { ContainerInterface } from "../src/interfaces/modules/container.interface";
 import type { ModuleContainerInterface } from "../src/interfaces/modules/module-container.interface";
 import type { OnModuleInit } from "../src/interfaces/on-module-init.interface";
@@ -28,7 +28,7 @@ describe("GraphResolver", () => {
 		@Injectable()
 		class ServiceA {}
 
-		@Module({
+		@NsModule({
 			providers: [ServiceA],
 		})
 		class TestModule {}
@@ -55,7 +55,7 @@ describe("GraphResolver", () => {
 			constructor(@Inject(ServiceA) public readonly serviceA: ServiceA) {}
 		}
 
-		@Module({
+		@NsModule({
 			providers: [ServiceA, ServiceB],
 		})
 		class TestModule {}
@@ -80,7 +80,7 @@ describe("GraphResolver", () => {
 		@Injectable()
 		class ServiceAImpl extends ServiceA {}
 
-		@Module({
+		@NsModule({
 			providers: [
 				{
 					provide: ServiceA,
@@ -106,7 +106,7 @@ describe("GraphResolver", () => {
 	it("should resolve a provider using useValue", async () => {
 		const valueProvider = { value: 42 };
 
-		@Module({
+		@NsModule({
 			providers: [
 				{
 					provide: "VALUE_PROVIDER",
@@ -138,7 +138,7 @@ describe("GraphResolver", () => {
 			testService,
 		});
 
-		@Module({
+		@NsModule({
 			providers: [
 				TestService,
 				{
@@ -173,7 +173,7 @@ describe("GraphResolver", () => {
 		@Injectable()
 		class LocalSnakeService {}
 
-		@Module({
+		@NsModule({
 			providers: [SnakeService, LocalSnakeService],
 			exports: [SnakeService],
 		})
@@ -192,7 +192,7 @@ describe("GraphResolver", () => {
 			) {}
 		}
 
-		@Module({
+		@NsModule({
 			imports: [SnakeModule],
 			providers: [ServiceA, ServiceB],
 		})
@@ -225,7 +225,7 @@ describe("GraphResolver", () => {
 				}
 			}
 
-			@Module({
+			@NsModule({
 				providers: [ServiceA],
 			})
 			class TestModule {}
@@ -262,7 +262,7 @@ describe("GraphResolver", () => {
 				constructor(@Inject("ServiceA") public readonly serviceA: IServiceA) {}
 			}
 
-			@Module({
+			@NsModule({
 				providers: [
 					{ provide: "ServiceA", useClass: ServiceA },
 					{ provide: "ServiceB", useClass: ServiceB },
@@ -304,18 +304,18 @@ describe("GraphResolver", () => {
 			}
 			class ModuleB {}
 
-			@Module({
+			@NsModule({
 				imports: [ModuleA, ModuleB],
 			})
 			class TestModule {}
 
-			Module({
+			NsModule({
 				imports: [ModuleB],
 				providers: [{ provide: "ServiceA", useClass: ServiceA }],
 				exports: ["ServiceA"],
 			})(ModuleA);
 
-			Module({
+			NsModule({
 				imports: [ModuleA],
 				providers: [{ provide: "ServiceB", useClass: ServiceB }],
 				exports: ["ServiceB"],
@@ -359,11 +359,11 @@ describe("GraphResolver", () => {
 			class FirstModule {}
 			class SecondModule {}
 
-			Module({
+			NsModule({
 				imports: [SecondModule],
 			})(FirstModule);
 
-			Module({
+			NsModule({
 				imports: [FirstModule],
 			})(SecondModule);
 
@@ -373,7 +373,7 @@ describe("GraphResolver", () => {
 				@Inject("ASYNC_FACTORY") private readonly factoryResult: string = "";
 			}
 
-			@Module({
+			@NsModule({
 				imports: [FirstModule, SecondModule, CircleModule],
 				providers: [
 					HttpService,
@@ -414,7 +414,7 @@ describe("GraphResolver", () => {
 				) {}
 			}
 
-			@Module({
+			@NsModule({
 				imports: [TransportModule],
 				providers: [
 					{
@@ -430,7 +430,7 @@ describe("GraphResolver", () => {
 			})
 			class AppModule {}
 
-			Module({
+			NsModule({
 				imports: [AppModule],
 				providers: [
 					{

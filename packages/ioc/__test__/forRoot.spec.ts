@@ -1,4 +1,4 @@
-import { type DynamicModule, Inject, Injectable, Module } from "../src";
+import { type DynamicModule, Inject, Injectable, NsModule } from "../src";
 import { TestingContainer } from "../src/testing-utils";
 
 describe("forRoot/forRootAsync", () => {
@@ -9,7 +9,7 @@ describe("forRoot/forRootAsync", () => {
 				useValue: { feature: true },
 			};
 
-			@Module({})
+			@NsModule({})
 			class GlobalModule {
 				static forRoot(): DynamicModule {
 					return {
@@ -28,7 +28,7 @@ describe("forRoot/forRootAsync", () => {
 				) {}
 			}
 
-			@Module({
+			@NsModule({
 				providers: [AppService],
 			})
 			class AppModule {}
@@ -51,7 +51,7 @@ describe("forRoot/forRootAsync", () => {
 				featureEnabled = true;
 			}
 
-			@Module({})
+			@NsModule({})
 			class GlobalModule {
 				static forRootAsync(): DynamicModule {
 					return {
@@ -80,7 +80,7 @@ describe("forRoot/forRootAsync", () => {
 				) {}
 			}
 
-			@Module({
+			@NsModule({
 				providers: [AppService],
 			})
 			class AppModule {}

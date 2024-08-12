@@ -1,5 +1,5 @@
 import { Container } from "../core/modules/container";
-import { Module as ModuleDecorator } from "../decorators/module";
+import { NsModule as ModuleDecorator } from "../decorators/NsModule";
 import { ContainerNotCompiledError } from "../errors/container-not-compiled.error";
 import type {
 	DynamicModule,

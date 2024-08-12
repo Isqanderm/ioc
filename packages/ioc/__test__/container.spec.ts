@@ -1,6 +1,6 @@
 import "reflect-metadata";
 
-import { Inject, Injectable, Module } from "../src";
+import { Inject, Injectable, NsModule } from "../src";
 import { Container } from "../src/core/modules/container";
 // @ts-ignore
 import { hashUtilsMock } from "./hashUtils.mock";
@@ -41,7 +41,7 @@ describe("Container", () => {
 	}
 
 	it("should register and resolve a simple module", async () => {
-		@Module({
+		@NsModule({
 			providers: [ServiceA, ServiceB, ServiceC],
 		})
 		class AppModule {}
@@ -54,12 +54,12 @@ describe("Container", () => {
 	});
 
 	it("should replace registered module", async () => {
-		@Module({
+		@NsModule({
 			providers: [ServiceA, ServiceB, ServiceC],
 		})
 		class AppModule {}
 
-		@Module({
+		@NsModule({
 			providers: [ServiceA, ServiceB, ServiceC],
 		})
 		class SecondAppModule {}

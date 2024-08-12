@@ -2,10 +2,10 @@ import "reflect-metadata";
 import { ModuleGraph } from "../src/core/graph/module-graph";
 import { ModuleContainerFactory } from "../src/core/modules/module-container-factory";
 import { ModuleTokenFactory } from "../src/core/modules/module-token-factory";
+import { NsModule } from "../src/decorators/NsModule";
 import { Global } from "../src/decorators/global";
 import { Inject } from "../src/decorators/inject";
 import { Injectable } from "../src/decorators/injectable";
-import { Module } from "../src/decorators/module";
 import type { DynamicModule } from "../src/interfaces/dynamic-module.interface";
 import type { ContainerInterface } from "../src/interfaces/modules/container.interface";
 import type { ModuleContainerInterface } from "../src/interfaces/modules/module-container.interface";
@@ -25,7 +25,7 @@ describe("ModuleGraph", () => {
 	} as ContainerInterface;
 
 	describe("Modules", () => {
-		@Module({})
+		@NsModule({})
 		class TestModule {}
 
 		it("should initialize with the root module", async () => {
@@ -70,10 +70,10 @@ describe("ModuleGraph", () => {
 		});
 
 		it("should add imported modules to nodes and edges", async () => {
-			@Module({})
+			@NsModule({})
 			class ImportedModule {}
 
-			@Module({
+			@NsModule({
 				imports: [ImportedModule],
 			})
 			class TestModule {}
@@ -116,13 +116,13 @@ describe("ModuleGraph", () => {
 		});
 
 		it("should handle multiple imported modules", async () => {
-			@Module({})
+			@NsModule({})
 			class ImportedModule {}
 
-			@Module({})
+			@NsModule({})
 			class AnotherImportedModule {}
 
-			@Module({
+			@NsModule({
 				imports: [ImportedModule, AnotherImportedModule],
 			})
 			class TestModule {}
@@ -185,17 +185,17 @@ describe("ModuleGraph", () => {
 		it("should handle circular imported modules", async () => {
 			class ImportedModule {}
 
-			@Module({
+			@NsModule({
 				imports: [ImportedModule],
 			})
 			class AnotherImportedModule {}
 
-			@Module({
+			@NsModule({
 				imports: [AnotherImportedModule],
 			})
 			class TestModule {}
 
-			Module({
+			NsModule({
 				imports: [TestModule],
 			})(ImportedModule);
 
@@ -248,13 +248,13 @@ describe("ModuleGraph", () => {
 			@Injectable()
 			class TestModuleProvider {}
 
-			@Module({
+			@NsModule({
 				providers: [TestModuleProvider],
 			})
 			class TestModule {}
 
 			it("should set provider edge", async () => {
-				@Module({
+				@NsModule({
 					imports: [TestModule],
 				})
 				class AppModule {}
@@ -283,7 +283,7 @@ describe("ModuleGraph", () => {
 			});
 
 			it("should create edge for Provider", async () => {
-				@Module({
+				@NsModule({
 					imports: [TestModule],
 				})
 				class AppModule {}
@@ -335,7 +335,7 @@ describe("ModuleGraph", () => {
 					constructor(@Inject(ServiceA) private readonly serviceA: ServiceA) {}
 				}
 
-				@Module({
+				@NsModule({
 					providers: [ServiceA, ServiceB],
 				})
 				class TestModule {}
@@ -380,24 +380,24 @@ describe("ModuleGraph", () => {
 					) {}
 				}
 
-				@Module({
+				@NsModule({
 					providers: [ServiceA],
 					exports: [ServiceA],
 				})
 				class ModuleA {}
 
-				@Module({
+				@NsModule({
 					providers: [ServiceB],
 					exports: [ServiceB],
 				})
 				class ModuleB {}
 
-				@Module({
+				@NsModule({
 					imports: [ModuleA, ModuleB],
 				})
 				class ParentModule {}
 
-				@Module({
+				@NsModule({
 					imports: [ParentModule],
 					providers: [ServiceC],
 				})
@@ -469,13 +469,13 @@ describe("ModuleGraph", () => {
 					constructor(@Inject(ServiceA) private readonly serviceA: ServiceA) {}
 				}
 
-				@Module({
+				@NsModule({
 					providers: [ServiceA],
 					exports: [],
 				})
 				class ExportingModule {}
 
-				@Module({
+				@NsModule({
 					imports: [ExportingModule],
 					providers: [ServiceB],
 				})
@@ -515,12 +515,12 @@ describe("ModuleGraph", () => {
 					constructor(@Inject(ServiceA) private readonly serviceA: ServiceA) {}
 				}
 
-				@Module({
+				@NsModule({
 					providers: [ServiceA],
 				})
 				class NonExportingModule {}
 
-				@Module({
+				@NsModule({
 					imports: [NonExportingModule],
 					providers: [ServiceB],
 				})
@@ -560,13 +560,13 @@ describe("ModuleGraph", () => {
 				useValue: { key: "value" },
 			};
 
-			@Module({
+			@NsModule({
 				providers: [valueProvider],
 			})
 			class TestModule {}
 
 			it("should set provider edge", async () => {
-				@Module({
+				@NsModule({
 					imports: [TestModule],
 				})
 				class AppModule {}
@@ -595,7 +595,7 @@ describe("ModuleGraph", () => {
 			});
 
 			it("should create edge for Value Provider", async () => {
-				@Module({
+				@NsModule({
 					imports: [TestModule],
 				})
 				class AppModule {}
@@ -659,7 +659,7 @@ describe("ModuleGraph", () => {
 					) {}
 				}
 
-				@Module({
+				@NsModule({
 					providers: [valueProviderA, valueProviderB, AppService],
 				})
 				class AppModule {}
@@ -719,14 +719,14 @@ describe("ModuleGraph", () => {
 				useClass: TestProvider,
 			};
 
-			@Module({
+			@NsModule({
 				providers: [classProvider],
 				exports: [classProvider.provide],
 			})
 			class TestModule {}
 
 			it("should set provider edge", async () => {
-				@Module({
+				@NsModule({
 					imports: [TestModule],
 				})
 				class AppModule {}
@@ -753,7 +753,7 @@ describe("ModuleGraph", () => {
 					) {}
 				}
 
-				@Module({
+				@NsModule({
 					imports: [TestModule],
 					providers: [AppService],
 				})
@@ -809,7 +809,7 @@ describe("ModuleGraph", () => {
 				) {}
 			}
 
-			@Module({
+			@NsModule({
 				providers: [factoryProvider, AppService],
 			})
 			class AppModule {}
@@ -857,7 +857,7 @@ describe("ModuleGraph", () => {
 				inject: [ServiceB],
 			};
 
-			@Module({
+			@NsModule({
 				providers: [factoryProvider, ServiceB],
 			})
 			class AppModule {}
@@ -905,7 +905,7 @@ describe("ModuleGraph", () => {
 				inject: [ServiceB],
 			};
 
-			@Module({
+			@NsModule({
 				providers: [ServiceB, factoryProvider],
 				exports: [factoryProvider.provide],
 			})
@@ -921,7 +921,7 @@ describe("ModuleGraph", () => {
 				) {}
 			}
 
-			@Module({
+			@NsModule({
 				imports: [FactoryModule],
 				providers: [AppService],
 			})
@@ -962,13 +962,13 @@ describe("ModuleGraph", () => {
 		class GlobalService {}
 
 		@Global()
-		@Module({
+		@NsModule({
 			providers: [GlobalService],
 			exports: [GlobalService],
 		})
 		class GlobalModule {}
 
-		@Module({
+		@NsModule({
 			imports: [GlobalModule],
 		})
 		class ProxyModule {}
@@ -980,12 +980,12 @@ describe("ModuleGraph", () => {
 			) {}
 		}
 
-		@Module({
+		@NsModule({
 			providers: [ServiceA],
 		})
 		class ModuleA {}
 
-		@Module({
+		@NsModule({
 			imports: [ProxyModule, ModuleA],
 		})
 		class AppModule {}
@@ -1037,7 +1037,7 @@ describe("ModuleGraph", () => {
 				useValue: { feature: true },
 			};
 
-			@Module({})
+			@NsModule({})
 			class FeatureModule {
 				static forFeature(): DynamicModule {
 					return {
@@ -1067,7 +1067,7 @@ describe("ModuleGraph", () => {
 				useFactory: async () => ({ feature: true }),
 			};
 
-			@Module({})
+			@NsModule({})
 			class FeatureModule {
 				static forFeatureAsync(): DynamicModule {
 					return {
