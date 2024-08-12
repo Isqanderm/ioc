@@ -360,7 +360,6 @@ describe("ModuleGraph", () => {
 							inject: "constructor",
 							isCircular: false,
 							unreached: false,
-							lazy: false,
 						},
 					},
 				]);
@@ -445,7 +444,6 @@ describe("ModuleGraph", () => {
 							inject: "constructor",
 							isCircular: false,
 							unreached: false,
-							lazy: false,
 						},
 					},
 					{
@@ -457,7 +455,6 @@ describe("ModuleGraph", () => {
 							inject: "constructor",
 							isCircular: false,
 							unreached: false,
-							lazy: false,
 						},
 					},
 				]);
@@ -504,7 +501,6 @@ describe("ModuleGraph", () => {
 							inject: "constructor",
 							isCircular: false,
 							unreached: true,
-							lazy: false,
 						},
 					},
 				]);
@@ -550,7 +546,6 @@ describe("ModuleGraph", () => {
 							inject: "constructor",
 							isCircular: false,
 							unreached: true,
-							lazy: false,
 						},
 					},
 				]);
@@ -697,7 +692,6 @@ describe("ModuleGraph", () => {
 							inject: "constructor",
 							isCircular: false,
 							unreached: false,
-							lazy: false,
 						},
 					},
 					{
@@ -709,7 +703,6 @@ describe("ModuleGraph", () => {
 							inject: "constructor",
 							isCircular: false,
 							unreached: false,
-							lazy: false,
 						},
 					},
 				]);
@@ -792,7 +785,6 @@ describe("ModuleGraph", () => {
 							inject: "constructor",
 							isCircular: false,
 							unreached: false,
-							lazy: false,
 						},
 					},
 				]);
@@ -847,7 +839,6 @@ describe("ModuleGraph", () => {
 						inject: "constructor",
 						isCircular: false,
 						unreached: false,
-						lazy: false,
 					},
 				},
 			]);
@@ -894,7 +885,6 @@ describe("ModuleGraph", () => {
 					metadata: {
 						index: 0,
 						inject: "constructor",
-						lazy: false,
 						isCircular: false,
 						unreached: false,
 					},
@@ -960,7 +950,6 @@ describe("ModuleGraph", () => {
 					metadata: {
 						unreached: false,
 						isCircular: false,
-						lazy: false,
 						index: 0,
 						inject: "constructor",
 					},
@@ -1035,7 +1024,6 @@ describe("ModuleGraph", () => {
 						inject: "constructor",
 						isCircular: false,
 						unreached: false,
-						lazy: false,
 					},
 				},
 			]);

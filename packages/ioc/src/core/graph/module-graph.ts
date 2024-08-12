@@ -261,7 +261,6 @@ export class ModuleGraph implements ModuleGraphInterface {
 						isCircular: false,
 						index: dependency.index,
 						inject: "constructor",
-						lazy: dependency.lazy || false,
 					},
 				},
 			);
@@ -293,7 +292,6 @@ export class ModuleGraph implements ModuleGraphInterface {
 						isCircular: false,
 						key: dependency.key,
 						inject: "property",
-						lazy: dependency.lazy || false,
 					},
 				},
 			);
@@ -326,7 +324,6 @@ export class ModuleGraph implements ModuleGraphInterface {
 						isCircular: false,
 						index: dependency.index,
 						inject: "constructor",
-						lazy: dependency.lazy || false,
 					},
 				},
 			);
@@ -352,7 +349,6 @@ export class ModuleGraph implements ModuleGraphInterface {
 					isCircular: false,
 					key: dependency.key,
 					inject: "property",
-					lazy: dependency.lazy || false,
 				},
 			});
 		}
@@ -384,7 +380,6 @@ export class ModuleGraph implements ModuleGraphInterface {
 						isCircular: false,
 						index: index++,
 						inject: "constructor",
-						lazy: false,
 					},
 				},
 			);
@@ -548,7 +543,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 	private getConstructorDependencies(
 		provider: Provider,
-	): { index: number; lazy: boolean; param: Type<unknown> }[] {
+	): { index: number; param: Type<unknown> }[] {
 		return (
 			Reflect.getMetadata(SELF_DECLARED_DEPS_METADATA, provider) || []
 		).sort((a, b) => a.index - b.index);
@@ -556,7 +551,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 	private getPropertiesDependencies(
 		provider: Provider,
-	): { key: string; lazy: boolean; type: Type<unknown> }[] {
+	): { key: string; type: Type<unknown> }[] {
 		return Reflect.getMetadata(PROPERTY_DEPS_METADATA, provider) || [];
 	}
 }
