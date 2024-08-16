@@ -11,7 +11,7 @@ import type {
 	ModuleMetadata,
 	ScannerPluginInterface,
 } from "nexus-ioc/dist/interfaces";
-import type { ModuleTestingContainerInterface } from "nexus-ioc/dist/interfaces/testing";
+import type { ModuleTestingContainerInterface } from "../interfaces";
 import { HashTestingUtil } from "./hash-testing-util";
 import { TestingCreator } from "./testing-creator";
 
