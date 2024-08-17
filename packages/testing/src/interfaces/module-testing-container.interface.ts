@@ -1,10 +1,10 @@
-import type { ModuleMetadata } from "../module-metadata.interface";
+import type { ModuleMetadata } from "nexus-ioc/dist/interfaces/module-metadata.interface";
 import type {
 	ContainerBaseInterface,
 	ModuleContainerInterface,
 	ModuleGraphInterface,
-} from "../modules";
-import type { ModulePluginInterface } from "../plugins";
+} from "nexus-ioc/dist/interfaces/modules";
+import type { ModulePluginInterface } from "nexus-ioc/dist/interfaces/plugins";
 
 export interface ModuleTestingContainerInterface<T extends ModuleMetadata>
 	extends ContainerBaseInterface,

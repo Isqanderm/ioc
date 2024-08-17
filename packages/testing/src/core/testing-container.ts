@@ -1,6 +1,6 @@
-import { Container } from "../core/modules/container";
-import { Module as ModuleDecorator } from "../decorators/module";
-import { ContainerNotCompiledError } from "../errors/container-not-compiled.error";
+import { Container } from "nexus-ioc/dist/core/modules/container";
+import { NsModule as ModuleDecorator } from "nexus-ioc/dist/decorators/NsModule";
+import { ContainerNotCompiledError } from "nexus-ioc/dist/errors/container-not-compiled.error";
 import type {
 	DynamicModule,
 	GraphPluginInterface,
@@ -10,12 +10,12 @@ import type {
 	ModuleGraphInterface,
 	ModuleMetadata,
 	ScannerPluginInterface,
-} from "../interfaces";
-import type { ModuleTestingContainerInterface } from "../interfaces/testing";
+} from "nexus-ioc/dist/interfaces";
+import type { ModuleTestingContainerInterface } from "../interfaces";
 import { HashTestingUtil } from "./hash-testing-util";
 import { TestingCreator } from "./testing-creator";
 
-export class TestingContainer<T extends ModuleMetadata = ModuleMetadata>
+export class Test<T extends ModuleMetadata = ModuleMetadata>
 	implements ModuleTestingContainerInterface<T>
 {
 	private readonly graphPlugins: GraphPluginInterface[] = [];
@@ -31,10 +31,10 @@ export class TestingContainer<T extends ModuleMetadata = ModuleMetadata>
 
 	private constructor(private readonly metatype: T) {}
 
-	public static createTestingContainer<
-		M extends ModuleMetadata = ModuleMetadata,
-	>(metatype: M): TestingContainer<M> {
-		return new TestingContainer<M>(metatype);
+	public static createModule<M extends ModuleMetadata = ModuleMetadata>(
+		metatype: M,
+	): Test<M> {
+		return new Test<M>(metatype);
 	}
 
 	public async addModule(

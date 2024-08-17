@@ -1,25 +1,25 @@
+import { Test } from "nexus-ioc-testing";
 import {
 	type Edge,
 	EdgeTypeEnum,
 	type GraphPluginInterface,
 	Inject,
 	Injectable,
-	Module,
 	type ModuleContainerInterface,
 	type ModuleGraphPlugin,
 	type Node,
 	NodeTypeEnum,
+	NsModule,
 } from "../../src";
-import { TestingContainer } from "../../src/testing-utils";
 
 describe("Graph plugins", () => {
 	describe("onAddModuleNode", () => {
-		let container: TestingContainer;
+		let container: Test;
 		beforeEach(() => {
 			@Injectable()
 			class AppService {}
 
-			container = TestingContainer.createTestingContainer({
+			container = Test.createModule({
 				providers: [AppService],
 			});
 		});
@@ -46,15 +46,15 @@ describe("Graph plugins", () => {
 	});
 
 	describe("onAddModuleImportEdge", () => {
-		let container: TestingContainer;
+		let container: Test;
 		beforeEach(() => {
-			@Module({})
+			@NsModule({})
 			class ImportModule {}
 
 			@Injectable()
 			class AppService {}
 
-			container = TestingContainer.createTestingContainer({
+			container = Test.createModule({
 				imports: [ImportModule],
 				providers: [AppService],
 			});
@@ -82,15 +82,15 @@ describe("Graph plugins", () => {
 	});
 
 	describe("onAddProviderNode", () => {
-		let container: TestingContainer;
+		let container: Test;
 		beforeEach(() => {
-			@Module({})
+			@NsModule({})
 			class ImportModule {}
 
 			@Injectable()
 			class AppService {}
 
-			container = TestingContainer.createTestingContainer({
+			container = Test.createModule({
 				imports: [ImportModule],
 				providers: [AppService],
 			});
@@ -118,12 +118,12 @@ describe("Graph plugins", () => {
 	});
 
 	describe("onAddProviderEdge", () => {
-		let container: TestingContainer;
+		let container: Test;
 		beforeEach(() => {
 			@Injectable()
 			class AppService {}
 
-			container = TestingContainer.createTestingContainer({
+			container = Test.createModule({
 				providers: [AppService],
 			});
 		});
@@ -150,15 +150,15 @@ describe("Graph plugins", () => {
 	});
 
 	describe("parseModule", () => {
-		let container: TestingContainer;
+		let container: Test;
 		beforeEach(() => {
-			@Module({})
+			@NsModule({})
 			class ImportModule {}
 
 			@Injectable()
 			class AppService {}
 
-			container = TestingContainer.createTestingContainer({
+			container = Test.createModule({
 				imports: [ImportModule],
 				providers: [AppService],
 			});
@@ -193,14 +193,14 @@ describe("Graph plugins", () => {
 	});
 
 	describe("onAddUseFactoryDependency", () => {
-		let container: TestingContainer;
+		let container: Test;
 		beforeEach(() => {
 			@Injectable()
 			class AppService {
 				answer = 42;
 			}
 
-			container = TestingContainer.createTestingContainer({
+			container = Test.createModule({
 				providers: [
 					AppService,
 					{
@@ -234,7 +234,7 @@ describe("Graph plugins", () => {
 	});
 
 	describe("onAddUseClassDependency", () => {
-		let container: TestingContainer;
+		let container: Test;
 		beforeEach(() => {
 			@Injectable()
 			class DepsService {}
@@ -246,7 +246,7 @@ describe("Graph plugins", () => {
 				) {}
 			}
 
-			container = TestingContainer.createTestingContainer({
+			container = Test.createModule({
 				providers: [
 					DepsService,
 					{
@@ -279,7 +279,7 @@ describe("Graph plugins", () => {
 	});
 
 	describe("onAddClassDependency", () => {
-		let container: TestingContainer;
+		let container: Test;
 		beforeEach(() => {
 			@Injectable()
 			class DepsService {}
@@ -291,7 +291,7 @@ describe("Graph plugins", () => {
 				) {}
 			}
 
-			container = TestingContainer.createTestingContainer({
+			container = Test.createModule({
 				providers: [DepsService, AppService],
 			});
 		});

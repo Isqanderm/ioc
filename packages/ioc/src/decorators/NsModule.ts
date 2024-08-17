@@ -6,7 +6,7 @@ import {
 	validateModuleKeys,
 } from "../interfaces";
 
-export function Module(metadata: ModuleMetadata): ClassDecorator {
+export function NsModule(metadata: ModuleMetadata): ClassDecorator {
 	const propsKeys = Object.keys(metadata);
 	validateModuleKeys(propsKeys);
 

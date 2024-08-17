@@ -9,6 +9,7 @@ Nexus IoC is a powerful and flexible Inversion of Control (IoC) container for Ty
 - [Features](#features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Testing](#testing)
 - [License](#license)
 - [Author](#author)
 - [Contributing](#contributing)
@@ -35,7 +36,7 @@ npm install nexus-ioc reflect-metadata
 Create a module and a provider using decorators.
 
 ```typescript
-import { Module, Injectable, Inject } from 'nexus-ioc';
+import { NsModule, Injectable, Inject } from 'nexus-ioc';
 
 @Injectable()
 class DependencyService {
@@ -55,7 +56,7 @@ export class AppService {
   }
 }
 
-@Module({
+@NsModule({
   providers: [AppService, DependencyService],
 })
 export class AppModule {}
@@ -66,20 +67,50 @@ export class AppModule {}
 Create and bootstrap your application.
 
 ```typescript
-import { NexusApplicationsServer } from 'nexus-ioc/dist/server';
+import { NexusApplicationsBrowser } from 'nexus-ioc/dist/server';
 import { AppModule, AppService } from './app.module';
 
 async function bootstrap() {
-  const app = await NexusApplicationsServer.create(AppModule)
+  const app = await NexusApplicationsBrowser
+    .create(AppModule)
     .bootstrap();
   
   const appService = app.get<AppService>(AppService);
   
-  console.log(appService.getHello());
+  console.log(appService?.getHello());
 }
 
 bootstrap();
 
+```
+
+## Testing
+
+### Installation
+
+```bash
+npm install nexus-ioc-testing
+```
+
+### Usage 
+
+```typescript
+import { Injectable } from 'nexus-ioc';
+import { Test } from 'nexus-ioc-testing';
+
+describe('AppModule', () => {
+  it('should create instance', async () => {
+    @Injectable()
+    class AppService {}
+
+    const appModule = await Test.createModule({
+      providers: [AppService],
+    }).compile();
+
+    const appService = await appModule.get<AppService>(AppService);
+    expect(appService).toBeInstanceOf(AppService);
+  });
+});
 ```
 
 ## License

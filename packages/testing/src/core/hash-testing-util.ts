@@ -1,7 +1,7 @@
-import type { HashUtilBrowser } from "../utils/hash-utils.browser";
-import { randomStringGenerator } from "../utils/random-string-generator.util";
+import type { HashUtilInterface } from "nexus-ioc/dist/interfaces";
+import { randomStringGenerator } from "nexus-ioc/dist/utils/random-string-generator.util";
 
-export class HashTestingUtil implements HashUtilBrowser {
+export class HashTestingUtil implements HashUtilInterface {
 	async hashString(value: string): Promise<string> {
 		let index = 0;
 		return new Array(64)
@@ -17,9 +17,11 @@ export class HashTestingUtil implements HashUtilBrowser {
 			})
 			.join("");
 	}
+
 	async hashObject(value: object): Promise<string> {
 		return "";
 	}
+
 	randomStringGenerator() {
 		return randomStringGenerator();
 	}

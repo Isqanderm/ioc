@@ -1,5 +1,5 @@
-import { type DynamicModule, Inject, Injectable, Module } from "../src";
-import { TestingContainer } from "../src/testing-utils";
+import { Test } from "nexus-ioc-testing";
+import { type DynamicModule, Inject, Injectable, NsModule } from "../src";
 
 describe("forRoot/forRootAsync", () => {
 	describe("forRoot", () => {
@@ -9,7 +9,7 @@ describe("forRoot/forRootAsync", () => {
 				useValue: { feature: true },
 			};
 
-			@Module({})
+			@NsModule({})
 			class GlobalModule {
 				static forRoot(): DynamicModule {
 					return {
@@ -28,12 +28,12 @@ describe("forRoot/forRootAsync", () => {
 				) {}
 			}
 
-			@Module({
+			@NsModule({
 				providers: [AppService],
 			})
 			class AppModule {}
 
-			const container = await TestingContainer.createTestingContainer({
+			const container = await Test.createModule({
 				imports: [AppModule, GlobalModule.forRoot()],
 				providers: [],
 			}).compile();
@@ -51,7 +51,7 @@ describe("forRoot/forRootAsync", () => {
 				featureEnabled = true;
 			}
 
-			@Module({})
+			@NsModule({})
 			class GlobalModule {
 				static forRootAsync(): DynamicModule {
 					return {
@@ -80,12 +80,12 @@ describe("forRoot/forRootAsync", () => {
 				) {}
 			}
 
-			@Module({
+			@NsModule({
 				providers: [AppService],
 			})
 			class AppModule {}
 
-			const container = await TestingContainer.createTestingContainer({
+			const container = await Test.createModule({
 				imports: [AppModule, GlobalModule.forRootAsync()],
 			}).compile();
 

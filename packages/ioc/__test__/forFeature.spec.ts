@@ -1,5 +1,5 @@
-import { type DynamicModule, Injectable, Module } from "../src";
-import { TestingContainer } from "../src/testing-utils";
+import { Test } from "nexus-ioc-testing";
+import { type DynamicModule, Injectable, NsModule } from "../src";
 
 describe("forFeature/forFeatureAsync", () => {
 	describe("forFeature", () => {
@@ -9,7 +9,7 @@ describe("forFeature/forFeatureAsync", () => {
 				useValue: { feature: true },
 			};
 
-			@Module({})
+			@NsModule({})
 			class FeatureModule {
 				static forFeature(): DynamicModule {
 					return {
@@ -20,7 +20,7 @@ describe("forFeature/forFeatureAsync", () => {
 				}
 			}
 
-			const container = await TestingContainer.createTestingContainer({
+			const container = await Test.createModule({
 				imports: [FeatureModule.forFeature()],
 			}).compile();
 
@@ -40,7 +40,7 @@ describe("forFeature/forFeatureAsync", () => {
 				featureEnabled = true;
 			}
 
-			@Module({})
+			@NsModule({})
 			class FeatureModule {
 				static forFeatureAsync(): DynamicModule {
 					return {
@@ -60,7 +60,7 @@ describe("forFeature/forFeatureAsync", () => {
 				}
 			}
 
-			const container = await TestingContainer.createTestingContainer({
+			const container = await Test.createModule({
 				imports: [FeatureModule.forFeatureAsync()],
 			}).compile();
 

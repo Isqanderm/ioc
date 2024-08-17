@@ -1,7 +1,6 @@
 export const INJECTABLE_WATERMARK = "__injectable__";
 export const INJECTABLE_OPTIONS = "__injectable:options__";
 export const INJECT_WATERMARK = "__inject__";
-export const INJECT_LAZY_WATERMARK = "__inject__";
 export const MODULE_WATERMARK = "__module__";
 export const MODULE_GLOBAL_WATERMARK = "__module:global__";
 
