@@ -1,6 +1,6 @@
 {
   "name": "nexus-ioc-testing",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "description": "Testing helpers for Nexus IoC library",
   "author": "IsqanderM <aleksandr.melnik.personal@gmail.com>",
   "homepage": "https://github.com/Isqanderm/ioc#readme",
@@ -37,7 +37,7 @@
     "ts-node": "^10.9.2"
   },
   "dependencies": {
-    "nexus-ioc": "*"
+    "nexus-ioc": "^0.1.15"
   },
   "scripts": {
     "build": "tsc",
