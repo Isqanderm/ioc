@@ -12,18 +12,22 @@ type NsModuleArgs = {
 };
 
 export class ParseNsModule {
-	private readonly classNodeWithModuleDecoratorModule =
+	private readonly classNodeWithNsModuleDecorator =
 		`ClassDeclaration:has(Decorator:has(CallExpression:has(Identifier[name="NsModule"])))`;
+	private readonly classNodeWithGlobalDecorator = (moduleName: string) =>
+		`ClassDeclaration[name.name="${moduleName}"]:has(Decorator:has(CallExpression:has(Identifier[name="Global"])))`;
 	private readonly ast: ReturnType<typeof ast>;
 	private readonly _imports: string[] = [];
 	private readonly _providers: ProvidersInterface[] = [];
 	private readonly _exports: string[] = [];
 	private readonly _deps: string[] = [];
+	private _name: string | null = null;
+	private _isGlobal = false;
 	private readonly _modules = new Map<string, NsModuleArgs>();
 
 	constructor(
 		private readonly sourceFile: ts.SourceFile,
-		private readonly currentFilePath: string,
+		private readonly _currentFilePath: string,
 		private readonly tsConfig: ParseTsConfig,
 	) {
 		this.ast = ast(sourceFile.text);
@@ -32,13 +36,13 @@ export class ParseNsModule {
 	private findNsModulesImports(imports: string[]) {
 		return new ParseImports(
 			this.sourceFile,
-			this.currentFilePath,
+			this._currentFilePath,
 			this.tsConfig,
 		).findAllNsModuleImports(imports);
 	}
 
 	private findClassWithNsModule() {
-		const nodes = query(this.ast, this.classNodeWithModuleDecoratorModule);
+		const nodes = query(this.ast, this.classNodeWithNsModuleDecorator);
 
 		for (const node of nodes) {
 			if (ts.isClassDeclaration(node)) {
@@ -47,6 +51,10 @@ export class ParseNsModule {
 				if (!moduleName) {
 					throw new Error("Module name can`t be empty");
 				}
+
+				this._name = moduleName;
+
+				this._isGlobal = this.isNsModuleGlobal(moduleName);
 
 				if (ts.canHaveDecorators(node)) {
 					const decorators = ts.getDecorators(node) || [];
@@ -118,6 +126,15 @@ export class ParseNsModule {
 		return new ProvidersParser(providers).parse();
 	}
 
+	private isNsModuleGlobal(moduleName: string) {
+		const nodes = query(
+			this.ast,
+			this.classNodeWithGlobalDecorator(moduleName),
+		);
+
+		return nodes.length > 0;
+	}
+
 	public parse() {
 		this.findClassWithNsModule();
 	}
@@ -140,5 +157,17 @@ export class ParseNsModule {
 
 	get deps() {
 		return this._deps;
+	}
+
+	get filePath(): string {
+		return this._currentFilePath;
+	}
+
+	get name(): string | null {
+		return this._name;
+	}
+
+	get isGlobal(): boolean {
+		return this._isGlobal;
 	}
 }

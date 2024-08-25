@@ -5,9 +5,10 @@ const useFactoryRegexp = /useFactory:\s*((?:\([^)]*\)\s*=>\s*\{[^}]*\}))/;
 const injectRegexp = /inject:\s*\[([^\]]+)\]/;
 
 export class UseFactoryParser implements ProvidersInterface {
-	private token: string | null = null;
-	private value: string | null = null;
-	private inject: string[] | null = null;
+	public readonly type = "UseFactory";
+	private _token: string | null = null;
+	private _value: string | null = null;
+	private _inject: string[] = [];
 
 	constructor(private readonly provider: string) {}
 
@@ -17,17 +18,29 @@ export class UseFactoryParser implements ProvidersInterface {
 		const inject = this.provider.match(injectRegexp);
 
 		if (token) {
-			this.token = token[1];
+			this._token = token[1];
 		}
 
 		if (useFactory) {
-			this.value = useFactory[1];
+			this._value = useFactory[1];
 		}
 
 		if (inject) {
-			this.inject = inject[1].split(",").map((inject) => inject.trim());
+			this._inject = inject[1].split(",").map((inject) => inject.trim());
 		}
 
 		return this;
+	}
+
+	get token(): string | null {
+		return this._token;
+	}
+
+	get value(): string | null {
+		return this._value;
+	}
+
+	get inject(): string[] {
+		return this._inject;
 	}
 }
