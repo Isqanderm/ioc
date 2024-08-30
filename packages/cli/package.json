@@ -1,6 +1,6 @@
 {
 	"name": "@nexus-ioc/cli",
-	"version": "0.1.4",
+	"version": "0.1.5",
 	"description": "CLI tools for Nexus IoC",
 	"author": "Isqanderm <aleksandr.melnik.personal@gmail.com> (https://www.linkedin.com/in/isqander-melnik)",
 	"homepage": "https://github.com/Isqanderm/ioc#readme",
