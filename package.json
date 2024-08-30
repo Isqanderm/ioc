@@ -23,6 +23,7 @@
 		"lint-staged": "^15.2.7"
 	},
 	"scripts": {
+		"test:ready": "npx lerna exec --since origin/main -- npm run test:ready",
 		"test": "npx lerna exec --since origin/main -- npm run test",
 		"code:check:ci": "npx lerna exec --since origin/main -- npm run code:check:ci",
 		"build:ioc": "npx lerna exec --since origin/main --scope=nexus-ioc -- npm run build",
