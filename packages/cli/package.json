@@ -1,6 +1,6 @@
 {
 	"name": "@nexus-ioc/cli",
-	"version": "0.1.2",
+	"version": "0.1.4",
 	"description": "CLI tools for Nexus IoC",
 	"author": "Isqanderm <aleksandr.melnik.personal@gmail.com> (https://www.linkedin.com/in/isqander-melnik)",
 	"homepage": "https://github.com/Isqanderm/ioc#readme",
@@ -48,6 +48,7 @@
 		"nexus-ioc-testing": "^0.2.0"
 	},
 	"dependencies": {
+		"tslib": "^2.6.3",
 		"prettier": "^3.3.3",
 		"ts-morph": "^23.0.0",
 		"commander": "^12.1.0"
