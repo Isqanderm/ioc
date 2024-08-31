@@ -8,15 +8,21 @@ export class VisualizerCommand extends AbstractCommand {
 			.description("Visualisation helper")
 			.arguments("[type] [path]")
 			.alias("vi")
+			.option(
+				"--install-deps",
+				"Install deps for this functionality",
+				() => true,
+				false,
+			)
 			.action(
 				async (
 					type: string,
 					path: string,
-					_,
-					// params,
+					params: { installDeps: boolean },
 					// command: Command,
 				) => {
 					const options: Input[] = [];
+					options.push({ name: "installDeps", value: params.installDeps });
 
 					const inputs: Input[] = [];
 					inputs.push({ name: "type", value: type });

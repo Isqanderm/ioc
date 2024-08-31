@@ -22,6 +22,10 @@ export class VisualizeAction extends AbstractAction {
 		}
 
 		if (type === "init") {
+			if (options.find((item) => item.name === "installDeps" && item.value)) {
+				await this.installDeps();
+			}
+
 			await this.init(outputDir);
 		} else if (type === "start") {
 			await this.start(outputDir);
@@ -51,6 +55,29 @@ export class VisualizeAction extends AbstractAction {
 			}
 
 			console.error("Some Error: ", error);
+		});
+	}
+
+	private async installDeps() {
+		return new Promise<void>((resolve, reject) => {
+			exec(
+				"npm install --save-dev nexus-ioc-graph-visualizer",
+				(error, stdout, stderr) => {
+					if (error) {
+						console.error(`Install error: ${error.message}`);
+						reject();
+						return;
+					}
+
+					if (stderr) {
+						console.error(`Error: ${stderr}`);
+						reject();
+						return;
+					}
+
+					resolve();
+				},
+			);
 		});
 	}
 
