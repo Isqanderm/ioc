@@ -1,9 +1,13 @@
 import type { AbstractAction } from "./actions/abstract.action";
+import { BootstrapAction } from "./actions/bootstrap.action";
 import { GenerateAction } from "./actions/generate.action";
 import { InstallAction } from "./actions/install.action";
+import { VisualizeAction } from "./actions/visualize.action";
 import type { AbstractCommand } from "./commands/abstract.command";
+import { BootstrapCommand } from "./commands/bootstrap.command";
 import { GenerateCommand } from "./commands/generate.command";
 import { InstallCommand } from "./commands/install.command";
+import { VisualizerCommand } from "./commands/visualizer.command";
 
 type CommandMapper = {
 	command: string;
@@ -25,6 +29,18 @@ export class CommandsHelper {
 			alias: "i",
 			commander: InstallCommand,
 			handler: InstallAction,
+		},
+		{
+			command: "visualize",
+			alias: "vi",
+			commander: VisualizerCommand,
+			handler: VisualizeAction,
+		},
+		{
+			command: "bootstrap",
+			alias: "boot",
+			commander: BootstrapCommand,
+			handler: BootstrapAction,
 		},
 	];
 
