@@ -1,13 +1,8 @@
 import { Command } from "commander";
-import type { AbstractAction } from "../actions/abstract.action";
 import { AbstractCommand } from "./abstract.command";
 import type { Input } from "./command.input";
 
 export class GenerateCommand extends AbstractCommand {
-	constructor(private readonly action: AbstractAction) {
-		super();
-	}
-
 	async load() {
 		return new Command("generate")
 			.description("Generate a new schematic")
