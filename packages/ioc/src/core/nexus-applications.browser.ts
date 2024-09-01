@@ -20,7 +20,7 @@ export class NexusApplicationsBrowser implements NexusApplicationInterface {
 		return new NexusApplicationsBrowser(rootModule);
 	}
 
-	async bootstrap(): Promise<this> {
+	public async bootstrap(): Promise<this> {
 		await this.container.run(this.rootModule, this.graphPlugins);
 
 		for (const scannerPlugin of this.scannerPlugins) {
@@ -30,7 +30,7 @@ export class NexusApplicationsBrowser implements NexusApplicationInterface {
 		return this;
 	}
 
-	addScannerPlugin(
+	public addScannerPlugin(
 		scanner: ScannerPluginInterface | ScannerPluginInterface[],
 	): this {
 		const plugins = Array.isArray(scanner) ? scanner : [scanner];
@@ -38,13 +38,19 @@ export class NexusApplicationsBrowser implements NexusApplicationInterface {
 		return this;
 	}
 
-	addGraphPlugin(plugin: GraphPluginInterface | GraphPluginInterface[]): this {
+	public addGraphPlugin(
+		plugin: GraphPluginInterface | GraphPluginInterface[],
+	): this {
 		const plugins = Array.isArray(plugin) ? plugin : [plugin];
 		this.graphPlugins.push(...plugins);
 		return this;
 	}
 
-	get<T>(token: InjectionToken) {
+	public get<T>(token: InjectionToken) {
 		return this.container.get<T>(token);
+	}
+
+	public get errors() {
+		return this.container.errors;
 	}
 }
