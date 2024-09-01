@@ -1,6 +1,7 @@
 import { Container } from "nexus-ioc/dist/core/modules/container";
 import { NsModule as ModuleDecorator } from "nexus-ioc/dist/decorators/NsModule";
 import { ContainerNotCompiledError } from "nexus-ioc/dist/errors/container-not-compiled.error";
+import type { GraphError } from "nexus-ioc/dist/interfaces";
 import type {
 	DynamicModule,
 	GraphPluginInterface,
@@ -128,5 +129,13 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 	public setModuleDecorator(decorator: (metadata: T) => ClassDecorator): this {
 		this._moduleDecorator = decorator;
 		return this;
+	}
+
+	public get errors() {
+		if (!this.containerCompiled) {
+			throw new ContainerNotCompiledError();
+		}
+
+		return this._moduleContainer?.errors as GraphError[];
 	}
 }

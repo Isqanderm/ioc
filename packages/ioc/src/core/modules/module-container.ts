@@ -18,19 +18,19 @@ export class ModuleContainer implements ModuleContainerInterface {
 		private readonly container: ContainerBaseInterface,
 	) {}
 
-	get token(): string {
+	public get token(): string {
 		return this._token;
 	}
 
-	set token(value: string) {
+	public set token(value: string) {
 		this._token = value;
 	}
 
-	get metatype() {
+	public get metatype() {
 		return this._metatype;
 	}
 
-	get imports(): Promise<ModuleContainerInterface[]> {
+	public get imports(): Promise<ModuleContainerInterface[]> {
 		let modules: (Module | DynamicModule)[];
 		if (isDynamicModule(this.metatype)) {
 			modules = this.metatype.imports || [];
@@ -56,7 +56,7 @@ export class ModuleContainer implements ModuleContainerInterface {
 		});
 	}
 
-	get providers(): Provider[] {
+	public get providers(): Provider[] {
 		if (isDynamicModule(this.metatype)) {
 			return this.metatype.providers || [];
 		}
@@ -64,7 +64,7 @@ export class ModuleContainer implements ModuleContainerInterface {
 		return Reflect.getMetadata(MODULE_METADATA.PROVIDERS, this.metatype) || [];
 	}
 
-	get exports(): InjectionToken[] {
+	public get exports(): InjectionToken[] {
 		if (isDynamicModule(this.metatype)) {
 			return this.metatype.exports || [];
 		}
@@ -72,7 +72,11 @@ export class ModuleContainer implements ModuleContainerInterface {
 		return Reflect.getMetadata(MODULE_METADATA.EXPORTS, this.metatype) || [];
 	}
 
-	get<T>(token: InjectionToken): Promise<T | undefined> {
+	public get<T>(token: InjectionToken): Promise<T | undefined> {
 		return this.container.get(token);
+	}
+
+	public get errors() {
+		return this.container.errors;
 	}
 }
