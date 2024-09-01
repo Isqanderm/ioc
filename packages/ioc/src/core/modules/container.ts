@@ -49,7 +49,7 @@ export class Container implements ContainerInterface {
 		return this.moduleGraphResolver?.resolveProvider<T>(token);
 	}
 
-	async run(
+	public async run(
 		rootModule: Module,
 		graphPlugins: GraphPluginInterface[],
 	): Promise<void> {
@@ -62,7 +62,11 @@ export class Container implements ContainerInterface {
 		await this._graph.compile();
 	}
 
-	get graph() {
+	public get graph() {
 		return this._graph as ModuleGraphInterface;
+	}
+
+	public get errors() {
+		return this.graph.errors;
 	}
 }

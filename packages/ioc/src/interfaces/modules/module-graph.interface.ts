@@ -50,6 +50,11 @@ export type Edge = {
 	};
 };
 
+export type GraphError = {
+	type: "CD_IMPORTS";
+	path: string[];
+};
+
 export interface ModuleGraphPlugin {
 	addEdge<T extends Edge>(token: InjectionToken, edge: T): void;
 	addNode<T extends Node>(token: InjectionToken, node: T): void;
@@ -65,4 +70,5 @@ export interface ModuleGraphInterface {
 	getAllEdges(): Edge[][];
 	nodes: Map<InjectionToken, Node>;
 	edges: Map<InjectionToken, Edge[]>;
+	errors: GraphError[];
 }

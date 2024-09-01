@@ -129,4 +129,12 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 		this._moduleDecorator = decorator;
 		return this;
 	}
+
+	public get errors() {
+		if (!this.containerCompiled) {
+			throw new ContainerNotCompiledError();
+		}
+
+		return this.graph.errors;
+	}
 }

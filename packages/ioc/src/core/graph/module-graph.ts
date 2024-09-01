@@ -3,10 +3,10 @@ import {
 	type Edge,
 	EdgeTypeEnum,
 	type FactoryProvider,
+	type GraphError,
 	type InjectionToken,
 	type ModuleContainerInterface,
 	type ModuleGraphInterface,
-	type ModuleGraphPlugin,
 	type Node,
 	NodeTypeEnum,
 	PROPERTY_DEPS_METADATA,
@@ -31,6 +31,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 	private _edges: Map<InjectionToken, Edge[]> = new Map();
 	private _globalModules: Map<InjectionToken, ModuleContainerInterface> =
 		new Map();
+	private readonly _errors: GraphError[] = [];
 
 	constructor(
 		private readonly _root: ModuleContainerInterface,
@@ -43,6 +44,10 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 	public get edges() {
 		return this._edges;
+	}
+
+	public get errors() {
+		return this._errors;
 	}
 
 	public async compile() {
@@ -60,11 +65,11 @@ export class ModuleGraph implements ModuleGraphInterface {
 		return this._edges.get(token) || [];
 	}
 
-	getAllEdges(): Edge[][] {
+	public getAllEdges(): Edge[][] {
 		return [...this._edges.values()];
 	}
 
-	getAllNodes(): Node[] {
+	public getAllNodes(): Node[] {
 		return [...this._nodes.values()];
 	}
 
@@ -448,7 +453,6 @@ export class ModuleGraph implements ModuleGraphInterface {
 					(node, index) => [node, path[index + 1] || nodeId],
 				);
 
-				// Помечаем ребра как круговые
 				for (const [from, to] of cyclePath) {
 					const edges = this._edges.get(from);
 					if (edges) {
@@ -501,11 +505,16 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 				for (let i = 0; i < cyclePath.length; i++) {
 					const from = cyclePath[i];
-					const to = cyclePath[(i + 1) % cyclePath.length];
+					const to = cyclePath[cyclePath.length - 1];
 					const edges = this._edges.get(from);
 					if (edges) {
 						const edge = edges.find((e) => e.source === to);
+
 						if (edge && edge.type === EdgeTypeEnum.IMPORT) {
+							this.errors.push({
+								type: "CD_IMPORTS",
+								path: cyclePath.map((token) => this.getNode(token).label),
+							});
 							edge.metadata.isCircular = true;
 						}
 					}

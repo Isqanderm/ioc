@@ -75,4 +75,8 @@ export class ModuleContainer implements ModuleContainerInterface {
 	get<T>(token: InjectionToken): Promise<T | undefined> {
 		return this.container.get(token);
 	}
+
+	public get errors() {
+		return this.container.errors;
+	}
 }
