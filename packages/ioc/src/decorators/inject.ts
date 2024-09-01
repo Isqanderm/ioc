@@ -30,7 +30,7 @@ Ensure there are no circular dependencies in your files or barrel files.`);
 			let properties =
 				Reflect.getMetadata(PROPERTY_DEPS_METADATA, target) || [];
 
-			properties = [...properties, { key: propertyKey, laze: false, type }];
+			properties = [...properties, { key: propertyKey, type }];
 			Reflect.defineMetadata(
 				PROPERTY_DEPS_METADATA,
 				properties,
@@ -42,10 +42,7 @@ Ensure there are no circular dependencies in your files or barrel files.`);
 		let dependencies =
 			Reflect.getMetadata(SELF_DECLARED_DEPS_METADATA, target) || [];
 
-		dependencies = [
-			...dependencies,
-			{ index: parameterIndex, laze: false, param: type },
-		];
+		dependencies = [...dependencies, { index: parameterIndex, param: type }];
 		Reflect.defineMetadata(SELF_DECLARED_DEPS_METADATA, dependencies, target);
 	};
 }

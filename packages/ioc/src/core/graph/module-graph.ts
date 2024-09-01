@@ -253,6 +253,18 @@ export class ModuleGraph implements ModuleGraphInterface {
 				dependencyToken,
 			);
 
+			if (!isExported) {
+				this.errors.push({
+					type: "UNREACHED_DEP_CONSTRUCTOR",
+					token: node.label,
+					dependency:
+						typeof dependencyToken === "function"
+							? dependencyToken.name
+							: (dependencyToken as string),
+					position: dependency.index,
+				});
+			}
+
 			const newEdge = this.plugins.reduce<Edge>(
 				(edge, plugin) => {
 					return plugin.onAddClassDependency?.(edge) || edge;
@@ -283,6 +295,18 @@ export class ModuleGraph implements ModuleGraphInterface {
 				node.moduleContainer,
 				dependencyToken,
 			);
+
+			if (!isExported) {
+				this.errors.push({
+					type: "UNREACHED_DEP_PROPERTY",
+					token: node.label,
+					dependency:
+						typeof dependencyToken === "function"
+							? dependencyToken.name
+							: (dependencyToken as string),
+					key: dependency.key,
+				});
+			}
 
 			const newEdge = this.plugins.reduce<Edge>(
 				(edge, plugin) => {
@@ -316,6 +340,18 @@ export class ModuleGraph implements ModuleGraphInterface {
 				dependencyToken,
 			);
 
+			if (!isExported) {
+				this.errors.push({
+					type: "UNREACHED_DEP_CONSTRUCTOR",
+					token: node.label,
+					dependency:
+						typeof dependencyToken === "function"
+							? dependencyToken.name
+							: (dependencyToken as string),
+					position: dependency.index,
+				});
+			}
+
 			const newEdge = this.plugins.reduce<Edge>(
 				(edge, plugin) => {
 					return plugin.onAddUseClassDependency?.(edge) || edge;
@@ -345,6 +381,18 @@ export class ModuleGraph implements ModuleGraphInterface {
 				dependencyToken,
 			);
 
+			if (!isExported) {
+				this.errors.push({
+					type: "UNREACHED_DEP_PROPERTY",
+					token: node.label,
+					dependency:
+						typeof dependencyToken === "function"
+							? dependencyToken.name
+							: (dependencyToken as string),
+					key: dependency.key,
+				});
+			}
+
 			this.addEdge(token, {
 				type: EdgeTypeEnum.DEPENDENCY,
 				source: token,
@@ -371,6 +419,18 @@ export class ModuleGraph implements ModuleGraphInterface {
 				node.moduleContainer,
 				dependency,
 			);
+
+			if (!isExported) {
+				this.errors.push({
+					type: "UNREACHED_DEP_FACTORY",
+					token: node.label,
+					dependency:
+						typeof dependency === "function"
+							? dependency.name
+							: (dependency as string),
+					key: index,
+				});
+			}
 
 			const factoryDependency = this.plugins.reduce<Edge>(
 				(dep, plugin) => {
@@ -453,14 +513,26 @@ export class ModuleGraph implements ModuleGraphInterface {
 					(node, index) => [node, path[index + 1] || nodeId],
 				);
 
-				for (const [from, to] of cyclePath) {
-					const edges = this._edges.get(from);
-					if (edges) {
-						const edge = edges.find((e) => e.target === to);
-						if (edge) {
-							edge.metadata.isCircular = true;
+				const from = cyclePath[0];
+				const to = cyclePath[cyclePath.length - 1];
+
+				if (from[0] === to[1]) {
+					const edges = this._edges.get(nodeId);
+
+					for (const [from, to] of cyclePath) {
+						const edges = this._edges.get(from);
+						if (edges) {
+							const edge = edges.find((e) => e.target === to);
+							if (edge) {
+								edge.metadata.isCircular = true;
+							}
 						}
 					}
+
+					this.errors.push({
+						type: "CD_PROVIDERS",
+						path: cyclePath,
+					});
 				}
 				return true;
 			}
