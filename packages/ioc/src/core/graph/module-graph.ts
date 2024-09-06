@@ -9,9 +9,12 @@ import {
 	type ModuleGraphInterface,
 	type Node,
 	NodeTypeEnum,
+	OPTIONAL_WATERMARK,
 	PROPERTY_DEPS_METADATA,
+	PROPERTY_OPTIONAL_DEPS_METADATA,
 	type Provider,
 	SELF_DECLARED_DEPS_METADATA,
+	SELF_DECLARED_OPTIONAL_DEPS_METADATA,
 	type Type,
 } from "../../interfaces";
 import type { GraphPluginInterface } from "../../interfaces/plugins/graph-plugin.interface";
@@ -245,13 +248,15 @@ export class ModuleGraph implements ModuleGraphInterface {
 		const constructorDependencies = this.getConstructorDependencies(
 			node.metatype as Provider,
 		);
+		const optionalDependency = this.getOptionalConstructorDependencies(
+			node.metatype as Provider,
+		);
 
-		for (const dependency of constructorDependencies) {
+		for (const [index, dependency] of constructorDependencies.entries()) {
 			const dependencyToken = getDependencyToken(dependency.param);
-			const isExported = await this.isProviderExported(
-				node.moduleContainer,
-				dependencyToken,
-			);
+			const isExported =
+				optionalDependency.includes(index) ||
+				(await this.isProviderExported(node.moduleContainer, dependencyToken));
 
 			if (!isExported) {
 				this.errors.push({
@@ -288,13 +293,15 @@ export class ModuleGraph implements ModuleGraphInterface {
 		const propertiesDependencies = this.getPropertiesDependencies(
 			node.metatype as Provider,
 		);
+		const optionalProperties = this.getOptionalPropertyDependencies(
+			node.metatype as Provider,
+		);
 
 		for (const dependency of propertiesDependencies) {
 			const dependencyToken = getDependencyToken(dependency.type);
-			const isExported = await this.isProviderExported(
-				node.moduleContainer,
-				dependencyToken,
-			);
+			const isExported =
+				optionalProperties.includes(dependency.key) ||
+				(await this.isProviderExported(node.moduleContainer, dependencyToken));
 
 			if (!isExported) {
 				this.errors.push({
@@ -332,13 +339,13 @@ export class ModuleGraph implements ModuleGraphInterface {
 	private async addClassProviderDependency(token: InjectionToken, node: Node) {
 		const Class = (node.metatype as ClassProvider).useClass;
 		const constructorDependencies = this.getConstructorDependencies(Class);
+		const optionalDependency = this.getOptionalConstructorDependencies(Class);
 
-		for (const dependency of constructorDependencies) {
+		for (const [index, dependency] of constructorDependencies.entries()) {
 			const dependencyToken = getDependencyToken(dependency.param);
-			const isExported = await this.isProviderExported(
-				node.moduleContainer,
-				dependencyToken,
-			);
+			const isExported =
+				optionalDependency.includes(index) ||
+				(await this.isProviderExported(node.moduleContainer, dependencyToken));
 
 			if (!isExported) {
 				this.errors.push({
@@ -373,13 +380,13 @@ export class ModuleGraph implements ModuleGraphInterface {
 		}
 
 		const propertiesDependencies = this.getPropertiesDependencies(Class);
+		const optionalProperty = this.getOptionalPropertyDependencies(Class);
 
 		for (const dependency of propertiesDependencies) {
 			const dependencyToken = getDependencyToken(dependency.type);
-			const isExported = await this.isProviderExported(
-				node.moduleContainer,
-				dependencyToken,
-			);
+			const isExported =
+				optionalProperty.includes(dependency.key) ||
+				(await this.isProviderExported(node.moduleContainer, dependencyToken));
 
 			if (!isExported) {
 				this.errors.push({
@@ -628,6 +635,18 @@ export class ModuleGraph implements ModuleGraphInterface {
 		return (
 			Reflect.getMetadata(SELF_DECLARED_DEPS_METADATA, provider) || []
 		).sort((a, b) => a.index - b.index);
+	}
+
+	private getOptionalConstructorDependencies(provider: Provider): number[] {
+		return (
+			Reflect.getMetadata(SELF_DECLARED_OPTIONAL_DEPS_METADATA, provider) || []
+		).map(({ index }) => index);
+	}
+
+	private getOptionalPropertyDependencies(provider: Provider): string[] {
+		return (
+			Reflect.getMetadata(PROPERTY_OPTIONAL_DEPS_METADATA, provider) || []
+		).map(({ key }) => key);
 	}
 
 	private getPropertiesDependencies(
