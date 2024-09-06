@@ -58,7 +58,8 @@ describe("ModuleGraph", () => {
 			expect(nodes.has(mockModuleContainer.token)).toBe(true);
 
 			const node = nodes.get(mockModuleContainer.token);
-			expect(node).toEqual({
+
+			expect(node?.node).toEqual({
 				id: mockModuleContainer.token,
 				isGlobal: false,
 				isDynamic: false,

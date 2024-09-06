@@ -14,8 +14,11 @@ import {
 	type ValueProvider,
 } from "../interfaces";
 
-// biome-ignore lint/suspicious/noExplicitAny: <explanation>
-export function isFunctionProvider(target: Provider): target is Type<any> {
+export function isFunctionProvider(target: Provider): target is Type {
+	return typeof target === "function";
+}
+
+export function isFunctionToken(target: InjectionToken): target is Type {
 	return typeof target === "function";
 }
 

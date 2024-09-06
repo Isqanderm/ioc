@@ -1,3 +1,5 @@
+import type { AnalyzeModule } from "../../core/graph/analyze-module";
+import type { AnalyzeProvider } from "../../core/graph/analyze-provider";
 import type { Token } from "../../core/modules/modules-container";
 import type { DynamicModule } from "../dynamic-module.interface";
 import type { InjectionToken } from "../injection-token.interface";
@@ -17,24 +19,7 @@ export enum EdgeTypeEnum {
 	DEPENDENCY = "dependency",
 }
 
-export type Node =
-	| {
-			type: NodeTypeEnum.MODULE;
-			id: Token;
-			label: string;
-			metatype: Module | DynamicModule;
-			moduleContainer: ModuleContainerInterface;
-			isDynamic: boolean;
-			isGlobal: boolean;
-	  }
-	| {
-			type: NodeTypeEnum.PROVIDER;
-			id: InjectionToken;
-			label: string;
-			scope: Scope;
-			metatype: Provider;
-			moduleContainer: ModuleContainerInterface;
-	  };
+export type Node = AnalyzeModule | AnalyzeProvider;
 
 export type Edge = {
 	type: EdgeTypeEnum;
