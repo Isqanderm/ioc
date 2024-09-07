@@ -89,6 +89,10 @@ export class AnalyzeModule {
 	}
 
 	public get imports() {
-		return this._module.imports;
+		return this._module.imports || [];
+	}
+
+	public get exports() {
+		return this._module.exports || [];
 	}
 }

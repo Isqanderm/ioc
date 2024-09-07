@@ -1,4 +1,4 @@
-import { Test } from "../../testing/src";
+import { Test } from "nexus-ioc-testing";
 import {
 	type ContainerInterface,
 	Inject,
@@ -6,11 +6,11 @@ import {
 	type ModuleContainerInterface,
 	NsModule,
 	type Type,
-} from "../src";
-import { ModuleGraph } from "../src/core/graph/module-graph";
-import { ModuleContainerFactory } from "../src/core/modules/module-container-factory";
-import { ModuleTokenFactory } from "../src/core/modules/module-token-factory";
-import { hashUtilsMock } from "./hashUtils.mock";
+} from "../../src";
+import { ModuleGraph } from "../../src/core/graph/module-graph";
+import { ModuleContainerFactory } from "../../src/core/modules/module-container-factory";
+import { ModuleTokenFactory } from "../../src/core/modules/module-token-factory";
+import { hashUtilsMock } from "../hashUtils.mock";
 
 describe("Container error", () => {
 	const moduleTokenFactory = new ModuleTokenFactory(hashUtilsMock);

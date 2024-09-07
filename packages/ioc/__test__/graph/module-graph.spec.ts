@@ -1,17 +1,17 @@
 import "reflect-metadata";
-import { ModuleGraph } from "../src/core/graph/module-graph";
-import { ModuleContainerFactory } from "../src/core/modules/module-container-factory";
-import { ModuleTokenFactory } from "../src/core/modules/module-token-factory";
-import { NsModule } from "../src/decorators/NsModule";
-import { Global } from "../src/decorators/global";
-import { Inject } from "../src/decorators/inject";
-import { Injectable } from "../src/decorators/injectable";
-import type { DynamicModule } from "../src/interfaces/dynamic-module.interface";
-import type { ContainerInterface } from "../src/interfaces/modules/container.interface";
-import type { ModuleContainerInterface } from "../src/interfaces/modules/module-container.interface";
-import type { Type } from "../src/interfaces/type.interface";
-import { getProviderToken } from "../src/utils/helpers";
-import { hashUtilsMock } from "./hashUtils.mock";
+import { ModuleGraph } from "../../src/core/graph/module-graph";
+import { ModuleContainerFactory } from "../../src/core/modules/module-container-factory";
+import { ModuleTokenFactory } from "../../src/core/modules/module-token-factory";
+import { NsModule } from "../../src/decorators/NsModule";
+import { Global } from "../../src/decorators/global";
+import { Inject } from "../../src/decorators/inject";
+import { Injectable } from "../../src/decorators/injectable";
+import type { DynamicModule } from "../../src/interfaces/dynamic-module.interface";
+import type { ContainerInterface } from "../../src/interfaces/modules/container.interface";
+import type { ModuleContainerInterface } from "../../src/interfaces/modules/module-container.interface";
+import type { Type } from "../../src/interfaces/type.interface";
+import { getProviderToken } from "../../src/utils/helpers";
+import { hashUtilsMock } from "../hashUtils.mock";
 
 describe("ModuleGraph", () => {
 	const moduleTokenFactory = new ModuleTokenFactory(hashUtilsMock);

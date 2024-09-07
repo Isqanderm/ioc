@@ -4,6 +4,10 @@ import {
 	EdgeTypeEnum,
 	type GraphError,
 	type InjectionToken,
+	MODULE_METADATA,
+	MODULE_TOKEN_WATERMARK,
+	MODULE_WATERMARK,
+	type Module,
 	type ModuleContainerInterface,
 	type ModuleGraphInterface,
 	type Node,
@@ -16,7 +20,11 @@ import {
 	type Type,
 } from "../../interfaces";
 import type { GraphPluginInterface } from "../../interfaces/plugins";
-import { getDependencyToken, getProviderToken } from "../../utils/helpers";
+import {
+	getDependencyToken,
+	getProviderToken,
+	isModule,
+} from "../../utils/helpers";
 import { AnalyzeModule } from "./analyze-module";
 import type { AnalyzeProvider } from "./analyze-provider";
 import {
@@ -132,7 +140,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 			);
 
 			if (analyzeProvider === null) {
-				throw Error("Incompatibility Provider");
+				continue;
 			}
 
 			const providerNode = this.plugins.reduce<AnalyzeProvider>(
@@ -429,6 +437,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 		moduleContainer: ModuleContainerInterface,
 		dependencyToken: InjectionToken,
 	): Promise<boolean> {
+		// check globals
 		for (const globalModule of this._globalModules.values()) {
 			if (
 				globalModule.exports.some((provider) => provider === dependencyToken)
@@ -436,7 +445,9 @@ export class ModuleGraph implements ModuleGraphInterface {
 				return true;
 			}
 		}
+		// check globals
 
+		// check internals
 		if (
 			moduleContainer.providers.some(
 				(provider) => getProviderToken(provider) === dependencyToken,
@@ -445,30 +456,81 @@ export class ModuleGraph implements ModuleGraphInterface {
 			return true;
 		}
 
-		const visitedModules = new Set<ModuleContainerInterface>();
-		const queue = [moduleContainer];
+		// externals
+		const containerImports = await moduleContainer.imports;
+		const visitedModules = new Set<InjectionToken | Module>();
+		const queue = containerImports.flatMap(
+			(firstLevelContainer) => firstLevelContainer.exports,
+		);
 
 		while (queue.length) {
-			const currentModule = queue.shift();
+			const currentExportToken = queue.shift();
 
-			if (!currentModule) {
+			if (!currentExportToken || visitedModules.has(currentExportToken)) {
 				continue;
 			}
 
-			if (visitedModules.has(currentModule)) {
-				continue;
-			}
-
-			visitedModules.add(currentModule);
-
-			if (
-				currentModule.exports.some((provider) => provider === dependencyToken)
-			) {
+			if (currentExportToken === dependencyToken) {
 				return true;
 			}
 
-			queue.push(...(await currentModule.imports));
+			if (
+				isModule(currentExportToken) &&
+				Reflect.hasMetadata(MODULE_WATERMARK, currentExportToken)
+			) {
+				const token = Reflect.getMetadata(
+					MODULE_TOKEN_WATERMARK,
+					currentExportToken,
+				) as string;
+				const moduleContainer = this.getNode(token) as AnalyzeModule;
+
+				if (moduleContainer) {
+					queue.push(...moduleContainer.exports);
+				}
+			}
+
+			visitedModules.add(currentExportToken);
 		}
+
+		// for (const containerImport of containerImports) {
+		// 	if (
+		// 		containerImport.exports.some((exportToken) => {
+		// 			if (Reflect.hasMetadata(MODULE_METADATA, exportToken)) {
+		// 				exportToken.exports;
+		// 			}
+		//
+		// 			return exportToken === dependencyToken;
+		// 		})
+		// 	) {
+		// 		return true;
+		// 	}
+		// }
+
+		// const visitedModules = new Set<ModuleContainerInterface>();
+		// const queue = [moduleContainer];
+		//
+		// while (queue.length) {
+		// 	const currentModule = queue.shift();
+		//
+		// 	if (!currentModule) {
+		// 		continue;
+		// 	}
+		//
+		// 	if (visitedModules.has(currentModule)) {
+		// 		continue;
+		// 	}
+		//
+		// 	visitedModules.add(currentModule);
+		//
+		// 	if (
+		// 		currentModule.exports.some((provider) => provider === dependencyToken)
+		// 	) {
+		// 		return true;
+		// 	}
+		//
+		// 	queue.push(...(await currentModule.imports));
+		// }
+		// externals
 
 		return false;
 	}

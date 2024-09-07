@@ -8,7 +8,7 @@ export interface ModuleContainerInterface {
 	metatype: Module | DynamicModule;
 	imports: Promise<ModuleContainerInterface[]>;
 	providers: Provider[];
-	exports: InjectionToken[];
+	exports: (InjectionToken | Module)[];
 	get<T>(token: InjectionToken): Promise<T | undefined>;
 	errors: GraphError[];
 }
