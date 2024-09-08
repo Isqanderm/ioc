@@ -27,6 +27,7 @@
 		"test": "npx lerna exec --since origin/main -- npm run test",
 		"code:check:ci": "npx lerna exec --since origin/main -- npm run code:check:ci",
 		"build:ioc": "npx lerna exec --since origin/main --scope=nexus-ioc -- npm run build",
+		"build:testing": "npx lerna exec --scope=nexus-ioc-testing -- npm run build",
 		"changelog": "conventional-changelog -p angular -i CHANGELOG.md -s",
 		"commit": "cz",
 		"prepare": "husky"

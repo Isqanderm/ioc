@@ -63,13 +63,6 @@ export type GraphError =
 			key: number;
 	  };
 
-export interface ModuleGraphPlugin {
-	addEdge<T extends Edge>(token: InjectionToken, edge: T): void;
-	addNode<T extends Node>(token: InjectionToken, node: T): void;
-	getNode(token: InjectionToken): Node;
-	getEdge(token: InjectionToken): Edge[];
-}
-
 export interface ModuleGraphInterface {
 	compile(): Promise<void>;
 	getNode(token: InjectionToken): Node;
