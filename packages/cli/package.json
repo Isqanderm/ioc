@@ -54,7 +54,7 @@
 		"tslib": "^2.6.3"
 	},
 	"scripts": {
-		"build": "npm run clean && tsc",
+		"build": "tsc",
 		"test:ready": "npm run build",
 		"test": "jest",
 		"clean": "rm -rf ./dist && rm tsconfig.tsbuildinfo",

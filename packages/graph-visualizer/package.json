@@ -45,7 +45,7 @@
 		"@types/node": "^22.5.4"
 	},
 	"scripts": {
-		"build": "npm run clean && tsc",
+		"build": "tsc",
 		"clean": "rm -rf ./dist && rm tsconfig.tsbuildinfo",
 		"test": "",
 		"test:watch": "jest --watch",
