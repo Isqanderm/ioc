@@ -1,7 +1,6 @@
 import type { DynamicModule } from "../dynamic-module.interface";
 import type { InjectionToken } from "../injection-token.interface";
 import type { Module } from "../module-types.interface";
-import type { GraphPluginInterface } from "../plugins";
 import type { ModuleContainerInterface } from "./module-container.interface";
 import type {
 	GraphError,
@@ -20,6 +19,6 @@ export interface ContainerBaseInterface {
 }
 
 export interface ContainerInterface extends ContainerBaseInterface {
-	run(rootModule: Module, graphPlugins: GraphPluginInterface[]): Promise<void>;
+	run(rootModule: Module): Promise<void>;
 	graph: ModuleGraphInterface;
 }

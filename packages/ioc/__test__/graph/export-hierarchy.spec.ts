@@ -1,31 +1,5 @@
 import { Test } from "nexus-ioc-testing";
-import {
-	type ContainerInterface,
-	Inject,
-	Injectable,
-	type InjectionToken,
-	type ModuleContainerInterface,
-	NsModule,
-	type Type,
-} from "../../src";
-import { ModuleGraph } from "../../src/core/graph/module-graph";
-import { ModuleContainerFactory } from "../../src/core/modules/module-container-factory";
-import { ModuleTokenFactory } from "../../src/core/modules/module-token-factory";
-import { hashUtilsMock } from "../hashUtils.mock";
-
-function createTestContainerFactory() {
-	const moduleTokenFactory = new ModuleTokenFactory(hashUtilsMock);
-	const moduleContainerFactory = new ModuleContainerFactory(moduleTokenFactory);
-	const container = {
-		addModule(metatype: Type<unknown>): Promise<ModuleContainerInterface> {
-			return moduleContainerFactory.create(metatype, container);
-		},
-	} as ContainerInterface;
-
-	return async function createTestModuleContainer(module: Type) {
-		return moduleContainerFactory.create(module, container);
-	};
-}
+import { type DynamicModule, Inject, Injectable, NsModule } from "../../src";
 
 describe("Export Hierarchy", () => {
 	it("should correct resolve hierarchy dependency", async () => {
@@ -78,20 +52,6 @@ describe("Export Hierarchy", () => {
 			) {}
 		}
 
-		@NsModule({
-			imports: [DependencyModule],
-			providers: [AppService],
-		})
-		class AppModule {}
-
-		// const containerFactory = createTestContainerFactory();
-		// const appModuleContainer = await containerFactory(AppModule);
-		// const graph = new ModuleGraph(appModuleContainer);
-		//
-		// await graph.compile();
-		//
-		// console.log("graph: ", graph.edges);
-
 		const appContainer = await Test.createModule({
 			imports: [DependencyModule],
 			providers: [AppService],
@@ -99,9 +59,43 @@ describe("Export Hierarchy", () => {
 
 		const appService = await appContainer.get<AppService>(AppService);
 
-		console.log("appService: ", appService, appContainer.errors);
-
 		expect(appService?.dependencyService?.secret).toEqual("secret-key");
 		expect(appService?.secret).toBeFalsy();
+	});
+
+	it("should correct resolve hierarchy dependency for forFeature", async () => {
+		const featureConfig = {
+			provide: "secret",
+			useValue: "secret-key",
+		};
+
+		@NsModule({})
+		class FeatureModule {
+			static forFeature(): DynamicModule {
+				return {
+					module: FeatureModule,
+					imports: [],
+					providers: [featureConfig],
+					exports: ["secret"],
+				};
+			}
+		}
+
+		@Injectable()
+		class AppService {
+			constructor(
+				@Inject("secret")
+				public readonly secret: string,
+			) {}
+		}
+
+		const appContainer = await Test.createModule({
+			imports: [FeatureModule.forFeature()],
+			providers: [AppService],
+		}).compile();
+
+		const appService = await appContainer.get<AppService>(AppService);
+
+		expect(appService?.secret).toEqual("secret-key");
 	});
 });

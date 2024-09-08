@@ -7,7 +7,6 @@ import type {
 	ModuleContainerInterface,
 	ModuleGraphInterface,
 } from "../../interfaces";
-import type { GraphPluginInterface } from "../../interfaces/plugins/graph-plugin.interface";
 import { ModuleGraph } from "../graph/module-graph";
 import { Resolver } from "../resolver/resolver";
 import { ModulesContainer } from "./modules-container";
@@ -49,13 +48,10 @@ export class Container implements ContainerInterface {
 		return this.moduleGraphResolver?.resolveProvider<T>(token);
 	}
 
-	public async run(
-		rootModule: Module,
-		graphPlugins: GraphPluginInterface[],
-	): Promise<void> {
+	public async run(rootModule: Module): Promise<void> {
 		const root = await this.modulesContainer.addModule(rootModule);
 
-		this._graph = new ModuleGraph(root, graphPlugins);
+		this._graph = new ModuleGraph(root);
 
 		this.moduleGraphResolver = new Resolver(this._graph);
 

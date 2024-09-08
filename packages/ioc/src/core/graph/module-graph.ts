@@ -1,10 +1,8 @@
 import {
-	type ClassProvider,
 	type Edge,
 	EdgeTypeEnum,
 	type GraphError,
 	type InjectionToken,
-	MODULE_METADATA,
 	MODULE_TOKEN_WATERMARK,
 	MODULE_WATERMARK,
 	type Module,
@@ -19,7 +17,6 @@ import {
 	SELF_DECLARED_OPTIONAL_DEPS_METADATA,
 	type Type,
 } from "../../interfaces";
-import type { GraphPluginInterface } from "../../interfaces/plugins";
 import {
 	getDependencyToken,
 	getProviderToken,
@@ -44,10 +41,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 		new Map();
 	private readonly _errors: GraphError[] = [];
 
-	constructor(
-		private readonly _root: ModuleContainerInterface,
-		private readonly plugins: GraphPluginInterface[] = [],
-	) {}
+	constructor(private readonly _root: ModuleContainerInterface) {}
 
 	public get nodes() {
 		return this._nodes;
@@ -101,7 +95,6 @@ export class ModuleGraph implements ModuleGraphInterface {
 			await this.addModule(analyzeModule);
 			await this.addModuleImports(analyzeModule);
 			await this.addModuleProviders(analyzeModule);
-			await this.modulePlugins(analyzeModule);
 
 			imports.push(...(await analyzeModule.imports));
 			visited.add(analyzeModule.id);
@@ -109,11 +102,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 	}
 
 	private async addModule(analyzeModule: AnalyzeModule) {
-		const newNode = this.plugins.reduce<AnalyzeModule>((node, next) => {
-			return next.onAddModuleNode?.(node) || node;
-		}, analyzeModule);
-
-		this.addNode(analyzeModule.id, newNode);
+		this.addNode(analyzeModule.id, analyzeModule);
 
 		if (analyzeModule.isGlobal) {
 			this._globalModules.set(analyzeModule.id, analyzeModule.moduleContainer);
@@ -124,11 +113,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 		const imports = await analyzeModule.edges;
 
 		for (const importEdge of imports) {
-			const newEdge = this.plugins.reduce<Edge>((prev, plugin) => {
-				return plugin.onAddModuleImportEdge?.(prev) || prev;
-			}, importEdge);
-
-			this.addEdge(analyzeModule.id, newEdge);
+			this.addEdge(analyzeModule.id, importEdge);
 		}
 	}
 
@@ -143,31 +128,8 @@ export class ModuleGraph implements ModuleGraphInterface {
 				continue;
 			}
 
-			const providerNode = this.plugins.reduce<AnalyzeProvider>(
-				(node, plugin) => {
-					return plugin.onAddProviderNode?.(node) || node;
-				},
-				analyzeProvider,
-			);
-
-			this.addNode(analyzeProvider.id, providerNode);
-
-			const providerEdge = this.plugins.reduce((edge, plugin) => {
-				return plugin.onAddProviderEdge?.(edge) || edge;
-			}, analyzeProvider.edge);
-
-			this.addEdge(analyzeModule.id, providerEdge);
-		}
-	}
-
-	private async modulePlugins(analyzeModule: AnalyzeModule) {
-		for (const plugin of this.plugins) {
-			plugin.parseModule?.(analyzeModule.moduleContainer, {
-				addNode: this.addNode,
-				addEdge: this.addEdge,
-				getEdge: this.getEdge,
-				getNode: this.getNode,
-			});
+			this.addNode(analyzeProvider.id, analyzeProvider);
+			this.addEdge(analyzeModule.id, analyzeProvider.edge);
 		}
 	}
 	// modules analyze
@@ -239,22 +201,17 @@ export class ModuleGraph implements ModuleGraphInterface {
 				});
 			}
 
-			const newEdge = this.plugins.reduce<Edge>(
-				(edge, plugin) => {
-					return plugin.onAddClassDependency?.(edge) || edge;
+			const newEdge: Edge = {
+				type: EdgeTypeEnum.DEPENDENCY,
+				source: token,
+				target: dependencyToken,
+				metadata: {
+					unreached: !isExported,
+					isCircular: false,
+					index: dependency.index,
+					inject: "constructor",
 				},
-				{
-					type: EdgeTypeEnum.DEPENDENCY,
-					source: token,
-					target: dependencyToken,
-					metadata: {
-						unreached: !isExported,
-						isCircular: false,
-						index: dependency.index,
-						inject: "constructor",
-					},
-				},
-			);
+			};
 
 			this.addEdge(token, newEdge);
 		}
@@ -284,22 +241,17 @@ export class ModuleGraph implements ModuleGraphInterface {
 				});
 			}
 
-			const newEdge = this.plugins.reduce<Edge>(
-				(edge, plugin) => {
-					return plugin.onAddClassDependency?.(edge) || edge;
+			const newEdge: Edge = {
+				type: EdgeTypeEnum.DEPENDENCY,
+				source: token,
+				target: dependencyToken,
+				metadata: {
+					unreached: !isExported,
+					isCircular: false,
+					key: dependency.key,
+					inject: "property",
 				},
-				{
-					type: EdgeTypeEnum.DEPENDENCY,
-					source: token,
-					target: dependencyToken,
-					metadata: {
-						unreached: !isExported,
-						isCircular: false,
-						key: dependency.key,
-						inject: "property",
-					},
-				},
-			);
+			};
 
 			this.addEdge(token, newEdge);
 		}
@@ -331,22 +283,17 @@ export class ModuleGraph implements ModuleGraphInterface {
 				});
 			}
 
-			const newEdge = this.plugins.reduce<Edge>(
-				(edge, plugin) => {
-					return plugin.onAddUseClassDependency?.(edge) || edge;
+			const newEdge: Edge = {
+				type: EdgeTypeEnum.DEPENDENCY,
+				source: token,
+				target: dependencyToken,
+				metadata: {
+					unreached: !isExported,
+					isCircular: false,
+					index: dependency.index,
+					inject: "constructor",
 				},
-				{
-					type: EdgeTypeEnum.DEPENDENCY,
-					source: token,
-					target: dependencyToken,
-					metadata: {
-						unreached: !isExported,
-						isCircular: false,
-						index: dependency.index,
-						inject: "constructor",
-					},
-				},
-			);
+			};
 
 			this.addEdge(token, newEdge);
 		}
@@ -411,22 +358,17 @@ export class ModuleGraph implements ModuleGraphInterface {
 				});
 			}
 
-			const factoryDependency = this.plugins.reduce<Edge>(
-				(dep, plugin) => {
-					return plugin?.onAddUseFactoryDependency?.(dep) || dep;
+			const factoryDependency: Edge = {
+				type: EdgeTypeEnum.DEPENDENCY,
+				source: token,
+				target: dependency,
+				metadata: {
+					unreached: !isExported,
+					isCircular: false,
+					index: index++,
+					inject: "constructor",
 				},
-				{
-					type: EdgeTypeEnum.DEPENDENCY,
-					source: token,
-					target: dependency,
-					metadata: {
-						unreached: !isExported,
-						isCircular: false,
-						index: index++,
-						inject: "constructor",
-					},
-				},
-			);
+			};
 
 			this.addEdge(token, factoryDependency);
 		}
@@ -491,46 +433,6 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 			visitedModules.add(currentExportToken);
 		}
-
-		// for (const containerImport of containerImports) {
-		// 	if (
-		// 		containerImport.exports.some((exportToken) => {
-		// 			if (Reflect.hasMetadata(MODULE_METADATA, exportToken)) {
-		// 				exportToken.exports;
-		// 			}
-		//
-		// 			return exportToken === dependencyToken;
-		// 		})
-		// 	) {
-		// 		return true;
-		// 	}
-		// }
-
-		// const visitedModules = new Set<ModuleContainerInterface>();
-		// const queue = [moduleContainer];
-		//
-		// while (queue.length) {
-		// 	const currentModule = queue.shift();
-		//
-		// 	if (!currentModule) {
-		// 		continue;
-		// 	}
-		//
-		// 	if (visitedModules.has(currentModule)) {
-		// 		continue;
-		// 	}
-		//
-		// 	visitedModules.add(currentModule);
-		//
-		// 	if (
-		// 		currentModule.exports.some((provider) => provider === dependencyToken)
-		// 	) {
-		// 		return true;
-		// 	}
-		//
-		// 	queue.push(...(await currentModule.imports));
-		// }
-		// externals
 
 		return false;
 	}

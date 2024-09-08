@@ -4,7 +4,6 @@ import { ContainerNotCompiledError } from "nexus-ioc/dist/errors/container-not-c
 import type { GraphError } from "nexus-ioc/dist/interfaces";
 import type {
 	DynamicModule,
-	GraphPluginInterface,
 	InjectionToken,
 	Module,
 	ModuleContainerInterface,
@@ -19,7 +18,6 @@ import { TestingCreator } from "./testing-creator";
 export class Test<T extends ModuleMetadata = ModuleMetadata>
 	implements ModuleTestingContainerInterface<T>
 {
-	private readonly graphPlugins: GraphPluginInterface[] = [];
 	private readonly scannerPlugins: ScannerPluginInterface[] = [];
 	private readonly hashTestingUtil = new HashTestingUtil();
 	private readonly container = new Container(this.hashTestingUtil);
@@ -72,10 +70,7 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 		);
 		this._moduleContainer = await this.container.addModule(this._module);
 
-		await this.container.run(
-			this._moduleContainer.metatype as Module,
-			this.graphPlugins,
-		);
+		await this.container.run(this._moduleContainer.metatype as Module);
 
 		this.containerCompiled = true;
 
@@ -115,14 +110,6 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 	): this {
 		const plugins = Array.isArray(scanner) ? scanner : [scanner];
 		this.scannerPlugins.push(...plugins);
-		return this;
-	}
-
-	public addGraphPlugin(
-		plugin: GraphPluginInterface | GraphPluginInterface[],
-	): this {
-		const plugins = Array.isArray(plugin) ? plugin : [plugin];
-		this.graphPlugins.push(...plugins);
 		return this;
 	}
 

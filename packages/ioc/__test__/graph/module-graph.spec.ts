@@ -444,7 +444,7 @@ describe("ModuleGraph", () => {
 							index: 0,
 							inject: "constructor",
 							isCircular: false,
-							unreached: false,
+							unreached: true,
 						},
 					},
 					{
@@ -455,7 +455,7 @@ describe("ModuleGraph", () => {
 							index: 1,
 							inject: "constructor",
 							isCircular: false,
-							unreached: false,
+							unreached: true,
 						},
 					},
 				]);
