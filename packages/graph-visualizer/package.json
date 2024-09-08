@@ -45,8 +45,8 @@
 		"@types/node": "^22.5.4"
 	},
 	"scripts": {
-		"build": "tsc",
-		"clean": "rm -rf ./dist",
+		"build": "npm run clean && tsc",
+		"clean": "rm -rf ./dist && rm tsconfig.tsbuildinfo",
 		"test": "",
 		"test:watch": "jest --watch",
 		"code:format": "npx @biomejs/biome format --write",

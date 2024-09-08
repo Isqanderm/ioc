@@ -33,14 +33,17 @@
     "jest": "^29.7.0",
     "reflect-metadata": "^0.1.12 || ^0.2.0",
     "sinon": "^18.0.0",
+    "typescript": "^5.5.3",
     "ts-jest": "^29.1.4",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "@types/node": "^22.5.4"
   },
   "dependencies": {
-    "nexus-ioc": "^0.2.0"
+    "nexus-ioc": "^0.2.0",
+    "tslib": "^2.7.0"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "npm run clean && tsc",
     "test": "echo 0",
     "clean": "rm -rf ./dist && rm tsconfig.tsbuildinfo",
     "test:watch": "jest --watch",
