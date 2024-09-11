@@ -1,17 +1,15 @@
+import {
+	type DynamicModule,
+	type GraphError,
+	type InjectionToken,
+	type Module,
+	type ModuleContainerInterface,
+	NsModule as ModuleDecorator,
+	type ModuleMetadata,
+	type ScannerPluginInterface,
+} from "nexus-ioc";
 import { Container } from "nexus-ioc/dist/core/modules/container";
-import { NsModule as ModuleDecorator } from "nexus-ioc/dist/decorators/NsModule";
 import { ContainerNotCompiledError } from "nexus-ioc/dist/errors/container-not-compiled.error";
-import type { GraphError } from "nexus-ioc/dist/interfaces";
-import type {
-	DynamicModule,
-	GraphPluginInterface,
-	InjectionToken,
-	Module,
-	ModuleContainerInterface,
-	ModuleGraphInterface,
-	ModuleMetadata,
-	ScannerPluginInterface,
-} from "nexus-ioc/dist/interfaces";
 import type { ModuleTestingContainerInterface } from "../interfaces";
 import { HashTestingUtil } from "./hash-testing-util";
 import { TestingCreator } from "./testing-creator";
@@ -19,7 +17,6 @@ import { TestingCreator } from "./testing-creator";
 export class Test<T extends ModuleMetadata = ModuleMetadata>
 	implements ModuleTestingContainerInterface<T>
 {
-	private readonly graphPlugins: GraphPluginInterface[] = [];
 	private readonly scannerPlugins: ScannerPluginInterface[] = [];
 	private readonly hashTestingUtil = new HashTestingUtil();
 	private readonly container = new Container(this.hashTestingUtil);
@@ -72,10 +69,7 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 		);
 		this._moduleContainer = await this.container.addModule(this._module);
 
-		await this.container.run(
-			this._moduleContainer.metatype as Module,
-			this.graphPlugins,
-		);
+		await this.container.run(this._moduleContainer.metatype as Module);
 
 		this.containerCompiled = true;
 
@@ -102,27 +96,11 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 		return this._moduleContainer;
 	}
 
-	public get graph(): ModuleGraphInterface {
-		if (!this.containerCompiled) {
-			throw new ContainerNotCompiledError();
-		}
-
-		return this.container.graph;
-	}
-
-	public addScannerPlugin(
+	addScannerPlugin(
 		scanner: ScannerPluginInterface | ScannerPluginInterface[],
 	): this {
 		const plugins = Array.isArray(scanner) ? scanner : [scanner];
 		this.scannerPlugins.push(...plugins);
-		return this;
-	}
-
-	public addGraphPlugin(
-		plugin: GraphPluginInterface | GraphPluginInterface[],
-	): this {
-		const plugins = Array.isArray(plugin) ? plugin : [plugin];
-		this.graphPlugins.push(...plugins);
 		return this;
 	}
 

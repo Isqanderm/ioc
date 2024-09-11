@@ -35,8 +35,10 @@ jobs:
       - name: Run lint
         run: npm run code:check:ci
 
-      - name: Compile IoC
-        run: npm run build:ioc
+      - name: Compile IoC & Testing
+        run: |
+          npm run build:ioc
+          npm run build:testing
 
       - name: Run tests
         run: |

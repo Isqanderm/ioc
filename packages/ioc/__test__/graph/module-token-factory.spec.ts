@@ -1,7 +1,7 @@
 import "reflect-metadata";
-import { ModuleTokenFactory } from "../src/core/modules/module-token-factory";
-import { NsModule } from "../src/decorators/NsModule";
-import { hashUtilsMock } from "./hashUtils.mock";
+import { ModuleTokenFactory } from "../../src/core/modules/module-token-factory";
+import { NsModule } from "../../src/decorators/NsModule";
+import { hashUtilsMock } from "../hashUtils.mock";
 
 describe("ModuleTokenFactory", () => {
 	let factory: ModuleTokenFactory;

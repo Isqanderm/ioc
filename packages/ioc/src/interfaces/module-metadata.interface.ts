@@ -4,6 +4,6 @@ import type { Module, Provider } from "./module-types.interface";
 
 export interface ModuleMetadata {
 	imports?: (Module | DynamicModule)[];
-	exports?: InjectionToken[];
+	exports?: (InjectionToken | Module)[];
 	providers?: Provider[];
 }
