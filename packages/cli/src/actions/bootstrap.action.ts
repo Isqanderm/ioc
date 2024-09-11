@@ -65,7 +65,7 @@ export class BootstrapAction extends AbstractAction {
 
 	private async installDeps(params: { installReact: boolean }) {
 		const devDeps = ["nexus-ioc-graph-visualizer", "nexus-ioc-testing"];
-		const deps = ["nexus-ico"];
+		const deps = ["nexus-ioc"];
 
 		if (params.installReact) {
 			deps.push("nexus-ioc-react-adapter");
