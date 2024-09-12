@@ -187,7 +187,7 @@ export class GraphScannerVisualizer implements ScannerPluginInterface {
 	}
 
 	protected createEdge(edge: Edge): string {
-		return `  ${edge.from} -> ${edge.to} [color="${edge.color}" label="${edge.label}" arrowhead=normal];\n`;
+		return `  "${edge.from}" -> "${edge.to}" [color="${edge.color}" label="${edge.label}" arrowhead=normal];\n`;
 	}
 
 	protected createLegend(): string {
