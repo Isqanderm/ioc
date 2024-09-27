@@ -77,15 +77,25 @@ export function getModuleLabel(module: Module | DynamicModule): string {
 }
 
 export function getProviderScope(target: Provider): Scope {
-	if (isClassProvider(target) || isFactoryProvider(target)) {
+	if (isFactoryProvider(target)) {
 		return target.scope || Scope.Singleton;
+	}
+
+	if (isClassProvider(target)) {
+		return (
+			Reflect.getMetadata(INJECTABLE_OPTIONS, target.useClass)?.scope ||
+			target.scope ||
+			Scope.Singleton
+		);
 	}
 
 	if (isValueProvider(target)) {
 		return Scope.Singleton;
 	}
 
-	return Reflect.getMetadata(INJECTABLE_OPTIONS, target) || Scope.Singleton;
+	return (
+		Reflect.getMetadata(INJECTABLE_OPTIONS, target)?.scope || Scope.Singleton
+	);
 }
 
 export function getProviderName(target: Provider): string {
