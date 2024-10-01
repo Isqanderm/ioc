@@ -12,7 +12,17 @@ import {
 	isFactoryProvider,
 	isValueProvider,
 } from "../../utils/helpers";
+import type { AnalyzeProvider } from "../graph/analyze-provider";
 import { ProvidersContainer } from "./providers-container";
+
+// Type & { dependencyName: InjectionToken }
+type CircularDependencyFn = () => typeof Proxy;
+function isCircularDependencyFn(
+	fn: CircularDependencyFn | InjectionToken,
+): fn is CircularDependencyFn {
+	// @ts-expect-error
+	return !!(typeof fn === "function" && fn.dependencyName);
+}
 
 export class Resolver {
 	private readonly providersContainer = new ProvidersContainer();
@@ -21,8 +31,15 @@ export class Resolver {
 
 	public async resolveProvider<T>(
 		token: InjectionToken,
-		injectProperty = true,
+		resolveCache: ProvidersContainer = new ProvidersContainer(),
+		isCircularDependency = false,
 	): Promise<T | undefined> {
+		// console.log(
+		// 	"resolveProvider",
+		// 	token,
+		// 	this.providersContainer.has(token),
+		// 	this.providersContainer,
+		// );
 		if (this.providersContainer.has(token)) {
 			return this.providersContainer.get(token);
 		}
@@ -33,13 +50,26 @@ export class Resolver {
 			throw new Error(`Provider not found: ${token.toString()}`);
 		}
 
+		if (resolveCache.has(token)) {
+			return resolveCache.get(token);
+		}
+
 		const [instance, saveInCache] = await this.createInstance(
 			node,
-			injectProperty,
+			resolveCache,
+			isCircularDependency,
 		);
+		// console.log(
+		// 	"this.createInstance: ",
+		// 	token,
+		// 	this.providersContainer.get(token),
+		// );
+
+		resolveCache.set(token, instance);
 
 		if (saveInCache) {
 			this.providersContainer.set(token, instance);
+			// 	console.log("saveInCache: ", token, this.providersContainer);
 		}
 
 		return instance as T;
@@ -47,8 +77,10 @@ export class Resolver {
 
 	private async createInstance(
 		node: Node,
-		injectProperty: boolean,
+		resolveCache: ProvidersContainer,
+		isCircularDependency = false,
 	): Promise<[Type, boolean]> {
+		// console.log("createInstance: ", node.label);
 		const provider = node.metatype as Provider;
 		const dependencies = this.graph
 			.getEdge(node.id)
@@ -56,41 +88,114 @@ export class Resolver {
 				(edge) =>
 					edge.type === EdgeTypeEnum.DEPENDENCY &&
 					edge.metadata.inject === "constructor" &&
-					edge.metadata.unreached === false &&
-					edge.metadata.isCircular === false,
+					edge.metadata.unreached === false,
 			)
-			.map((edge) => edge.target);
+			.map<InjectionToken | CircularDependencyFn>((edge) => {
+				if (edge.metadata.isCircular) {
+					const circularResolver = () =>
+						new Proxy(
+							{},
+							{
+								get: (_, prop) => {
+									const instance = resolveCache.get(edge.target);
 
-		const resolvedDependencies = await Promise.all(
-			dependencies.map((depToken) => {
-				return this.resolveProvider(depToken);
-			}),
+									return instance?.[prop];
+								},
+							},
+						);
+
+					circularResolver.dependencyName = edge.target;
+
+					return circularResolver;
+				}
+
+				return edge.target;
+			});
+
+		const depsChunks = dependencies.reduce<
+			[(CircularDependencyFn | null)[], (InjectionToken | null)[]]
+		>(
+			(prev, depToken) => {
+				if (isCircularDependencyFn(depToken)) {
+					prev[0].push(depToken as CircularDependencyFn);
+					prev[1].push(null);
+
+					return prev;
+				}
+
+				prev[0].push(null);
+				prev[1].push(depToken);
+
+				return prev;
+			},
+			[[], []],
 		);
+
+		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+		let resolvedDependencies: any[] = [];
+
+		for (const depToken of dependencies) {
+			if (isCircularDependencyFn(depToken)) {
+				// @ts-ignore
+				if (isCircularDependency) {
+					resolvedDependencies.push(depToken);
+					continue;
+				}
+
+				const instance = await this.resolveProvider(
+					// @ts-ignore
+					depToken.dependencyName,
+					resolveCache,
+					true,
+				);
+
+				resolvedDependencies.push(instance);
+				continue;
+			}
+
+			const instance = await this.resolveProvider(depToken, resolveCache);
+
+			this.providersContainer.set(depToken, instance);
+
+			resolvedDependencies.push(instance);
+		}
+
+		// console.log("resolvedDependencies: ", resolvedDependencies);
+
+		resolvedDependencies = resolvedDependencies.map<
+			InjectionToken | CircularDependencyFn
+		>((dependency, index) => {
+			if (depsChunks[0]?.[index]) {
+				return depsChunks[0]?.[index] as CircularDependencyFn;
+			}
+
+			return dependency as InjectionToken;
+		});
 
 		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 		let instance: any;
 		let saveInCache = true;
 
+		const deps = resolvedDependencies.map((depToken) =>
+			isCircularDependencyFn(depToken) ? depToken() : depToken,
+		);
+
 		if (isClassProvider(provider)) {
-			instance = new provider.useClass(...resolvedDependencies);
+			instance = new provider.useClass(...deps);
 
-			if (injectProperty) {
-				await this.injectPropertyDependencies(instance, node);
-			}
+			// await this.injectPropertyDependencies(instance, node, resolveCache);
 
-			if (provider.scope === Scope.Request) {
+			if ((node as AnalyzeProvider).scope === Scope.Request) {
 				saveInCache = false;
 			}
 		} else if (isValueProvider(provider)) {
 			instance = provider.useValue;
 		} else if (isFactoryProvider(provider)) {
-			instance = await provider.useFactory(...resolvedDependencies);
+			instance = await provider.useFactory(...deps);
 		} else {
-			instance = new (provider as Type)(...resolvedDependencies);
+			instance = new (provider as Type)(...deps);
 
-			if (injectProperty) {
-				await this.injectPropertyDependencies(instance, node);
-			}
+			// await this.injectPropertyDependencies(instance, node, resolveCache);
 		}
 
 		instance?.onModuleInit?.();
@@ -98,7 +203,11 @@ export class Resolver {
 		return [instance, saveInCache];
 	}
 
-	private async injectPropertyDependencies(instance: Type, node: Node) {
+	private async injectPropertyDependencies(
+		instance: Type,
+		node: Node,
+		resolveCache: ProvidersContainer,
+	) {
 		const dependencies = this.graph
 			.getEdge(node.id)
 			.filter(
@@ -112,6 +221,7 @@ export class Resolver {
 		for (const edge of dependencies) {
 			instance[edge.metadata.key as string] = await this.resolveProvider(
 				edge.target,
+				resolveCache,
 			);
 		}
 	}

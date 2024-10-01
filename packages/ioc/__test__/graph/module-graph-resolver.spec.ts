@@ -1,5 +1,6 @@
 import "reflect-metadata";
-import type { DynamicModule } from "../../src";
+import { Test } from "nexus-ioc-testing";
+import { DynamicModule, Scope } from "../../src";
 import { ModuleGraph } from "../../src/core/graph/module-graph";
 import { ModuleContainerFactory } from "../../src/core/modules/module-container-factory";
 import { ModuleTokenFactory } from "../../src/core/modules/module-token-factory";
@@ -247,108 +248,125 @@ describe("GraphResolver", () => {
 
 	describe("Circular Dependency", () => {
 		it("should detect circular dependency in one module", async () => {
-			// biome-ignore lint/suspicious/noEmptyInterface: <explanation>
-			interface IServiceA {}
-			// biome-ignore lint/suspicious/noEmptyInterface: <explanation>
-			interface IServiceB {}
+			interface IServiceA {
+				secret: string;
+				serviceB: IServiceB;
+			}
+			interface IServiceB {
+				secret: string;
+				serviceA: IServiceA;
+			}
 
-			@Injectable()
+			@Injectable({ scope: Scope.Request })
 			class ServiceA implements IServiceA {
-				constructor(@Inject("ServiceB") public readonly serviceB: IServiceB) {}
+				constructor(
+					@Inject("secret") public readonly secret: string,
+					@Inject("ServiceB") public readonly serviceB: IServiceB,
+				) {}
 			}
 
-			@Injectable()
+			@Injectable({ scope: Scope.Request })
 			class ServiceB implements IServiceB {
-				constructor(@Inject("ServiceA") public readonly serviceA: IServiceA) {}
+				constructor(
+					@Inject("secret") public readonly secret: string,
+					@Inject("ServiceA") public readonly serviceA: IServiceA,
+				) {}
 			}
 
-			@NsModule({
+			const container = await Test.createModule({
 				providers: [
-					{ provide: "ServiceA", useClass: ServiceA },
-					{ provide: "ServiceB", useClass: ServiceB },
+					{
+						provide: "secret",
+						useValue: "bar",
+					},
+					{
+						provide: "ServiceA",
+						useClass: ServiceA,
+					},
+					{
+						provide: "ServiceB",
+						useClass: ServiceB,
+					},
 				],
-			})
-			class TestModule {}
+			}).compile();
 
-			const moduleContainer = await moduleContainerFactory.create(
-				TestModule,
-				container,
-			);
-			const graph = new ModuleGraph(moduleContainer);
-			await graph.compile();
+			const instanceA = await container.get<ServiceA>("ServiceA");
+			const instanceB = await container.get<ServiceB>("ServiceB");
 
-			const resolver = new Resolver(graph);
-
-			const serviceA = await resolver.resolveProvider<ServiceA>("ServiceA");
-			const serviceB = await resolver.resolveProvider<ServiceB>("ServiceB");
-
-			expect(serviceA?.serviceB).toBe(undefined);
-			expect(serviceB?.serviceA).toBe(undefined);
+			expect(instanceA?.serviceB.secret).toEqual("bar");
+			expect(instanceB?.serviceA.secret).toEqual("bar");
 		});
 
 		it("should detect circular dependency in parallel module", async () => {
-			// biome-ignore lint/suspicious/noEmptyInterface: <explanation>
-			interface IServiceA {}
-			// biome-ignore lint/suspicious/noEmptyInterface: <explanation>
-			interface IServiceB {}
+			interface IServiceA {
+				secret: string;
+				serviceB: IServiceB;
+			}
+			interface IServiceB {
+				secret: string;
+				serviceA: IServiceA;
+			}
 
 			@Injectable()
 			class ServiceA implements IServiceA {
-				constructor(@Inject("ServiceB") public readonly serviceB: IServiceB) {}
+				constructor(
+					@Inject("secret") public readonly secret: string,
+					@Inject("ServiceB") public readonly serviceB: IServiceB,
+				) {}
 			}
+
 			class ModuleA {}
 
 			@Injectable()
 			class ServiceB implements IServiceB {
-				constructor(@Inject("ServiceA") public readonly serviceA: IServiceA) {}
+				constructor(
+					@Inject("secret") public readonly secret: string,
+					@Inject("ServiceA") public readonly serviceA: IServiceA,
+				) {}
 			}
+
 			class ModuleB {}
 
 			@NsModule({
-				imports: [ModuleA, ModuleB],
+				providers: [{ provide: "secret", useValue: "bar" }],
+				exports: ["secret"],
 			})
-			class TestModule {}
+			class ModuleFoo {}
 
 			NsModule({
-				imports: [ModuleB],
+				imports: [ModuleB, ModuleFoo],
 				providers: [{ provide: "ServiceA", useClass: ServiceA }],
 				exports: ["ServiceA"],
 			})(ModuleA);
 
 			NsModule({
-				imports: [ModuleA],
+				imports: [ModuleA, ModuleFoo],
 				providers: [{ provide: "ServiceB", useClass: ServiceB }],
 				exports: ["ServiceB"],
 			})(ModuleB);
 
-			const moduleContainer = await moduleContainerFactory.create(
-				TestModule,
-				container,
-			);
-			const graph = new ModuleGraph(moduleContainer);
-			await graph.compile();
+			const container = await Test.createModule({
+				imports: [ModuleA, ModuleB],
+				providers: [
+					{
+						provide: "foo",
+						useValue: "bar",
+					},
+				],
+			}).compile();
 
-			const resolver = new Resolver(graph);
+			const serviceA = await container.get<ServiceA>("ServiceA");
+			const serviceB = await container.get<ServiceB>("ServiceB");
 
-			const serviceA = await resolver.resolveProvider<ServiceA>("ServiceA");
-			const serviceB = await resolver.resolveProvider<ServiceB>("ServiceB");
-
-			for (const edges of graph.getAllEdges()) {
-				for (const edge of edges) {
-					if (edge.type === "dependency") {
-						expect(edge.metadata.isCircular).toBe(true);
-					}
-				}
-			}
-
-			expect(serviceA?.serviceB).toBe(undefined);
-			expect(serviceB?.serviceA).toBe(undefined);
+			expect(serviceA?.serviceB.secret).toBe("bar");
+			expect(serviceB?.serviceA.secret).toBe("bar");
 		});
 
 		it("should detect circular dependency in complex modules", async () => {
 			@Injectable()
 			class StandAloneService {
 				constructor(
+					@Inject("secret") public readonly secret: string,
 					@Inject("AppService")
 					public readonly appService: IAppService,
 				) {}
@@ -356,77 +374,36 @@ describe("GraphResolver", () => {
 
 			class CircleModule {}
 
-			class FirstModule {}
-			class SecondModule {}
-
-			NsModule({
-				imports: [SecondModule],
-			})(FirstModule);
-
-			NsModule({
-				imports: [FirstModule],
-			})(SecondModule);
-
-			@Injectable()
-			class HttpService {
-				@Inject("URL") private readonly url: string = "";
-				@Inject("ASYNC_FACTORY") private readonly factoryResult: string = "";
-			}
-
 			@NsModule({
-				imports: [FirstModule, SecondModule, CircleModule],
-				providers: [
-					HttpService,
-					{
-						provide: "URL",
-						useValue: "https://....",
-					},
-					{
-						provide: "ASYNC_FACTORY",
-						useFactory: () => {
-							return Promise.resolve("ASYNC_FACTORY");
-						},
-					},
-				],
+				imports: [CircleModule],
+				exports: [CircleModule, "secret"],
 			})
-			class TransportModule {}
+			class ProxyModule {}
 
-			// biome-ignore lint/suspicious/noEmptyInterface: <explanation>
-			interface IAppService {}
-			// biome-ignore lint/suspicious/noEmptyInterface: <explanation>
-			interface ISecondProvider {}
-
-			@Injectable()
-			class SecondProvider implements SecondProvider {
-				constructor(
-					@Inject("AppService")
-					private readonly appService: IAppService,
-				) {}
+			interface IAppService {
+				secret: string;
+				standAloneService: StandAloneService;
 			}
 
 			@Injectable()
 			class AppService implements IAppService {
 				constructor(
-					@Inject("SecondProvider")
-					private readonly secondProvider: ISecondProvider,
+					@Inject("secret") public readonly secret: string,
 					@Inject("StandAloneService")
 					public readonly standAloneService: StandAloneService,
 				) {}
 			}
 
 			@NsModule({
-				imports: [TransportModule],
+				imports: [ProxyModule],
 				providers: [
-					{
-						provide: "SecondProvider",
-						useClass: SecondProvider,
-					},
+					{ provide: "secret", useValue: "bar" },
 					{
 						provide: "AppService",
 						useClass: AppService,
 					},
 				],
-				exports: ["AppService"],
+				exports: ["AppService", "secret"],
 			})
 			class AppModule {}
 
@@ -441,42 +418,76 @@ describe("GraphResolver", () => {
 				exports: ["StandAloneService"],
 			})(CircleModule);
 
-			const moduleContainer = await moduleContainerFactory.create(
-				AppModule,
-				container,
-			);
-			const graph = new ModuleGraph(moduleContainer);
-			await graph.compile();
+			const container = await Test.createModule({
+				imports: [AppModule],
+			}).compile();
 
-			const resolver = new Resolver(graph);
+			const appService = await container.get<AppService>("AppService");
 
-			const appService =
-				await resolver.resolveProvider<AppService>("AppService");
-			const standAloneService =
-				await resolver.resolveProvider<StandAloneService>("StandAloneService");
+			expect(appService?.standAloneService.secret).toBe("bar");
+			expect(appService?.standAloneService.appService.secret).toBe("bar");
+		});
 
-			for (const allEdge of graph.getAllEdges()) {
-				for (const edge of allEdge) {
-					if (
-						edge.type === "dependency" &&
-						edge.source === "AppService" &&
-						edge.target === "StandAloneService"
-					) {
-						expect(edge.metadata.isCircular).toBe(true);
-					}
-
-					if (
-						edge.type === "dependency" &&
-						edge.source === "StandAloneService" &&
-						edge.target === "AppService"
-					) {
-						expect(edge.metadata.isCircular).toBe(true);
-					}
-				}
+		it("should resolve cycle dependency with third Singleton dependency", async () => {
+			interface IServiceA {
+				secret: string;
+				serviceB: IServiceB;
+				serviceC: ServiceC;
+			}
+			interface IServiceB {
+				secret: string;
+				serviceA: IServiceA;
+				serviceC: ServiceC;
 			}
 
-			expect(appService?.standAloneService).toBe(undefined);
-			expect(standAloneService?.appService).toBe(undefined);
+			@Injectable()
+			class ServiceC {}
+
+			@Injectable({ scope: Scope.Request })
+			class ServiceA implements IServiceA {
+				constructor(
+					@Inject("secret") public readonly secret: string,
+					@Inject(ServiceC) public readonly serviceC: ServiceC,
+					@Inject("ServiceB") public readonly serviceB: IServiceB,
+				) {}
+			}
+
+			@Injectable({ scope: Scope.Request })
+			class ServiceB implements IServiceB {
+				constructor(
+					@Inject("secret") public readonly secret: string,
+					@Inject(ServiceC) public readonly serviceC: ServiceC,
+					@Inject("ServiceA") public readonly serviceA: IServiceA,
+				) {}
+			}
+
+			const container = await Test.createModule({
+				providers: [
+					ServiceC,
+					{
+						provide: "secret",
+						useValue: "bar",
+					},
+					{
+						provide: "ServiceA",
+						useClass: ServiceA,
+					},
+					{
+						provide: "ServiceB",
+						useClass: ServiceB,
+					},
+				],
+			}).compile();
+
+			const instanceA = await container.get<ServiceA>("ServiceA");
+			const instanceB = await container.get<ServiceB>("ServiceB");
+			const instanceC = await container.get<ServiceC>(ServiceC);
+
+			expect(instanceA?.serviceC).toBeInstanceOf(ServiceC);
+			expect(instanceB?.serviceC).toBeInstanceOf(ServiceC);
+			expect(instanceA?.serviceC === instanceB?.serviceC).toEqual(true);
+			expect(instanceA?.serviceC === instanceC).toEqual(true);
+			expect(instanceB?.serviceC === instanceC).toEqual(true);
 		});
 	});
 });

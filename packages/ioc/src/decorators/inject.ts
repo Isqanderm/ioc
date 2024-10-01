@@ -5,9 +5,10 @@ import {
 	SELF_DECLARED_DEPS_METADATA,
 	type Type,
 } from "../interfaces";
+import type { forwardRef } from "./forwardRef";
 
 export function Inject(
-	token: Type | symbol | string,
+	token: Type | symbol | string | ReturnType<typeof forwardRef>,
 ): PropertyDecorator & ParameterDecorator {
 	return (
 		target: object,
