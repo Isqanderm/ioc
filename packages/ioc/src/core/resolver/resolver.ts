@@ -34,12 +34,6 @@ export class Resolver {
 		resolveCache: ProvidersContainer = new ProvidersContainer(),
 		isCircularDependency = false,
 	): Promise<T | undefined> {
-		// console.log(
-		// 	"resolveProvider",
-		// 	token,
-		// 	this.providersContainer.has(token),
-		// 	this.providersContainer,
-		// );
 		if (this.providersContainer.has(token)) {
 			return this.providersContainer.get(token);
 		}
@@ -59,17 +53,11 @@ export class Resolver {
 			resolveCache,
 			isCircularDependency,
 		);
-		// console.log(
-		// 	"this.createInstance: ",
-		// 	token,
-		// 	this.providersContainer.get(token),
-		// );
 
 		resolveCache.set(token, instance);
 
 		if (saveInCache) {
 			this.providersContainer.set(token, instance);
-			// 	console.log("saveInCache: ", token, this.providersContainer);
 		}
 
 		return instance as T;
@@ -80,7 +68,6 @@ export class Resolver {
 		resolveCache: ProvidersContainer,
 		isCircularDependency = false,
 	): Promise<[Type, boolean]> {
-		// console.log("createInstance: ", node.label);
 		const provider = node.metatype as Provider;
 		const dependencies = this.graph
 			.getEdge(node.id)
@@ -160,8 +147,6 @@ export class Resolver {
 			resolvedDependencies.push(instance);
 		}
 
-		// console.log("resolvedDependencies: ", resolvedDependencies);
-
 		resolvedDependencies = resolvedDependencies.map<
 			InjectionToken | CircularDependencyFn
 		>((dependency, index) => {
@@ -183,7 +168,7 @@ export class Resolver {
 		if (isClassProvider(provider)) {
 			instance = new provider.useClass(...deps);
 
-			// await this.injectPropertyDependencies(instance, node, resolveCache);
+			await this.injectPropertyDependencies(instance, node, resolveCache);
 
 			if ((node as AnalyzeProvider).scope === Scope.Request) {
 				saveInCache = false;
@@ -195,7 +180,7 @@ export class Resolver {
 		} else {
 			instance = new (provider as Type)(...deps);
 
-			// await this.injectPropertyDependencies(instance, node, resolveCache);
+			await this.injectPropertyDependencies(instance, node, resolveCache);
 		}
 
 		instance?.onModuleInit?.();
