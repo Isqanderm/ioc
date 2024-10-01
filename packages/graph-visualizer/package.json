@@ -1,6 +1,6 @@
 {
 	"name": "nexus-ioc-graph-visualizer",
-	"version": "0.1.5",
+	"version": "0.1.6",
 	"description": "Graph visualizer for Nexus-IoC Container",
 	"author": "Isqanderm <aleksandr.melnik.personal@gmail.com> (https://www.linkedin.com/in/isqander-melnik)",
 	"homepage": "https://github.com/Isqanderm/ioc#readme",
@@ -29,13 +29,13 @@
 	"type": "commonjs",
 	"license": "MIT",
 	"peerDependencies": {
-		"nexus-ioc": "^0.2.0",
+		"nexus-ioc": "^0.3.0",
 		"reflect-metadata": "^0.1.12 || ^0.2.0"
 	},
 	"devDependencies": {
 		"@types/jest": "^29.5.12",
 		"jest": "^29.7.0",
-		"nexus-ioc": "^0.2.0",
+		"nexus-ioc": "^0.3.0",
 		"reflect-metadata": "^0.2.2",
 		"sinon": "^18.0.0",
 		"ts-jest": "^29.1.4",
