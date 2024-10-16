@@ -23,28 +23,14 @@ export class ModuleTokenFactory implements ModuleTokenFactoryInterface {
 			return moduleToken;
 		}
 
-		const moduleId = this.getModuleId(metatype);
-
 		const token = await this.getStaticModuleToken(
-			moduleId,
+			this.getMetatypeId(metatype),
 			this.getModuleName(metatype),
 		);
 
 		this.moduleTokens.set(metatype, token);
 
 		return token;
-	}
-
-	private getModuleId(metatype: Module | DynamicModule): string {
-		let moduleId = this.moduleIdsCache.get(metatype);
-
-		if (moduleId) {
-			return moduleId;
-		}
-
-		moduleId = this.hashUtils.randomStringGenerator();
-		this.moduleIdsCache.set(metatype, moduleId);
-		return moduleId;
 	}
 
 	private async getStaticModuleToken(
@@ -59,6 +45,19 @@ export class ModuleTokenFactory implements ModuleTokenFactoryInterface {
 		const hash = await this.hashUtils.hashString(key);
 		this.moduleTokenCache.set(key, hash);
 		return hash;
+	}
+
+	private getMetatypeId(metatype: Module | DynamicModule): string {
+		let metatypeId = this.moduleIdsCache.get(metatype);
+
+		if (metatypeId) {
+			return metatypeId;
+		}
+
+		metatypeId = `${this.hashUtils.incrementString()}_${metatype.toString()}`;
+
+		this.moduleIdsCache.set(metatype, metatypeId);
+		return metatypeId;
 	}
 
 	private getModuleName(metatype: Module | DynamicModule): string {
