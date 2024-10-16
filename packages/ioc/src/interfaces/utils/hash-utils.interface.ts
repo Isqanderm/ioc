@@ -3,5 +3,5 @@ export interface HashUtilInterface {
 
 	hashObject(value: object): Promise<string>;
 
-	randomStringGenerator(): string;
+	incrementString(): string;
 }

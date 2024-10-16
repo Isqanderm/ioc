@@ -1,7 +1,8 @@
 import type { HashUtilInterface } from "../interfaces";
-import { randomStringGenerator } from "./random-string-generator.util";
 
 export class HashUtilBrowser implements HashUtilInterface {
+	private increment = 0;
+
 	async hashString(value: string): Promise<string> {
 		const encoder = new TextEncoder();
 		const data = encoder.encode(value);
@@ -16,7 +17,7 @@ export class HashUtilBrowser implements HashUtilInterface {
 		return this.hashString(json);
 	}
 
-	randomStringGenerator(): string {
-		return randomStringGenerator();
+	incrementString(): string {
+		return `${this.increment++}`;
 	}
 }
