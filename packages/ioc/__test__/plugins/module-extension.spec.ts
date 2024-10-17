@@ -65,7 +65,7 @@ describe("Module extension", () => {
 			controllers: [AppController],
 		})
 			.setModuleDecorator(ModuleWithControllers)
-			// @ts-expect-error
+			// @ts-ignore
 			.addScannerPlugin(controllerScanner)
 			.compile();
 
