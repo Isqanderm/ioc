@@ -1,5 +1,5 @@
-![npm](https://img.shields.io/npm/v/nexus-ioc)
-![license](https://img.shields.io/npm/l/nexus-ioc)
+![npm](https://img.shields.io/npm/v/@nexus-ioc/core)
+![license](https://img.shields.io/npm/l/@nexus-ioc/cpre)
 ![build](https://img.shields.io/github/actions/workflow/status/Isqanderm/ioc/build.yml)
 
 Nexus IoC is a powerful and flexible Inversion of Control (IoC) container for TypeScript applications. Inspired by Angular and NestJS, it leverages decorators to provide a simple and efficient way to manage dependencies and modules.
@@ -26,7 +26,7 @@ Nexus IoC is a powerful and flexible Inversion of Control (IoC) container for Ty
 ## Installation
 
 ```bash
-npm install nexus-ioc reflect-metadata
+npm install @nexus-ioc/core reflect-metadata
 ```
 
 ## Quick Start
@@ -36,7 +36,7 @@ npm install nexus-ioc reflect-metadata
 Create a module and a provider using decorators.
 
 ```typescript
-import { NsModule, Injectable, Inject } from 'nexus-ioc';
+import { NsModule, Injectable, Inject } from '@nexus-ioc/core';
 
 @Injectable()
 class DependencyService {
@@ -67,7 +67,7 @@ export class AppModule {}
 Create and bootstrap your application.
 
 ```typescript
-import { NexusApplicationsBrowser } from 'nexus-ioc/dist/server';
+import { NexusApplicationsBrowser } from '@nexus-ioc/core/dist/server';
 import { AppModule, AppService } from './app.module';
 
 async function bootstrap() {
@@ -89,14 +89,14 @@ bootstrap();
 ### Installation
 
 ```bash
-npm install nexus-ioc-testing
+npm install @nexus-ioc/testing
 ```
 
 ### Usage 
 
 ```typescript
-import { Injectable } from 'nexus-ioc';
-import { Test } from 'nexus-ioc-testing';
+import { Injectable } from '@nexus-ioc/core';
+import { Test } from '@nexus-ioc/testing';
 
 describe('AppModule', () => {
   it('should create instance', async () => {

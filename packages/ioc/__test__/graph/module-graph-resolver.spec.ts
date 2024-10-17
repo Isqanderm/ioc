@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import { Test } from "nexus-ioc-testing";
+import { Test } from "@nexus-ioc/testing";
 import { DynamicModule, Scope } from "../../src";
 import { ModuleGraph } from "../../src/core/graph/module-graph";
 import { ModuleContainerFactory } from "../../src/core/modules/module-container-factory";

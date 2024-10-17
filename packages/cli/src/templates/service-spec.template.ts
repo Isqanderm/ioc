@@ -11,7 +11,7 @@ export class ServiceSpecTemplate {
 		const serviceName = `${this.params.name}Service`;
 		const variableServiceName = `${serviceNameLC}Service`;
 		return `
-      import { Test } from "nexus-ioc-testing";
+      import { Test } from "@nexus-ioc/testing";
       import { ${serviceName} } from "./${serviceNameLC}.service";
       
       describe('${serviceName}', () => {

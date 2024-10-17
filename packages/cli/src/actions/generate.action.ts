@@ -95,7 +95,7 @@ export class GenerateAction extends AbstractAction {
 			moduleTemplate.addProvider(moduleArgs.providers);
 
 			const sourceText = `
-				import { NsModule } from 'nexus-ioc';
+				import { NsModule } from '@nexus-ioc/core';
 				${moduleArgs.addImports.join("\n")}
 				
 				${moduleTemplate.generate()}
@@ -115,7 +115,7 @@ export class GenerateAction extends AbstractAction {
 			moduleTemplate.addProvider(moduleArgs.providers);
 
 			const sourceText = `
-				import { NsModule } from 'nexus-ioc';
+				import { NsModule } from '@nexus-ioc/core';
 				${moduleArgs.addImports.join("\n")}
 				
 				${moduleTemplate.generate()}

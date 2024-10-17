@@ -1,4 +1,4 @@
-import { Test } from "nexus-ioc-testing";
+import { Test } from "@nexus-ioc/testing";
 import { type DynamicModule, Inject, Injectable, NsModule } from "../../src";
 
 describe("Export Hierarchy", () => {

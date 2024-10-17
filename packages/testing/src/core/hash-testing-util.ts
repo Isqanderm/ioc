@@ -1,5 +1,5 @@
-import type { HashUtilInterface } from "nexus-ioc/dist/interfaces";
-import { randomStringGenerator } from "nexus-ioc/dist/utils/random-string-generator.util";
+import type { HashUtilInterface } from "@nexus-ioc/core/dist/interfaces";
+import { randomStringGenerator } from "@nexus-ioc/core/dist/utils/random-string-generator.util";
 
 export class HashTestingUtil implements HashUtilInterface {
 	async hashString(value: string): Promise<string> {

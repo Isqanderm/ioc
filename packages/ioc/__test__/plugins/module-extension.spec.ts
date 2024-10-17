@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import { Test } from "nexus-ioc-testing";
+import { Test } from "@nexus-ioc/testing";
 import {
 	Injectable,
 	type ModuleMetadata,

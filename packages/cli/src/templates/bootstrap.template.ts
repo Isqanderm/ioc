@@ -3,7 +3,7 @@ export class BootstrapTemplate {
 
 	public generate() {
 		return `
-      import { NexusApplicationsBrowser } from "nexus-ioc/dist/browser";
+      import { NexusApplicationsBrowser } from "@nexus-ioc/core/dist/browser";
       import { AppModule } from "./apps/app.module";
       
       async function bootstrap() {

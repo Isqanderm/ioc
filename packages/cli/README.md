@@ -79,7 +79,7 @@ or the shorthand form:
 nexus-cli i
 ```
 
-Installs `nexus-ioc` in your project.
+Installs `@nexus-ioc/core` in your project.
 
 #### Example
 

@@ -1,5 +1,5 @@
-![npm](https://img.shields.io/npm/v/nexus-ioc)
-![license](https://img.shields.io/npm/l/nexus-ioc)
+![npm](https://img.shields.io/npm/v/@nexus-ioc/testing)
+![license](https://img.shields.io/npm/l/@nexus-ioc/testing)
 ![build](https://img.shields.io/github/actions/workflow/status/Isqanderm/ioc/build.yml)
 
 Test library for Nexus IoC
@@ -17,14 +17,14 @@ Test library for Nexus IoC
 ## Installation
 
 ```bash
-npm install nexus-ioc-testing
+npm install @nexus-ioc/core @nexus-ioc/testing
 ```
 
 ## Quick Start
 
 ```typescript
-import { Injectable } from 'nexus-ioc';
-import { Test } from 'nexus-ioc-testing';
+import { Injectable } from '@nexus-ioc/core';
+import { Test } from '@nexus-ioc/testing';
 
 describe('AppModule', () => {
   it('should create instance', async () => {

@@ -51,7 +51,7 @@ export class BootstrapAction extends AbstractAction {
 		const moduleTemplate = new ModuleTemplate({ name: "App" });
 
 		const sourceText = `
-      import { NsModule } from 'nexus-ioc';
+      import { NsModule } from '@nexus-ioc/core';
       
       ${moduleTemplate.generate()}
     `;
@@ -64,8 +64,8 @@ export class BootstrapAction extends AbstractAction {
 	}
 
 	private async installDeps(params: { installReact: boolean }) {
-		const devDeps = ["nexus-ioc-graph-visualizer", "nexus-ioc-testing"];
-		const deps = ["nexus-ioc"];
+		const devDeps = ["nexus-ioc-graph-visualizer", "@nexus-ioc/testing"];
+		const deps = ["@nexus-ioc/core"];
 
 		if (params.installReact) {
 			deps.push("nexus-ioc-react-adapter");
