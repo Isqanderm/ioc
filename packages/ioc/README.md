@@ -4,6 +4,8 @@
 
 Nexus IoC is a powerful and flexible Inversion of Control (IoC) container for TypeScript applications. Inspired by Angular and NestJS, it leverages decorators to provide a simple and efficient way to manage dependencies and modules.
 
+# Project move to https://www.npmjs.com/package/@nexus-ioc/core
+
 ## Table of Contents
 
 - [Features](#features)

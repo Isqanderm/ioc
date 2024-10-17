@@ -1,6 +1,6 @@
 {
 	"name": "nexus-ioc",
-	"version": "0.3.1",
+	"version": "0.3.2",
 	"description": "A powerful IoC container for TypeScript applications",
 	"author": "Isqanderm <aleksandr.melnik.personal@gmail.com> (https://www.linkedin.com/in/isqander-melnik)",
 	"homepage": "https://github.com/Isqanderm/ioc#readme",
