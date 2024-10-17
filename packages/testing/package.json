@@ -1,6 +1,6 @@
 {
   "name": "nexus-ioc-testing",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "description": "Testing helpers for Nexus IoC library",
   "author": "IsqanderM <aleksandr.melnik.personal@gmail.com>",
   "homepage": "https://github.com/Isqanderm/ioc#readme",
