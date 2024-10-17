@@ -54,7 +54,7 @@ export class GraphScannerVisualizer implements ScannerPluginInterface {
 			moduleFontColor: "#ffffff", // White for module text
 			providerColor: "#1f77b4", // Bright blue for providers
 			providerFontColor: "#ffffff", // White for provider text
-			importColor: "#d62728", // Bright pink for imports
+			importColor: "#000", // Black for imports
 			dependencyColor: "#2ca02c", // Bright green for dependencies
 			circularColor: "#ff0000", // Bright red for circular dependencies
 			providerEdgeColor: "#9467bd", // Bright purple for provider edges
@@ -133,8 +133,8 @@ export class GraphScannerVisualizer implements ScannerPluginInterface {
 					const color = this.getEdgeColor(edge);
 
 					return {
-						to: targetNode.label,
 						from: sourceNode.label,
+						to: targetNode.label,
 						label: this.config.showLabel ? edge.type : "",
 						color,
 					};
@@ -187,7 +187,7 @@ export class GraphScannerVisualizer implements ScannerPluginInterface {
 	}
 
 	protected createEdge(edge: Edge): string {
-		return `  "${edge.from}" -> "${edge.to}" [color="${edge.color}" label="${edge.label}" arrowhead=normal];\n`;
+		return `  "${edge.to}" -> "${edge.from}" [color="${edge.color}" label="${edge.label}" arrowhead=normal];\n`;
 	}
 
 	protected createLegend(): string {
