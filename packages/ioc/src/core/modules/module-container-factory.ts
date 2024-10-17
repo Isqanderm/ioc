@@ -1,8 +1,5 @@
 import "reflect-metadata";
-import {
-	MODULE_TOKEN_WATERMARK,
-	type ModulesContainerInterface,
-} from "../../interfaces";
+import { MODULE_TOKEN_WATERMARK } from "../../interfaces";
 import type {
 	ContainerBaseInterface,
 	DynamicModule,

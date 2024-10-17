@@ -1,13 +1,13 @@
 import "reflect-metadata";
-import { Test } from "nexus-ioc-testing";
+import { Test } from "@nexus-ioc/testing";
 import { DynamicModule, Scope } from "../../src";
 import { ModuleGraph } from "../../src/core/graph/module-graph";
 import { ModuleContainerFactory } from "../../src/core/modules/module-container-factory";
 import { ModuleTokenFactory } from "../../src/core/modules/module-token-factory";
 import { Resolver } from "../../src/core/resolver/resolver";
-import { NsModule } from "../../src/decorators/NsModule";
 import { Inject } from "../../src/decorators/inject";
 import { Injectable } from "../../src/decorators/injectable";
+import { NsModule } from "../../src/decorators/nsModule";
 import type { ContainerInterface } from "../../src/interfaces/modules/container.interface";
 import type { ModuleContainerInterface } from "../../src/interfaces/modules/module-container.interface";
 import type { OnModuleInit } from "../../src/interfaces/on-module-init.interface";
@@ -247,7 +247,7 @@ describe("GraphResolver", () => {
 	});
 
 	describe("Circular Dependency", () => {
-		it("should detect circular dependency in one module", async () => {
+		it("should resolve circular dependency in one module", async () => {
 			interface IServiceA {
 				secret: string;
 				serviceB: IServiceB;
@@ -297,7 +297,7 @@ describe("GraphResolver", () => {
 			expect(instanceB?.serviceA.secret).toEqual("bar");
 		});
 
-		it("should detect circular dependency in parallel module", async () => {
+		it("should resolve circular dependency in parallel module", async () => {
 			interface IServiceA {
 				secret: string;
 				serviceB: IServiceB;
@@ -362,7 +362,7 @@ describe("GraphResolver", () => {
 			expect(serviceB?.serviceA.secret).toBe("bar");
 		});
 
-		it("should detect circular dependency in complex modules", async () => {
+		it("should resolve circular dependency in complex modules", async () => {
 			@Injectable()
 			class StandAloneService {
 				constructor(

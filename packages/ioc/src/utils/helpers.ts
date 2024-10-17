@@ -97,10 +97,3 @@ export function getProviderScope(target: Provider): Scope {
 		Reflect.getMetadata(INJECTABLE_OPTIONS, target)?.scope || Scope.Singleton
 	);
 }
-
-export function getProviderName(target: Provider): string {
-	const token = getProviderToken(target);
-
-	// @ts-ignore
-	return token.name || token;
-}

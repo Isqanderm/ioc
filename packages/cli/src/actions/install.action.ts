@@ -4,8 +4,8 @@ import { AbstractAction } from "./abstract.action";
 export class InstallAction extends AbstractAction {
 	async handler(): Promise<void> {
 		try {
-			// Запускаем команду npm install --save nexus-ioc
-			exec("npm install --save nexus-ioc", (error, stdout, stderr) => {
+			// Запускаем команду npm install --save @nexus-ioc/core
+			exec("npm install --save @nexus-ioc/core", (error, stdout, stderr) => {
 				if (error) {
 					console.error(`Install error: ${error.message}`);
 					return;

@@ -1,7 +1,7 @@
-import type { HashUtilInterface } from "nexus-ioc/dist/interfaces";
-import { randomStringGenerator } from "nexus-ioc/dist/utils/random-string-generator.util";
+import type { HashUtilInterface } from "@nexus-ioc/core/dist/interfaces";
 
 export class HashTestingUtil implements HashUtilInterface {
+	private increment = 1;
 	async hashString(value: string): Promise<string> {
 		let index = 0;
 		return new Array(64)
@@ -22,7 +22,7 @@ export class HashTestingUtil implements HashUtilInterface {
 		return "";
 	}
 
-	randomStringGenerator() {
-		return randomStringGenerator();
+	incrementString() {
+		return `${this.increment++}`;
 	}
 }

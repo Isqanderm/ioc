@@ -8,7 +8,7 @@ export class ServiceTemplate {
 
 	public generate() {
 		return `
-      import { Injectable } from "nexus-ioc";
+      import { Injectable } from "@nexus-ioc/core";
     
       @Injectable()
       export class ${this.params.name}Service {}
