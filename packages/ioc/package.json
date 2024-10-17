@@ -1,6 +1,6 @@
 {
 	"name": "@nexus-ioc/core",
-	"version": "0.4.1",
+	"version": "0.4.2",
 	"description": "A powerful IoC container for TypeScript applications",
 	"author": "Isqanderm <aleksandr.melnik.personal@gmail.com> (https://www.linkedin.com/in/isqander-melnik)",
 	"homepage": "https://github.com/Isqanderm/ioc#readme",
@@ -45,8 +45,7 @@
 		"@types/node": "^22.5.4"
 	},
 	"dependencies": {
-		"tslib": "^2.6.3",
-		"uid": "^2.0.2"
+		"tslib": "^2.6.3"
 	},
 	"scripts": {
 		"build": "tsc",
