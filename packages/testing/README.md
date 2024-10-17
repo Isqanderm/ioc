@@ -4,8 +4,6 @@
 
 Test library for Nexus IoC
 
-# Project move to https://www.npmjs.com/package/@nexus-ioc/testing
-
 ## Table of Contents
 
 - [Installation](#installation)

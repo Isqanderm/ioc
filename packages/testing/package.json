@@ -1,6 +1,6 @@
 {
-  "name": "nexus-ioc-testing",
-  "version": "0.3.2",
+  "name": "@nexus-ioc/testing",
+  "version": "0.4.0",
   "description": "Testing helpers for Nexus IoC library",
   "author": "IsqanderM <aleksandr.melnik.personal@gmail.com>",
   "homepage": "https://github.com/Isqanderm/ioc#readme",
@@ -27,7 +27,7 @@
   "license": "MIT",
   "peerDependencies": {
     "reflect-metadata": "^0.1.12 || ^0.2.0",
-    "nexus-ioc": "^0.3.0"
+    "@nexus-ioc/core": "^0.4.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.12",
