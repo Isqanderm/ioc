@@ -247,7 +247,7 @@ describe("GraphResolver", () => {
 	});
 
 	describe("Circular Dependency", () => {
-		it("should detect circular dependency in one module", async () => {
+		it("should resolve circular dependency in one module", async () => {
 			interface IServiceA {
 				secret: string;
 				serviceB: IServiceB;
@@ -297,7 +297,7 @@ describe("GraphResolver", () => {
 			expect(instanceB?.serviceA.secret).toEqual("bar");
 		});
 
-		it("should detect circular dependency in parallel module", async () => {
+		it("should resolve circular dependency in parallel module", async () => {
 			interface IServiceA {
 				secret: string;
 				serviceB: IServiceB;
@@ -362,7 +362,7 @@ describe("GraphResolver", () => {
 			expect(serviceB?.serviceA.secret).toBe("bar");
 		});
 
-		it("should detect circular dependency in complex modules", async () => {
+		it("should resolve circular dependency in complex modules", async () => {
 			@Injectable()
 			class StandAloneService {
 				constructor(
