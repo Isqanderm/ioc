@@ -8,11 +8,8 @@ import { isDynamicModule } from "../../utils/helpers";
 
 export class ModuleTokenFactory implements ModuleTokenFactoryInterface {
 	private readonly moduleTokenCache = new Map<string, string>();
-	private readonly moduleTokens = new WeakMap<Module | DynamicModule, string>();
-	private readonly moduleIdsCache = new WeakMap<
-		Module | DynamicModule,
-		string
-	>();
+	private readonly moduleTokens = new Map<Module | DynamicModule, string>();
+	private readonly moduleIdsCache = new Map<Module | DynamicModule, string>();
 
 	constructor(private readonly hashUtils: HashUtilInterface) {}
 
