@@ -7,9 +7,9 @@ import {
 	NsModule as ModuleDecorator,
 	type ModuleMetadata,
 	type ScannerPluginInterface,
-} from "@nexus-ioc/core";
-import { Container } from "@nexus-ioc/core/dist/core/modules/container";
-import { ContainerNotCompiledError } from "@nexus-ioc/core/dist/errors/container-not-compiled.error";
+} from "@nexus-ioc/core/dist/node";
+import { Container } from "@nexus-ioc/core/dist/node/core/modules/container";
+import { ContainerNotCompiledError } from "@nexus-ioc/core/dist/node/errors/container-not-compiled.error";
 import type { ModuleTestingContainerInterface } from "../interfaces";
 import { HashTestingUtil } from "./hash-testing-util";
 import { TestingCreator } from "./testing-creator";

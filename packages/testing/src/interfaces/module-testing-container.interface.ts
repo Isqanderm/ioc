@@ -3,7 +3,7 @@ import type {
 	ModuleContainerInterface,
 	ModuleMetadata,
 	ModulePluginInterface,
-} from "@nexus-ioc/core";
+} from "@nexus-ioc/core/dist/node";
 
 export interface ModuleTestingContainerInterface<T extends ModuleMetadata>
 	extends ContainerBaseInterface,

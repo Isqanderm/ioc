@@ -1,6 +1,6 @@
 import "reflect-metadata";
 import { Test } from "@nexus-ioc/testing";
-import { NsModule } from "../src/decorators/nsModule";
+import { NsModule } from "../src/decorators/ns-module";
 
 describe("ModuleContainer", () => {
 	class ServiceA {}

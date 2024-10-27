@@ -1,5 +1,5 @@
 ![npm](https://img.shields.io/npm/v/@nexus-ioc/core)
-![license](https://img.shields.io/npm/l/@nexus-ioc/cpre)
+![license](https://img.shields.io/npm/l/@nexus-ioc/core)
 ![build](https://img.shields.io/github/actions/workflow/status/Isqanderm/ioc/build.yml)
 
 Nexus IoC is a powerful and flexible Inversion of Control (IoC) container for TypeScript applications. Inspired by Angular and NestJS, it leverages decorators to provide a simple and efficient way to manage dependencies and modules.

@@ -26,9 +26,10 @@
 		"LICENSE",
 		"README.md"
 	],
-	"main": "./dist/index.js",
-	"module": "./dist/index.js",
-	"types": "./dist/index.d.ts",
+	"main": "./dist/node/server.js",
+	"browser": "./dist/browser/browser.js",
+	"module": "./dist/esm/index.js",
+	"types": "./dist/esm/index.d.ts",
 	"license": "MIT",
 	"peerDependencies": {
 		"reflect-metadata": "^0.1.12 || ^0.2.0"
@@ -48,7 +49,10 @@
 		"tslib": "^2.6.3"
 	},
 	"scripts": {
-		"build": "tsc",
+		"build:node": "tsc -p tsconfig.node.json",
+		"build:browser": "tsc -p tsconfig.browser.json",
+		"build:esm": "tsc -p tsconfig.esm.json",
+		"build": "npm run build:node && npm run build:browser && npm run build:esm",
 		"test": "jest",
 		"clean": "rm -rf ./dist && rm tsconfig.tsbuildinfo",
 		"test:watch": "jest --watch",

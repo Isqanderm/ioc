@@ -5,7 +5,7 @@ import { ModuleTokenFactory } from "../../src/core/modules/module-token-factory"
 import { Global } from "../../src/decorators/global";
 import { Inject } from "../../src/decorators/inject";
 import { Injectable } from "../../src/decorators/injectable";
-import { NsModule } from "../../src/decorators/nsModule";
+import { NsModule } from "../../src/decorators/ns-module";
 import type { DynamicModule } from "../../src/interfaces/dynamic-module.interface";
 import type { ContainerInterface } from "../../src/interfaces/modules/container.interface";
 import type { ModuleContainerInterface } from "../../src/interfaces/modules/module-container.interface";

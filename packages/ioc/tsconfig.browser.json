@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.build.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "target": "ES2015",
+    "moduleResolution": "node",
+    "downlevelIteration": true,
+    "outDir": "./dist/browser"
+  },
+  "exclude": ["src/server.ts"]
+}
