@@ -15,20 +15,23 @@ export type Token = string;
 
 export class ModulesContainer implements ModulesContainerInterface {
 	private readonly containers = new Map<Token, ModuleContainerInterface>();
-	private readonly moduleTokenFactory = new ModuleTokenFactory(this.hashUtils);
-	private readonly moduleContainerFactory = new ModuleContainerFactory(
-		this.moduleTokenFactory,
-	);
+	private readonly moduleTokenFactory: ModuleTokenFactory;
+	private readonly moduleContainerFactory: ModuleContainerFactory;
 
 	constructor(
 		private readonly hashUtils: HashUtilInterface,
 		private readonly container: ContainerInterface,
-	) {}
+	) {
+		this.moduleTokenFactory = new ModuleTokenFactory(this.hashUtils);
+		this.moduleContainerFactory = new ModuleContainerFactory(
+			this.moduleTokenFactory,
+		);
+	}
 
 	async addModule(
 		module: Module | DynamicModule,
 	): Promise<ModuleContainerInterface> {
-		const cacheModule = await this.getModule(module);
+		const cacheModule = this.getModule(module);
 
 		if (cacheModule) {
 			return cacheModule;
