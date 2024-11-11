@@ -13,6 +13,7 @@ describe("forRoot/forRootAsync", () => {
 			class GlobalModule {
 				static forRoot(): DynamicModule {
 					return {
+						global: true,
 						module: GlobalModule,
 						providers: [featureConfig],
 						exports: ["FEATURE_CONFIG"],
@@ -53,6 +54,7 @@ describe("forRoot/forRootAsync", () => {
 			class GlobalModule {
 				static forRoot(): DynamicModule {
 					return {
+						global: true,
 						module: GlobalModule,
 						imports: [],
 						providers: [

@@ -77,7 +77,7 @@ export class AnalyzeModule {
 		let isGlobal = isGlobalModule(this._metatype);
 
 		if (isDynamicModule(this._module.metatype)) {
-			if (this._module.metatype.module.forRoot) {
+			if (this._module.metatype.global) {
 				isGlobal = true;
 			}
 		}

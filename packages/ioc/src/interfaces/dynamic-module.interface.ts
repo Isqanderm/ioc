@@ -2,9 +2,12 @@ import type { InjectionToken } from "./injection-token.interface";
 import type { Module, Provider } from "./module-types.interface";
 
 export interface DynamicModule {
+	global?: true;
 	module: Module & {
-		forRoot?: () => DynamicModule;
-		forFeature?: () => DynamicModule;
+		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+		forRoot?: (...args: any[]) => DynamicModule;
+		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+		forFeature?: (...args: any[]) => DynamicModule;
 	};
 	providers?: Provider[];
 	exports?: InjectionToken[];
