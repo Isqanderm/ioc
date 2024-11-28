@@ -1,7 +1,7 @@
 import { Test } from "@nexus-ioc/testing";
 import { type DynamicModule, Injectable, NsModule } from "../src";
 
-describe("forFeature/forFeatureAsync", () => {
+describe("forFeature", () => {
 	describe("forFeature", () => {
 		it("should resolve a module with forFeature", async () => {
 			const featureConfig = {
@@ -31,10 +31,8 @@ describe("forFeature/forFeatureAsync", () => {
 
 			expect(config).toEqual({ feature: true });
 		});
-	});
 
-	describe("forFeatureAsync", () => {
-		it("should resolve a module with forFeatureAsync", async () => {
+		it("should resolve a module with async providers in forFeature", async () => {
 			@Injectable()
 			class ConfigService {
 				featureEnabled = true;
@@ -42,7 +40,7 @@ describe("forFeature/forFeatureAsync", () => {
 
 			@NsModule({})
 			class FeatureModule {
-				static forFeatureAsync(): DynamicModule {
+				static forFeature(): DynamicModule {
 					return {
 						module: FeatureModule,
 						imports: [],
@@ -61,7 +59,7 @@ describe("forFeature/forFeatureAsync", () => {
 			}
 
 			const container = await Test.createModule({
-				imports: [FeatureModule.forFeatureAsync()],
+				imports: [FeatureModule.forFeature()],
 			}).compile();
 
 			const config = await container.get<{ feature: true }>("FEATURE_FACTORY");

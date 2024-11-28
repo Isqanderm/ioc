@@ -1,4 +1,4 @@
-import type { ModuleMetadata, Type } from "@nexus-ioc/core";
+import type { ModuleMetadata, Type } from "@nexus-ioc/core/dist/node";
 
 export class TestingCreator<T extends ModuleMetadata> {
 	create(

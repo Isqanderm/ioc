@@ -3,7 +3,7 @@ import { type DynamicModule, Inject, Injectable, NsModule } from "../src";
 
 describe("forRoot/forRootAsync", () => {
 	describe("forRoot", () => {
-		it("should resolve a module with forFeature", async () => {
+		it("should resolve a module with forRoot", async () => {
 			const featureConfig = {
 				provide: "FEATURE_CONFIG",
 				useValue: { feature: true },
@@ -13,6 +13,7 @@ describe("forRoot/forRootAsync", () => {
 			class GlobalModule {
 				static forRoot(): DynamicModule {
 					return {
+						global: true,
 						module: GlobalModule,
 						providers: [featureConfig],
 						exports: ["FEATURE_CONFIG"],
@@ -42,10 +43,8 @@ describe("forRoot/forRootAsync", () => {
 
 			expect(appService?.config).toEqual({ feature: true });
 		});
-	});
 
-	describe("forRootAsync", () => {
-		it("should resolve a module with forFeatureAsync", async () => {
+		it("should resolve a module with async providers in forRoot", async () => {
 			@Injectable()
 			class ConfigService {
 				featureEnabled = true;
@@ -53,8 +52,9 @@ describe("forRoot/forRootAsync", () => {
 
 			@NsModule({})
 			class GlobalModule {
-				static forRootAsync(): DynamicModule {
+				static forRoot(): DynamicModule {
 					return {
+						global: true,
 						module: GlobalModule,
 						imports: [],
 						providers: [
@@ -86,7 +86,7 @@ describe("forRoot/forRootAsync", () => {
 			class AppModule {}
 
 			const container = await Test.createModule({
-				imports: [AppModule, GlobalModule.forRootAsync()],
+				imports: [AppModule, GlobalModule.forRoot()],
 			}).compile();
 
 			const appService = await container.get<AppService>(AppService);

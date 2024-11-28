@@ -1,12 +1,10 @@
 {
 	"compilerOptions": {
 		"target": "ES2021",
-		"module": "CommonJS",
 		"lib": ["ES2021", "dom"],
 		"sourceMap": true,
 		"experimentalDecorators": true,
 		"emitDecoratorMetadata": true,
-		"outDir": "./dist",
 		"rootDir": "./src",
 		"esModuleInterop": true,
 
@@ -23,5 +21,6 @@
 		"strict": true,
 		"strictNullChecks": true,
 		"types": ["node", "jest"]
-	}
+	},
+	"include": ["src/**/*"]
 }

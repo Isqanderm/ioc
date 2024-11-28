@@ -12,15 +12,14 @@ import { Resolver } from "../resolver/resolver";
 import { ModulesContainer } from "./modules-container";
 
 export class Container implements ContainerInterface {
-	private readonly modulesContainer = new ModulesContainer(
-		this.hashUtils,
-		this,
-	);
+	private readonly modulesContainer: ModulesContainer;
 
 	private _graph: ModuleGraphInterface | null = null;
 	private moduleGraphResolver: Resolver | null = null;
 
-	constructor(private readonly hashUtils: HashUtilInterface) {}
+	constructor(private readonly hashUtils: HashUtilInterface) {
+		this.modulesContainer = new ModulesContainer(this.hashUtils, this);
+	}
 
 	public async addModule(
 		module: Module | DynamicModule,

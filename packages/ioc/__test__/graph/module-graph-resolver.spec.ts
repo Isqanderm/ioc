@@ -1,13 +1,13 @@
 import "reflect-metadata";
 import { Test } from "@nexus-ioc/testing";
-import { DynamicModule, Scope } from "../../src";
+import { Scope } from "../../src";
 import { ModuleGraph } from "../../src/core/graph/module-graph";
 import { ModuleContainerFactory } from "../../src/core/modules/module-container-factory";
 import { ModuleTokenFactory } from "../../src/core/modules/module-token-factory";
 import { Resolver } from "../../src/core/resolver/resolver";
 import { Inject } from "../../src/decorators/inject";
 import { Injectable } from "../../src/decorators/injectable";
-import { NsModule } from "../../src/decorators/nsModule";
+import { NsModule } from "../../src/decorators/ns-module";
 import type { ContainerInterface } from "../../src/interfaces/modules/container.interface";
 import type { ModuleContainerInterface } from "../../src/interfaces/modules/module-container.interface";
 import type { OnModuleInit } from "../../src/interfaces/on-module-init.interface";

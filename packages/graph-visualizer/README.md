@@ -36,10 +36,8 @@ npm install nexus-ioc-graph-visualizer
 
 ```typescript
 import { GraphScannerVisualizer } from 'nexus-ioc-graph-visualizer';
-import { Module, NexusApplicationsServer } from 'nexus-ioc';
-
-@Module({})
-class AppModule {}
+import { Module, NexusApplicationsServer } from '@nexus-ioc/core';
+import { AppModule } from './apps';
 
 async function bootstrap() {
   await NexusApplicationsServer.create(AppModule)
