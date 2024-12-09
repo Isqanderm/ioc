@@ -1,0 +1,27 @@
+{
+	"compilerOptions": {
+		"target": "ES2021",
+		"module": "CommonJS",
+		"lib": ["ES2021", "dom"],
+		"sourceMap": true,
+		"experimentalDecorators": true,
+		"emitDecoratorMetadata": true,
+		"outDir": "./dist",
+		"rootDir": "./src",
+		"esModuleInterop": true,
+
+		"composite": true,
+		"declaration": true,
+		"noImplicitAny": false,
+		"skipLibCheck": true,
+		"noUnusedLocals": false,
+		"importHelpers": true,
+		"removeComments": false,
+		"noLib": false,
+		"useUnknownInCatchVariables": false,
+		"allowJs": false,
+		"strict": true,
+		"strictNullChecks": true,
+		"types": ["node", "jest"]
+	}
+}
