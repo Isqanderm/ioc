@@ -1,6 +1,6 @@
 {
 	"compilerOptions": {
-		"target": "ES2021",
+		"target": "ESNext",
 		"module": "CommonJS",
 		"lib": ["ES2021", "dom"],
 		"sourceMap": true,
@@ -8,6 +8,7 @@
 		"emitDecoratorMetadata": true,
 		"outDir": "./dist",
 		"rootDir": "./src",
+		"forceConsistentCasingInFileNames": true,
 		"esModuleInterop": true,
 
 		"composite": true,
