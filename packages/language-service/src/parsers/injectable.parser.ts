@@ -1,5 +1,5 @@
 import { type SourceFile, tsquery } from "@phenomnomnominal/tsquery";
-import type ts from "typescript/lib/tsserverlibrary";
+import type * as ts from "typescript/lib/tsserverlibrary";
 
 const selector = `ClassDeclaration:has(Decorator > CallExpression > Identifier[name="Injectable"])`;
 

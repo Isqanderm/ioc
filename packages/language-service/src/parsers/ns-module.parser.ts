@@ -1,5 +1,4 @@
 import { tsquery } from "@phenomnomnominal/tsquery";
-import { CallExpression } from "typescript";
 import * as ts from "typescript/lib/tsserverlibrary";
 import type { Logger } from "../logger";
 
@@ -230,7 +229,8 @@ export class NsModuleParser {
 					const type2 = typeChecker.getTypeAtLocation(type);
 					if (
 						typeChecker.isTypeAssignableTo(type1, type2) &&
-						typeChecker.isTypeAssignableTo(type2, type1)
+						typeChecker.isTypeAssignableTo(type2, type1) &&
+						child.getText() === provider.provide.getText()
 					) {
 						importType = "internal";
 					}
@@ -255,7 +255,12 @@ export class NsModuleParser {
 				let depType = "external";
 
 				for (const provider of providers) {
-					if (provider.provide?.getText() === type.text) {
+					if (
+						provider.provide
+							?.getText()
+							.replaceAll('"', "")
+							.replaceAll("'", "") === type.text
+					) {
 						depType = "internal";
 					}
 				}

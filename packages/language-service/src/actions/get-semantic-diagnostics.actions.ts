@@ -1,6 +1,6 @@
 import * as ts from "typescript/lib/tsserverlibrary";
 import { checkTypesHelper } from "../helpers/check-types.helper";
-import { compareStringTypes } from "../helpers/compare-string-types.helper";
+import { compareTypes } from "../helpers/compare-types.helper";
 import { findTypeReferences } from "../helpers/find-type-references.helper";
 import type { NsLanguageService } from "../language-service/ns-language-service";
 import { InjectParser } from "../parsers/inject.parser";
@@ -174,21 +174,11 @@ export const getSemanticDiagnosticsActions = (
 				}
 
 				if (dependencyDeclare?.provide && param.parameterType) {
-					let isEqual: boolean;
-					if (param.parameterType.kind === ts.SyntaxKind.StringKeyword) {
-						isEqual = compareStringTypes(
-							param.parameterType,
-							dependencyDeclare.declaration,
-							typeChecker,
-						);
-					} else {
-						isEqual = checkTypesHelper(
-							param.parameterType,
-							dependencyDeclare.declaration,
-							typeChecker,
-							tsNsLs.logger,
-						);
-					}
+					const isEqual = compareTypes(
+						param.parameterType,
+						dependencyDeclare.declaration,
+						typeChecker,
+					);
 
 					if (!isEqual) {
 						diagnostic.push({
