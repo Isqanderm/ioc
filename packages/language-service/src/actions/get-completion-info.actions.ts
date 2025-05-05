@@ -15,11 +15,7 @@ export const getCompletionInfoActions = (
 		return;
 	}
 
-	const entries = findTypeReferences(
-		classDeclaration,
-		tsNsLs.tsLS,
-		tsNsLs.logger,
-	)
+	const entries = findTypeReferences(classDeclaration, tsNsLs)
 		.map((item) => {
 			const sourceFile = tsNsLs.tsLS
 				.getProgram()
@@ -27,12 +23,10 @@ export const getCompletionInfoActions = (
 			return NsModulesParser.executeByClassDependency(
 				sourceFile,
 				classDeclaration,
-				tsNsLs.logger,
+				tsNsLs,
 			);
 		})
-		.flatMap((items) =>
-			NsModuleParser.execute(items, typeChecker, tsNsLs.logger),
-		)
+		.flatMap((items) => NsModuleParser.execute(items, typeChecker, tsNsLs))
 		.flatMap((module) => module.providers)
 		.map((provider, index): CompletionEntry | null => {
 			if (ts.isStringLiteral(provider.provide)) {

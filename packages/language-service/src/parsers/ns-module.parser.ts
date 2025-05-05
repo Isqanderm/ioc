@@ -1,6 +1,6 @@
 import { tsquery } from "@phenomnomnominal/tsquery";
 import * as ts from "typescript/lib/tsserverlibrary";
-import type { Logger } from "../logger";
+import type { NsLanguageService } from "../language-service/ns-language-service";
 
 export type ProviderType = {
 	provide: ts.Expression | ts.StringLiteral;
@@ -60,7 +60,7 @@ export class NsModuleParser {
 	public static execute(
 		modules: ts.ClassDeclaration[],
 		typeChecker: ts.TypeChecker,
-		logger: Logger,
+		tsNsLs: NsLanguageService,
 	): NsModuleDeclaration[] {
 		const result: NsModuleDeclaration[] = [];
 
@@ -75,7 +75,7 @@ export class NsModuleParser {
 			const end = module.getEnd();
 			const length = end - start;
 			const { providers, imports, exports } =
-				NsModuleParser.getNsModuleDecoratorValue(module, typeChecker, logger);
+				NsModuleParser.getNsModuleDecoratorValue(module, typeChecker, tsNsLs);
 			const sourceFile = module.getSourceFile();
 
 			result.push({
@@ -100,7 +100,7 @@ export class NsModuleParser {
 	private static getNsModuleDecoratorValue(
 		classDeclaration: ts.ClassDeclaration,
 		typeChecker: ts.TypeChecker,
-		logger: Logger,
+		tsNsLs: NsLanguageService,
 	) {
 		const [decoratorValue] =
 			tsquery.query<ts.ObjectLiteralExpression>(
@@ -121,13 +121,13 @@ export class NsModuleParser {
 		const providers = providersRaw?.initializer
 			? NsModuleParser.parseProviders(
 					providersRaw.initializer as ts.ArrayLiteralExpression,
-					logger,
+					tsNsLs,
 				)
 			: [];
 		const imports = importsRaw?.initializer
 			? NsModuleParser.parseImports(
 					importsRaw.initializer as ts.ArrayLiteralExpression,
-					logger,
+					tsNsLs,
 				)
 			: [];
 		const exports = exportsRaw?.initializer
@@ -135,7 +135,7 @@ export class NsModuleParser {
 					exportsRaw.initializer as ts.ArrayLiteralExpression,
 					providers,
 					typeChecker,
-					logger,
+					tsNsLs,
 				)
 			: [];
 
@@ -148,7 +148,7 @@ export class NsModuleParser {
 
 	private static parseImports(
 		imports: ts.ArrayLiteralExpression,
-		logger: Logger,
+		tsNsLs: NsLanguageService,
 	) {
 		const result: ImportType[] = [];
 
@@ -212,7 +212,7 @@ export class NsModuleParser {
 		exports: ts.ArrayLiteralExpression,
 		providers: ProviderType[],
 		typeChecker: ts.TypeChecker,
-		logger: Logger,
+		tsNsLs: NsLanguageService,
 	) {
 		const result: ExportType[] = [];
 
@@ -283,7 +283,7 @@ export class NsModuleParser {
 
 	private static parseProviders(
 		providers: ts.ArrayLiteralExpression,
-		logger: Logger,
+		tsNsLs: NsLanguageService,
 	) {
 		const result: ProviderType[] = [];
 
@@ -305,7 +305,7 @@ export class NsModuleParser {
 			}
 
 			if (ts.isObjectLiteralExpression(child)) {
-				const provider = NsModuleParser.parseUseProvider(child, logger);
+				const provider = NsModuleParser.parseUseProvider(child, tsNsLs);
 
 				if (provider) {
 					result.push(provider);
@@ -320,7 +320,7 @@ export class NsModuleParser {
 
 	private static parseUseProvider(
 		provider: ts.ObjectLiteralExpression,
-		logger: Logger,
+		tsNsLs: NsLanguageService,
 	): ProviderType | null {
 		const provideNameNode = findPropertyInObject(provider, "provide");
 		const provideUseClassNode = findPropertyInObject(provider, "useClass");

@@ -43,11 +43,7 @@ export const getSemanticDiagnosticsActions = (
 			`[NsLanguageServer][getSemanticDiagnostics][params] ${params.length}`,
 		);
 
-		const references = findTypeReferences(
-			injectableClass,
-			tsNsLs.tsLS,
-			tsNsLs.logger,
-		);
+		const references = findTypeReferences(injectableClass, tsNsLs);
 		const referenceModules: NsModuleDeclaration[] = [];
 
 		for (const reference of references) {
@@ -62,13 +58,9 @@ export const getSemanticDiagnosticsActions = (
 			const modules = NsModulesParser.executeByClassDependency(
 				sourceFileReference,
 				injectableClass,
-				tsNsLs.logger,
+				tsNsLs,
 			);
-			const nsModule = NsModuleParser.execute(
-				modules,
-				typeChecker,
-				tsNsLs.logger,
-			);
+			const nsModule = NsModuleParser.execute(modules, typeChecker, tsNsLs);
 
 			referenceModules.push(...nsModule);
 		}
@@ -91,7 +83,7 @@ export const getSemanticDiagnosticsActions = (
 								provider.declaration,
 								param.name,
 								typeChecker,
-								tsNsLs.logger,
+								tsNsLs,
 							);
 						}
 
@@ -102,11 +94,7 @@ export const getSemanticDiagnosticsActions = (
 					referenceModule.imports.map((module) => {
 						if (ts.isIdentifier(module.declaration)) {
 							const references =
-								findTypeReferences(
-									module.declaration,
-									tsNsLs.tsLS,
-									tsNsLs.logger,
-								) || [];
+								findTypeReferences(module.declaration, tsNsLs) || [];
 
 							if (!references.length) {
 								return;
@@ -121,12 +109,12 @@ export const getSemanticDiagnosticsActions = (
 									sourceFile,
 									module.declaration,
 									typeChecker,
-									tsNsLs.logger,
+									tsNsLs,
 								);
 								const nsModules = NsModuleParser.execute(
 									modules,
 									typeChecker,
-									tsNsLs.logger,
+									tsNsLs,
 								);
 
 								for (const nsModule of nsModules) {
@@ -140,7 +128,7 @@ export const getSemanticDiagnosticsActions = (
 												provider.declaration,
 												param.name,
 												typeChecker,
-												tsNsLs.logger,
+												tsNsLs,
 											);
 										}
 
