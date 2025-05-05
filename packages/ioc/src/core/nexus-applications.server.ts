@@ -11,6 +11,7 @@ export class NexusApplicationsServer implements NexusApplicationInterface {
 	private readonly hashUtil = new HashUtilsServer();
 	private readonly container = new Container(this.hashUtil);
 	private readonly scannerPlugins: ScannerPluginInterface[] = [];
+	private _parentContainer: NexusApplicationInterface | null = null;
 
 	private constructor(private readonly rootModule: Module) {}
 
@@ -36,11 +37,21 @@ export class NexusApplicationsServer implements NexusApplicationInterface {
 		return this;
 	}
 
-	public get<T>(token: InjectionToken) {
-		return this.container.get<T>(token);
+	public async get<T>(token: InjectionToken) {
+		const dependency = await this.container.get<T>(token);
+
+		if (!dependency) {
+			return this._parentContainer?.get<T>(token);
+		}
+
+		return dependency;
 	}
 
 	public get errors() {
 		return this.container.errors;
+	}
+
+	public setParent(parentContainer: NexusApplicationInterface) {
+		this._parentContainer = parentContainer;
 	}
 }

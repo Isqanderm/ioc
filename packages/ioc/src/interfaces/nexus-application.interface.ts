@@ -5,5 +5,6 @@ import type { ModulePluginInterface } from "./plugins";
 export interface NexusApplicationInterface extends ModulePluginInterface {
 	bootstrap(): Promise<this>;
 	get<T>(token: InjectionToken): Promise<T | undefined>;
+	setParent(parentContainer: NexusApplicationInterface): void;
 	errors: GraphError[];
 }

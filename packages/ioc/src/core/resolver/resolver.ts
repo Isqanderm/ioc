@@ -41,7 +41,7 @@ export class Resolver {
 		const node = this.graph.getNode(token);
 
 		if (!node) {
-			throw new Error(`Provider not found: ${token.toString()}`);
+			return undefined;
 		}
 
 		if (resolveCache.has(token)) {
