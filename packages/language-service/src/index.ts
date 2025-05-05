@@ -4,6 +4,7 @@ import { getSemanticDiagnosticsActions } from "./actions/get-semantic-diagnostic
 import { findNodeAtPosition } from "./helpers/find-node-at-position.helper";
 import { NsLanguageService } from "./language-service/ns-language-service";
 import { Logger } from "./logger";
+import { goToDependencyDefinitionActions } from "./actions/go-to-dependency-definition.actions";
 
 type PluginConfig = {
 	debug?: boolean;
@@ -90,6 +91,30 @@ const plugin: ts.server.PluginModuleFactory = () => {
 							}
 
 							return defaultCompletionsAtPosition;
+						};
+					}
+
+					if (property === "getDefinitionAndBoundSpan") {
+						return (
+							fileName: string,
+							position: number,
+							options?: ts.GetCompletionsAtPositionOptions,
+						): ts.DefinitionInfoAndBoundSpan | undefined => {
+							const program = pluginCreateInfo.languageService.getProgram();
+							const sourceFile = program?.getSourceFile(fileName);
+							const defaultDefinitionAtPosition =
+								target.getDefinitionAndBoundSpan(fileName, position);
+
+							if (!sourceFile || !program || defaultDefinitionAtPosition) {
+								return defaultDefinitionAtPosition;
+							}
+
+							const node = findNodeAtPosition(sourceFile, position);
+							if (!node || !ts.isCallExpression(node.parent)) {
+								return defaultDefinitionAtPosition;
+							}
+
+							return goToDependencyDefinitionActions(node, tsNsLs);
 						};
 					}
 

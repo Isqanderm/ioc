@@ -1,5 +1,6 @@
 import * as ts from "typescript/lib/tsserverlibrary";
 import type { Logger } from "../logger";
+import type { NsLanguageService } from "../language-service/ns-language-service";
 
 export type TypeReference = {
 	fileName: string;
@@ -9,15 +10,14 @@ export type TypeReference = {
 
 export const findTypeReferences = (
 	typeNode: ts.ClassDeclaration | ts.TypeReferenceNode | ts.Identifier,
-	languageService: ts.LanguageService,
-	logger: Logger,
+	tsNsLs: NsLanguageService,
 ): TypeReference[] => {
+	const languageService = tsNsLs.tsLS;
 	const typeChecker = languageService.getProgram()?.getTypeChecker();
 	let identifier: ts.Identifier | undefined;
 	let sourceFile: ts.SourceFile | null = null;
 
 	if (!typeChecker) {
-		logger.log("[findTypeReferences] typeChecker is not define");
 		return [];
 	}
 
@@ -53,7 +53,7 @@ export const findTypeReferences = (
 		for (const refDetail of ref.references) {
 			const typeReference = result[refDetail.fileName] || {
 				fileName: refDetail.fileName,
-				textSpan: [],
+				textSpan: refDetail.textSpan,
 				isDefinition: refDetail.isDefinition || false,
 			};
 

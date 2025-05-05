@@ -1,7 +1,7 @@
 import { tsquery } from "@phenomnomnominal/tsquery";
 import type * as ts from "typescript/lib/tsserverlibrary";
 import { checkTypesHelper } from "../helpers/check-types.helper";
-import type { Logger } from "../logger";
+import type { NsLanguageService } from "../language-service/ns-language-service";
 
 // biome-ignore lint/complexity/noStaticOnlyClass: <explanation>
 export class NsModulesParser {
@@ -15,7 +15,7 @@ export class NsModulesParser {
 	public static executeByClassDependency(
 		sourceFile: ts.SourceFile,
 		classDependency: ts.ClassDeclaration,
-		logger: Logger,
+		tsNsLs: NsLanguageService,
 	) {
 		const modules = NsModulesParser.execute(sourceFile);
 		const result: ts.ClassDeclaration[] = [];
@@ -39,7 +39,7 @@ export class NsModulesParser {
 		sourceFile: ts.SourceFile,
 		moduleDeclaration: ts.Identifier,
 		typeChecker: ts.TypeChecker,
-		logger: Logger,
+		tsNsLs: NsLanguageService,
 	): ts.ClassDeclaration[] {
 		const modules = NsModulesParser.execute(sourceFile);
 		const result: ts.ClassDeclaration[] = [];
@@ -49,7 +49,7 @@ export class NsModulesParser {
 				module,
 				moduleDeclaration,
 				typeChecker,
-				logger,
+				tsNsLs,
 			);
 
 			if (moduleIsEqual) {
