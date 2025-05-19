@@ -21,7 +21,7 @@ export class NexusApplications implements NexusApplicationInterface {
 		private readonly rootModule: Module,
 		options?: { hashFn: new () => HashUtilInterface },
 	) {
-		if (options?.hashFn) {
+		if (options?.hashFn && typeof options?.hashFn === "function") {
 			this.hashUtil = new options.hashFn();
 		}
 	}

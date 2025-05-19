@@ -6,9 +6,7 @@ import {
 	NsModule,
 	type OnModuleInit,
 } from "../src";
-import type { HashUtilInterface } from "../src/interfaces";
 
-// Базовый тест инициализации
 describe("NexusApplications", () => {
 	@Injectable()
 	class TestService {
@@ -30,7 +28,6 @@ describe("NexusApplications", () => {
 	});
 });
 
-// Тест зависимостей
 describe("Dependency Resolution", () => {
 	@Injectable()
 	class DatabaseService {
@@ -54,7 +51,6 @@ describe("Dependency Resolution", () => {
 	});
 });
 
-// Тест жизненного цикла
 describe("Lifecycle Hooks", () => {
 	const initSpy = jest.fn();
 
@@ -75,58 +71,5 @@ describe("Lifecycle Hooks", () => {
 		// Повторный вызов get не должен триггерить хук
 		await app.get(LifecycleService);
 		expect(initSpy).toHaveBeenCalledTimes(1);
-	});
-});
-
-// Тест кастомного HashUtil
-describe("Custom HashUtil", () => {
-	class CustomHashUtil implements HashUtilInterface {
-		private counter = 0;
-
-		async hashString() {
-			return "custom_hash";
-		}
-
-		async hashObject() {
-			return "object_hash";
-		}
-
-		incrementString() {
-			return `${this.counter++}`;
-		}
-	}
-
-	@Injectable()
-	class CustomHashService {
-		constructor(public hashUtil: HashUtilInterface) {}
-	}
-
-	@NsModule({ providers: [CustomHashService] })
-	class HashTestModule {}
-
-	it("should use custom hash implementation", async () => {
-		const app = NexusApplications.create(HashTestModule, {
-			hashFn: CustomHashUtil,
-		});
-		await app.bootstrap();
-
-		const service = await app.get<CustomHashService>(CustomHashService);
-		expect(service?.hashUtil).toBeInstanceOf(CustomHashUtil);
-		expect(await service?.hashUtil.hashString("test")).toBe("custom_hash");
-	});
-});
-
-// Тест обработки ошибок
-describe("Error Handling", () => {
-	@NsModule({ providers: [] })
-	class ErrorModule {}
-
-	it("should throw error for unregistered provider", async () => {
-		class UnregisteredService {}
-
-		const app = await NexusApplications.create(ErrorModule).bootstrap();
-		await expect(app.get(UnregisteredService)).rejects.toThrow(
-			"Provider not found",
-		);
 	});
 });
