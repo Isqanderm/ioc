@@ -7,6 +7,11 @@ import type {
 import { HashUtilBrowser } from "../utils/hash-utils.browser";
 import { Container } from "./modules/container";
 
+/**
+ * @deprecated
+ * It will be removed in version 1.0.0.
+ * these classes work the same way. For the new behavior, use @NexusApplications
+ */
 export class NexusApplicationsBrowser implements NexusApplicationInterface {
 	private readonly hashUtil = new HashUtilBrowser();
 	private readonly scannerPlugins: ScannerPluginInterface[] = [];
@@ -51,7 +56,12 @@ export class NexusApplicationsBrowser implements NexusApplicationInterface {
 		return this.container.errors;
 	}
 
+	async(): this {
+		return this;
+	}
+
 	public setParent(parentContainer: NexusApplicationInterface) {
 		this._parentContainer = parentContainer;
+		return this;
 	}
 }
