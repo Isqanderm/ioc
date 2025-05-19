@@ -1,6 +1,11 @@
 import "reflect-metadata";
-import { Injectable, Inject, NsModule, type OnModuleInit } from "../src";
-import { NexusApplications } from "../src/core/nexus-applications";
+import {
+	Inject,
+	Injectable,
+	NexusApplications,
+	NsModule,
+	type OnModuleInit,
+} from "../src";
 import type { HashUtilInterface } from "../src/interfaces";
 
 // Базовый тест инициализации

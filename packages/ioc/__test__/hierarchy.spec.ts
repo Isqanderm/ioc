@@ -1,4 +1,4 @@
-import { NsModule, NexusApplications } from "../src";
+import { NexusApplications, NsModule } from "../src";
 
 describe("Hierarchy of containers", () => {
 	@NsModule({

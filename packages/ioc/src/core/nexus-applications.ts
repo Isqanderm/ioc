@@ -1,14 +1,14 @@
 import {
 	type HashUtilInterface,
-	NodeTypeEnum,
 	type InjectionToken,
 	type Module,
 	type NexusApplicationInterface,
+	NodeTypeEnum,
 	type ScannerPluginInterface,
 	Scope,
 } from "../interfaces";
-import { Container } from "./modules/container";
 import { HashUtil } from "../utils/hash-utils";
+import { Container } from "./modules/container";
 
 export class NexusApplications implements NexusApplicationInterface {
 	private hashUtil: HashUtilInterface = new HashUtil();
