@@ -1,27 +1,36 @@
-import type {
-	InjectionToken,
-	Module,
-	NexusApplicationInterface,
-	ScannerPluginInterface,
+import {
+	type HashUtilInterface,
+	type InjectionToken,
+	type Module,
+	type NexusApplicationInterface,
+	NodeTypeEnum,
+	type ScannerPluginInterface,
+	Scope,
 } from "../interfaces";
-import { HashUtilsServer } from "../utils/hash-utils.server";
+import { HashUtil } from "../utils/hash-utils";
 import { Container } from "./modules/container";
 
-/**
- * @deprecated
- * It will be removed in version 1.0.0.
- * these classes work the same way. For the new behavior, use @NexusApplications
- */
-export class NexusApplicationsServer implements NexusApplicationInterface {
-	private readonly hashUtil = new HashUtilsServer();
+export class NexusApplications implements NexusApplicationInterface {
+	private hashUtil: HashUtilInterface = new HashUtil();
+	private isAsyncContainer = false;
 	private readonly container = new Container(this.hashUtil);
 	private readonly scannerPlugins: ScannerPluginInterface[] = [];
 	private _parentContainer: NexusApplicationInterface | null = null;
 
-	private constructor(private readonly rootModule: Module) {}
+	private constructor(
+		private readonly rootModule: Module,
+		options?: { hashFn: new () => HashUtilInterface },
+	) {
+		if (options?.hashFn && typeof options?.hashFn === "function") {
+			this.hashUtil = new options.hashFn();
+		}
+	}
 
-	static create(rootModule: Module) {
-		return new NexusApplicationsServer(rootModule);
+	static create(
+		rootModule: Module,
+		options?: { hashFn: new () => HashUtilInterface },
+	) {
+		return new NexusApplications(rootModule, options);
 	}
 
 	public async bootstrap(): Promise<this> {
@@ -29,6 +38,17 @@ export class NexusApplicationsServer implements NexusApplicationInterface {
 
 		for (const scannerPlugin of this.scannerPlugins) {
 			await scannerPlugin.scan(this.container.graph);
+		}
+
+		if (!this.isAsyncContainer) {
+			for (const [token, node] of this.container.graph.nodes) {
+				if (
+					node.type === NodeTypeEnum.PROVIDER &&
+					node.scope === Scope.Singleton
+				) {
+					await this.container.get(token);
+				}
+			}
 		}
 
 		return this;
@@ -56,7 +76,8 @@ export class NexusApplicationsServer implements NexusApplicationInterface {
 		return this.container.errors;
 	}
 
-	async(): this {
+	public async(): this {
+		this.isAsyncContainer = true;
 		return this;
 	}
 

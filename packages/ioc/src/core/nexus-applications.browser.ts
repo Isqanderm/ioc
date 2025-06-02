@@ -7,10 +7,16 @@ import type {
 import { HashUtilBrowser } from "../utils/hash-utils.browser";
 import { Container } from "./modules/container";
 
+/**
+ * @deprecated
+ * It will be removed in version 1.0.0.
+ * these classes work the same way. For the new behavior, use @NexusApplications
+ */
 export class NexusApplicationsBrowser implements NexusApplicationInterface {
 	private readonly hashUtil = new HashUtilBrowser();
 	private readonly scannerPlugins: ScannerPluginInterface[] = [];
 	private readonly container = new Container(this.hashUtil);
+	private _parentContainer: NexusApplicationInterface | null = null;
 
 	private constructor(private readonly rootModule: Module) {}
 
@@ -36,11 +42,26 @@ export class NexusApplicationsBrowser implements NexusApplicationInterface {
 		return this;
 	}
 
-	public get<T>(token: InjectionToken) {
-		return this.container.get<T>(token);
+	public async get<T>(token: InjectionToken) {
+		const dependency = await this.container.get<T>(token);
+
+		if (!dependency) {
+			return this._parentContainer?.get<T>(token);
+		}
+
+		return dependency;
 	}
 
 	public get errors() {
 		return this.container.errors;
+	}
+
+	async(): this {
+		return this;
+	}
+
+	public setParent(parentContainer: NexusApplicationInterface) {
+		this._parentContainer = parentContainer;
+		return this;
 	}
 }

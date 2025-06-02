@@ -9,6 +9,7 @@ Nexus IoC is a powerful and flexible Inversion of Control (IoC) container for Ty
 - [Features](#features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Testing](#testing)
 - [License](#license)
 - [Author](#author)
 - [Contributing](#contributing)
@@ -66,11 +67,11 @@ export class AppModule {}
 Create and bootstrap your application.
 
 ```typescript
-import { NexusApplicationsBrowser } from 'nexus-ioc/dist/server';
+import { NexusApplications } from 'nexus-ioc';
 import { AppModule, AppService } from './app.module';
 
 async function bootstrap() {
-  const app = await NexusApplicationsBrowser
+  const app = await NexusApplications
     .create(AppModule)
     .bootstrap();
 
@@ -81,6 +82,35 @@ async function bootstrap() {
 
 bootstrap();
 
+```
+
+## Testing
+
+### Installation
+
+```bash
+npm install @nexus-ioc/testing
+```
+
+### Usage
+
+```typescript
+import { Injectable } from '@nexus-ioc/core';
+import { Test } from '@nexus-ioc/testing';
+
+describe('AppModule', () => {
+  it('should create instance', async () => {
+    @Injectable()
+    class AppService {}
+
+    const appModule = await Test.createModule({
+      providers: [AppService],
+    }).compile();
+
+    const appService = await appModule.get<AppService>(AppService);
+    expect(appService).toBeInstanceOf(AppService);
+  });
+});
 ```
 
 ## License
