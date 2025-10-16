@@ -39,7 +39,7 @@
 		"vitest": "^3.0.0"
 	},
 	"dependencies": {
-		"@nexus-ioc/shared": "^0.1.0",
+		"@nexus-ioc/shared": "^0.4.2",
 		"tslib": "^2.6.3"
 	},
 	"scripts": {
