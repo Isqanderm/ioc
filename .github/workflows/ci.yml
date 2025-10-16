@@ -26,13 +26,13 @@ jobs:
         run: npm ci
 
       - name: Run linting
-        run: npm run code:check:ci
+        run: npx lerna run code:check:ci --stream
 
       - name: Build all packages
         run: npm run build:all
 
       - name: Run unit tests with coverage
-        run: npm run test:coverage
+        run: npx lerna run test:coverage --stream
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
