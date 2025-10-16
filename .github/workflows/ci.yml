@@ -244,6 +244,26 @@ jobs:
       - name: Comment PR with coverage comparison
         if: always()
         uses: actions/github-script@v7
+        env:
+          COVERAGE_FAILED: ${{ env.COVERAGE_FAILED }}
+          MAIN_BRANCH_HAS_IOC_COVERAGE: ${{ env.MAIN_BRANCH_HAS_IOC_COVERAGE }}
+          MAIN_BRANCH_HAS_TESTING_COVERAGE: ${{ env.MAIN_BRANCH_HAS_TESTING_COVERAGE }}
+          IOC_MAIN_LINES: ${{ env.IOC_MAIN_LINES }}
+          IOC_MAIN_STATEMENTS: ${{ env.IOC_MAIN_STATEMENTS }}
+          IOC_MAIN_FUNCTIONS: ${{ env.IOC_MAIN_FUNCTIONS }}
+          IOC_MAIN_BRANCHES: ${{ env.IOC_MAIN_BRANCHES }}
+          IOC_PR_LINES: ${{ env.IOC_PR_LINES }}
+          IOC_PR_STATEMENTS: ${{ env.IOC_PR_STATEMENTS }}
+          IOC_PR_FUNCTIONS: ${{ env.IOC_PR_FUNCTIONS }}
+          IOC_PR_BRANCHES: ${{ env.IOC_PR_BRANCHES }}
+          TESTING_MAIN_LINES: ${{ env.TESTING_MAIN_LINES }}
+          TESTING_MAIN_STATEMENTS: ${{ env.TESTING_MAIN_STATEMENTS }}
+          TESTING_MAIN_FUNCTIONS: ${{ env.TESTING_MAIN_FUNCTIONS }}
+          TESTING_MAIN_BRANCHES: ${{ env.TESTING_MAIN_BRANCHES }}
+          TESTING_PR_LINES: ${{ env.TESTING_PR_LINES }}
+          TESTING_PR_STATEMENTS: ${{ env.TESTING_PR_STATEMENTS }}
+          TESTING_PR_FUNCTIONS: ${{ env.TESTING_PR_FUNCTIONS }}
+          TESTING_PR_BRANCHES: ${{ env.TESTING_PR_BRANCHES }}
         with:
           script: |
             const failed = process.env.COVERAGE_FAILED === '1';
