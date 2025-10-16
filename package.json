@@ -29,7 +29,8 @@
 		"build:shared": "npx lerna exec --scope=@nexus-ioc/shared -- npm run build",
 		"build:ioc": "npx lerna exec --scope=@nexus-ioc/core -- npm run build",
 		"build:testing": "npx lerna exec --scope=@nexus-ioc/testing -- npm run build",
-		"build:all": "npm run build:shared && npm run build:ioc && npm run build:testing",
+		"build:cli": "npx lerna exec --scope=@nexus-ioc/cli -- npm run build",
+		"build:all": "npm run build:shared && npm run build:ioc && npm run build:testing && npm run build:cli",
 		"changelog": "conventional-changelog -p angular -i CHANGELOG.md -s",
 		"commit": "cz",
 		"prepare": "husky"
