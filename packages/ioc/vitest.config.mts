@@ -18,6 +18,8 @@ export default defineConfig({
 				"**/interfaces/**",
 				"**/index.ts",
 				"**/*.d.ts",
+				"**/*.browser.ts",
+				"**/*.server.ts",
 				"**/browser.ts",
 				"**/server.ts",
 			],

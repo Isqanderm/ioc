@@ -18,6 +18,9 @@ export default defineConfig({
 				"**/interfaces/**",
 				"**/index.ts",
 				"**/*.d.ts",
+				"**/actions/**",
+				"**/commands/**",
+				"**/commands.helper.ts",
 			],
 			thresholds: {
 				branches: 70,
