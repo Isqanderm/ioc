@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main, development]
 
+# Cancel in-progress runs for the same workflow and PR/branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   actions: read
   contents: read
@@ -66,6 +71,16 @@ jobs:
             packages/*/test-results
           retention-days: 7
 
+      - name: Upload build artifacts for coverage-check
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            node_modules
+            packages/*/dist
+            packages/*/node_modules
+          retention-days: 1
+
   # ============================================================================
   # STAGE 2: Coverage Protection Check
   # ============================================================================
@@ -84,18 +99,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Download build artifacts from test job
+        uses: actions/download-artifact@v4
         with:
-          node-version: 20
-          cache: 'npm'
+          name: build-artifacts
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run tests with coverage on PR branch
-        run: npx lerna run test:coverage --stream
-        continue-on-error: true
+      - name: Download test results from test job
+        uses: actions/download-artifact@v4
+        with:
+          name: test-results
 
       - name: Save PR coverage
         run: |
@@ -115,6 +127,13 @@ jobs:
         run: |
           git fetch origin main
           git checkout main
+
+      - name: Setup Node.js for main branch
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies on main
         run: npm ci
@@ -537,43 +556,10 @@ jobs:
           retention-days: 7
 
   # ============================================================================
-  # STAGE 3: Security & Additional Validation
+  # STAGE 3: PR Validation
   # ============================================================================
-  # These jobs run only if build validation passes
-  # They can run in parallel with each other
-
-  codeql-analysis:
-    name: CodeQL Security Analysis
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: [build-validation]  # ⚠️ Depends on build-validation - won't run if builds fail
-    # Skip on schedule events (handled by separate codeql.yml workflow)
-    if: github.event_name != 'schedule'
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-    strategy:
-      fail-fast: false
-      matrix:
-        language: [javascript]
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: ${{ matrix.language }}
-          queries: security-extended,security-and-quality
-
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: "/language:${{matrix.language}}"
+  # This job runs only if build validation passes
+  # CodeQL security analysis runs separately via scheduled workflow (codeql.yml)
 
   pr-validation:
     name: PR Validation Check
