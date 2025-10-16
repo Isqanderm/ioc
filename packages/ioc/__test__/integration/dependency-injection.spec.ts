@@ -118,7 +118,7 @@ describe("Dependency Injection Integration", () => {
 		it("should detect circular dependencies", async () => {
 			@Injectable()
 			class ServiceA {
-				constructor(@Inject("ServiceB") private serviceB: any) {}
+				constructor(@Inject("ServiceB") private serviceB: unknown) {}
 			}
 
 			@Injectable()
@@ -142,7 +142,7 @@ describe("Dependency Injection Integration", () => {
 		it("should handle circular dependencies with forwardRef", async () => {
 			@Injectable()
 			class ServiceA {
-				constructor(@Inject("ServiceB") private serviceB: any) {}
+				constructor(@Inject("ServiceB") private serviceB: unknown) {}
 
 				getValue() {
 					return "A";
@@ -322,8 +322,8 @@ describe("Dependency Injection Integration", () => {
 			@Injectable()
 			class ServiceWithMultipleConfigs {
 				constructor(
-					@Inject(DB_CONFIG) private dbConfig: any,
-					@Inject(API_CONFIG) private apiConfig: any,
+					@Inject(DB_CONFIG) private dbConfig: unknown,
+					@Inject(API_CONFIG) private apiConfig: unknown,
 				) {}
 
 				getConfigs() {

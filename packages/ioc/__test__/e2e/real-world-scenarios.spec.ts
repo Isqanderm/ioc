@@ -156,9 +156,9 @@ describe("Real-World Scenarios E2E", () => {
 			// Message Bus (Global)
 			@Injectable()
 			class MessageBus {
-				private messages: Map<string, any[]> = new Map();
+				private messages: Map<string, unknown[]> = new Map();
 
-				publish(topic: string, message: any) {
+				publish(topic: string, message: unknown) {
 					if (!this.messages.has(topic)) {
 						this.messages.set(topic, []);
 					}
@@ -286,13 +286,13 @@ describe("Real-World Scenarios E2E", () => {
 			// Cache Service
 			@Injectable({ scope: Scope.Singleton })
 			class CacheService {
-				private cache = new Map<string, any>();
+				private cache = new Map<string, unknown>();
 
 				get(key: string) {
 					return this.cache.get(key);
 				}
 
-				set(key: string, value: any) {
+				set(key: string, value: unknown) {
 					this.cache.set(key, value);
 				}
 
@@ -369,7 +369,7 @@ describe("Real-World Scenarios E2E", () => {
 			// Plugin Interface
 			interface Plugin {
 				name: string;
-				execute(data: any): any;
+				execute(data: unknown): unknown;
 			}
 
 			// Plugins
@@ -377,7 +377,7 @@ describe("Real-World Scenarios E2E", () => {
 			class ValidationPlugin implements Plugin {
 				name = "validation";
 
-				execute(data: any) {
+				execute(data: unknown) {
 					return { ...data, validated: true };
 				}
 			}
@@ -386,7 +386,7 @@ describe("Real-World Scenarios E2E", () => {
 			class LoggingPlugin implements Plugin {
 				name = "logging";
 
-				execute(data: any) {
+				execute(data: unknown) {
 					return { ...data, logged: true };
 				}
 			}
@@ -395,7 +395,7 @@ describe("Real-World Scenarios E2E", () => {
 			class TransformPlugin implements Plugin {
 				name = "transform";
 
-				execute(data: any) {
+				execute(data: unknown) {
 					return { ...data, transformed: true };
 				}
 			}
@@ -411,7 +411,7 @@ describe("Real-World Scenarios E2E", () => {
 					private transform?: TransformPlugin,
 				) {}
 
-				process(data: any) {
+				process(data: unknown) {
 					let result = data;
 					result = this.validation.execute(result);
 					result = this.logging.execute(result);

@@ -50,10 +50,10 @@ describe("Mocking and Provider Overriding", () => {
 
 			@Injectable()
 			class ConfigService {
-				constructor(@Inject(CONFIG_TOKEN) private config: any) {}
+				constructor(@Inject(CONFIG_TOKEN) private config: unknown) {}
 
 				getApiUrl() {
-					return this.config.apiUrl;
+					return (this.config as { apiUrl: string }).apiUrl;
 				}
 			}
 
@@ -403,8 +403,8 @@ describe("Mocking and Provider Overriding", () => {
 		it("should test error handling in services", async () => {
 			@Injectable()
 			class ValidationService {
-				validate(data: any) {
-					if (!data.email) {
+				validate(data: unknown) {
+					if (!(data as { email?: string }).email) {
 						throw new Error("Email is required");
 					}
 					return true;
@@ -415,7 +415,7 @@ describe("Mocking and Provider Overriding", () => {
 			class UserService {
 				constructor(@Inject(ValidationService) private validator: ValidationService) {}
 
-				createUser(data: any) {
+				createUser(data: unknown) {
 					try {
 						this.validator.validate(data);
 						return { success: true, user: data };

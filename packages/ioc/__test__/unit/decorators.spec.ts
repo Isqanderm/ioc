@@ -250,7 +250,7 @@ describe("Decorators", () => {
 
 			@Injectable()
 			class TestService {
-				constructor(@Inject(TOKEN) private dep: any) {}
+				constructor(@Inject(TOKEN) private dep: unknown) {}
 			}
 
 			const deps = Reflect.getMetadata(SELF_DECLARED_DEPS_METADATA, TestService);
@@ -262,7 +262,7 @@ describe("Decorators", () => {
 
 			@Injectable()
 			class TestService {
-				constructor(@Inject(TOKEN) private dep: any) {}
+				constructor(@Inject(TOKEN) private dep: unknown) {}
 			}
 
 			const deps = Reflect.getMetadata(SELF_DECLARED_DEPS_METADATA, TestService);
@@ -274,7 +274,7 @@ describe("Decorators", () => {
 		it("should mark class with optional watermark", () => {
 			@Injectable()
 			class TestService {
-				constructor(@Optional() private dep?: any) {}
+				constructor(@Optional() private dep?: unknown) {}
 			}
 
 			const hasOptional = Reflect.getMetadata(OPTIONAL_WATERMARK, TestService);
@@ -284,7 +284,7 @@ describe("Decorators", () => {
 		it("should store optional constructor dependency metadata", () => {
 			@Injectable()
 			class TestService {
-				constructor(@Optional() private dep?: any) {}
+				constructor(@Optional() private dep?: unknown) {}
 			}
 
 			const optionalDeps = Reflect.getMetadata(
