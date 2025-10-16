@@ -31,6 +31,7 @@
 	"scripts": {
 		"test:ready": "npx lerna exec --since origin/main -- npm run test:ready",
 		"test": "npx lerna exec --since origin/main -- npm run test",
+		"test:coverage": "npx lerna exec --since origin/main -- npm run test:coverage",
 		"code:check:ci": "npx lerna exec --since origin/main -- npm run code:check:ci",
 		"build:shared": "npx lerna exec --scope=@nexus-ioc/shared -- npm run build",
 		"build:ioc": "npx lerna exec --scope=@nexus-ioc/core -- npm run build",

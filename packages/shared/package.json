@@ -43,6 +43,7 @@
     "code:check:ci": "npx @biomejs/biome ci",
     "code:check:apply": "npx @biomejs/biome check --write",
     "test": "echo 'No tests for shared package (interfaces only)'",
+    "test:coverage": "echo 'No tests for shared package (interfaces only)'",
     "test:ready": "echo 0"
   }
 }
