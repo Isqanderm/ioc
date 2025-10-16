@@ -89,9 +89,9 @@ jobs:
       - name: Test package imports (smoke test)
         run: |
           echo "Testing package imports..."
-          node -e "const ioc = require('./packages/ioc/dist/index.js'); console.log('✅ IoC package import successful');"
-          node -e "const testing = require('./packages/testing/dist/index.js'); console.log('✅ Testing package import successful');"
-          node -e "const cli = require('./packages/cli/dist/index.js'); console.log('✅ CLI package import successful');"
+          node -e "require('reflect-metadata'); const ioc = require('@nexus-ioc/core'); console.log('✅ IoC package import successful');"
+          node -e "require('reflect-metadata'); const testing = require('@nexus-ioc/testing'); console.log('✅ Testing package import successful');"
+          node -e "const cli = require('@nexus-ioc/cli'); console.log('✅ CLI package import successful');"
           echo "✅ All package imports successful"
 
       - name: Upload build artifacts
