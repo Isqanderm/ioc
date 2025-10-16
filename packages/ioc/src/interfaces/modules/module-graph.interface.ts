@@ -6,6 +6,10 @@ import type { InjectionToken } from "../injection-token.interface";
 import type { Module, Provider } from "../module-types.interface";
 import type { Scope } from "../scope.interface";
 import type { ModuleContainerInterface } from "./module-container.interface";
+import type { GraphError } from "@nexus-ioc/shared";
+
+// Re-export GraphError from shared package
+export type { GraphError } from "@nexus-ioc/shared";
 
 export enum NodeTypeEnum {
 	MODULE = "module",
@@ -35,33 +39,7 @@ export type Edge = {
 	};
 };
 
-export type GraphError =
-	| {
-			type: "CD_IMPORTS";
-			path: string[];
-	  }
-	| {
-			type: "CD_PROVIDERS";
-			path: [InjectionToken, InjectionToken][];
-	  }
-	| {
-			type: "UNREACHED_DEP_CONSTRUCTOR";
-			token: string;
-			dependency: string;
-			position: number;
-	  }
-	| {
-			type: "UNREACHED_DEP_PROPERTY";
-			token: string;
-			dependency: string;
-			key: string;
-	  }
-	| {
-			type: "UNREACHED_DEP_FACTORY";
-			token: string;
-			dependency: string;
-			key: number;
-	  };
+
 
 export interface ModuleGraphInterface {
 	compile(): Promise<void>;

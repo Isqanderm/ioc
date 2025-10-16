@@ -1,4 +1,5 @@
 import {
+	Container,
 	type DynamicModule,
 	type GraphError,
 	type InjectionToken,
@@ -8,8 +9,7 @@ import {
 	type ModuleMetadata,
 	type ScannerPluginInterface,
 } from "@nexus-ioc/core";
-import { Container } from "@nexus-ioc/core/dist/core/modules/container";
-import { ContainerNotCompiledError } from "@nexus-ioc/core/dist/errors/container-not-compiled.error";
+import { ContainerNotCompiledError } from "@nexus-ioc/shared";
 import type { ModuleTestingContainerInterface } from "../interfaces";
 import { HashTestingUtil } from "./hash-testing-util";
 import { TestingCreator } from "./testing-creator";

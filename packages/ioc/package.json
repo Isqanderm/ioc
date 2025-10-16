@@ -45,6 +45,7 @@
 		"@types/node": "^22.5.4"
 	},
 	"dependencies": {
+		"@nexus-ioc/shared": "^0.1.0",
 		"tslib": "^2.6.3"
 	},
 	"scripts": {

@@ -1,4 +1,4 @@
-import type { HashUtilInterface } from "@nexus-ioc/core/dist/interfaces";
+import type { HashUtilInterface } from "@nexus-ioc/shared";
 
 export class HashTestingUtil implements HashUtilInterface {
 	private increment = 1;

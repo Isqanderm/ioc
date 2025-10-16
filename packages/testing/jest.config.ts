@@ -34,15 +34,17 @@ const config: Config = {
 	coverageProvider: "v8",
 
 	// A list of reporter names that Jest uses when writing coverage reports
-	// coverageReporters: [
-	//   "json",
-	//   "text",
-	//   "lcov",
-	//   "clover"
-	// ],
+	coverageReporters: ["json", "text", "lcov", "clover", "html"],
 
 	// An object that configures minimum threshold enforcement for coverage results
-	// coverageThreshold: undefined,
+	coverageThreshold: {
+		global: {
+			branches: 90,
+			functions: 60,
+			lines: 75,
+			statements: 75,
+		},
+	},
 
 	// A path to a custom dependency extractor
 	// dependencyExtractor: undefined,

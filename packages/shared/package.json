@@ -1,0 +1,48 @@
+{
+  "name": "@nexus-ioc/shared",
+  "version": "0.1.0",
+  "description": "Shared interfaces and utilities for Nexus IoC packages",
+  "author": "Isqanderm <aleksandr.melnik.personal@gmail.com> (https://www.linkedin.com/in/isqander-melnik)",
+  "homepage": "https://github.com/Isqanderm/ioc#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Isqanderm/ioc.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Isqanderm/ioc/issues"
+  },
+  "keywords": [
+    "IoC",
+    "dependency injection",
+    "inversion control",
+    "typescript",
+    "DI",
+    "framework",
+    "container",
+    "shared"
+  ],
+  "files": [
+    "dist",
+    "package.json",
+    "LICENSE",
+    "README.md"
+  ],
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "license": "MIT",
+  "dependencies": {
+    "tslib": "^2.6.3"
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf ./dist && rm tsconfig.tsbuildinfo",
+    "code:format": "npx @biomejs/biome format --write",
+    "code:lint": "npx @biomejs/biome lint --write",
+    "code:check": "npx @biomejs/biome check",
+    "code:check:ci": "npx @biomejs/biome ci",
+    "code:check:apply": "npx @biomejs/biome check --write",
+    "test:ready": "echo 0"
+  }
+}
+
