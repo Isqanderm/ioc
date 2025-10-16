@@ -6,7 +6,18 @@ on:
   pull_request:
     branches: [main, development]
 
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+  pull-requests: write
+
 jobs:
+  # ============================================================================
+  # STAGE 1: Unit Tests & Coverage
+  # ============================================================================
+  # This job runs first and gates all subsequent jobs
+  # If tests fail, the entire pipeline stops here to save resources
   test:
     name: Unit Tests & Coverage
     runs-on: ubuntu-latest
@@ -54,11 +65,17 @@ jobs:
             packages/*/test-results
           retention-days: 7
 
+  # ============================================================================
+  # STAGE 2: Build Validation (Matrix)
+  # ============================================================================
+  # This job runs only if unit tests pass
+  # Tests build across multiple Node.js versions in parallel
   build-validation:
     name: Build Validation
     runs-on: ubuntu-latest
-    needs: test  # Run after unit tests pass
+    needs: [test]  # ⚠️ Depends on test job - won't run if tests fail
     strategy:
+      fail-fast: true  # Stop all matrix jobs if one fails
       matrix:
         node-version: [18, 20, 22]  # Test on multiple Node.js versions
     steps:
@@ -106,38 +123,79 @@ jobs:
             packages/*/dist/**/*.d.ts
           retention-days: 7
 
-  build-validation-summary:
-    name: Build Validation Summary
+  # ============================================================================
+  # STAGE 3: Security & Additional Validation
+  # ============================================================================
+  # These jobs run only if build validation passes
+  # They can run in parallel with each other
+
+  codeql-analysis:
+    name: CodeQL Security Analysis
     runs-on: ubuntu-latest
-    needs: build-validation
-    if: always() && github.event_name == 'pull_request'
+    needs: [build-validation]  # ⚠️ Depends on build-validation - won't run if builds fail
+    # Skip on schedule events (handled by separate codeql.yml workflow)
+    if: github.event_name != 'schedule'
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript]
     steps:
-      - name: Comment PR with build validation results
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-extended,security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{matrix.language}}"
+
+  pr-validation:
+    name: PR Validation Check
+    runs-on: ubuntu-latest
+    needs: [build-validation]  # ⚠️ Depends on build-validation - won't run if builds fail
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Comment PR with validation results
         uses: actions/github-script@v7
         with:
           script: |
-            const conclusion = '${{ needs.build-validation.result }}';
-            const nodeVersions = ['18', '20', '22'];
+            const testResult = '${{ needs.test.result }}';
+            const buildResult = '${{ needs.build-validation.result }}';
+            const allSuccess = testResult === 'success' && buildResult === 'success';
 
-            let statusIcon = conclusion === 'success' ? '✅' : '❌';
-            let statusText = conclusion === 'success' ? 'All build validation checks passed!' : 'Build validation failed!';
+            const statusIcon = allSuccess ? '✅' : '❌';
+            const statusText = allSuccess ? 'All validation checks passed!' : 'Validation failed!';
 
-            const body = `## ${statusIcon} Build Validation
+            const body = `## ${statusIcon} Pull Request Validation
 
             **Status:** ${statusText}
 
-            ### Test Matrix Results
+            ### Pipeline Stages
 
-            | Node.js Version | Status |
-            |-----------------|--------|
-            ${nodeVersions.map(v => `| ${v} | ${conclusion === 'success' ? '✅ Passed' : '❌ Failed'} |`).join('\n')}
+            | Stage | Status |
+            |-------|--------|
+            | Unit Tests & Coverage | ${testResult === 'success' ? '✅ Passed' : '❌ Failed'} |
+            | Build Validation (Node 18, 20, 22) | ${buildResult === 'success' ? '✅ Passed' : '❌ Failed'} |
 
-            ### Validation Steps
+            ### Checks Performed
 
-            - ${conclusion === 'success' ? '✅' : '❌'} All packages built successfully
-            - ${conclusion === 'success' ? '✅' : '❌'} Build artifacts generated
-            - ${conclusion === 'success' ? '✅' : '❌'} Package imports work correctly
-            - ${conclusion === 'success' ? '✅' : '❌'} TypeScript declarations generated
+            - ${testResult === 'success' ? '✅' : '❌'} Code linting (Biome)
+            - ${testResult === 'success' ? '✅' : '❌'} Unit tests with coverage
+            - ${buildResult === 'success' ? '✅' : '❌'} Build all packages (Node 18, 20, 22)
+            - ${buildResult === 'success' ? '✅' : '❌'} Package imports verification
+            - ${buildResult === 'success' ? '✅' : '❌'} TypeScript declarations
 
             ### Packages Validated
 
@@ -146,15 +204,15 @@ jobs:
             - @nexus-ioc/cli
             - @nexus-ioc/shared
 
-            ${conclusion === 'success'
-              ? '✅ **All packages are ready for publishing!**'
-              : '❌ **Please fix build issues before merging.**'}
+            ${allSuccess
+              ? '✅ **This PR is ready for review!**'
+              : '❌ **Please fix the issues before requesting review.**'}
 
             ---
 
-            *This validation ensures all packages build correctly across Node.js 18, 20, and 22.*`;
+            *Automated validation by GitHub Actions - Sequential pipeline for resource optimization*`;
 
-            // Find existing build validation comment
+            // Find existing validation comment
             const { data: comments } = await github.rest.issues.listComments({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -163,11 +221,10 @@ jobs:
 
             const botComment = comments.find(comment =>
               comment.user.type === 'Bot' &&
-              comment.body.includes('Build Validation')
+              comment.body.includes('Pull Request Validation')
             );
 
             if (botComment) {
-              // Update existing comment
               await github.rest.issues.updateComment({
                 comment_id: botComment.id,
                 owner: context.repo.owner,
@@ -175,7 +232,6 @@ jobs:
                 body: body
               });
             } else {
-              // Create new comment
               await github.rest.issues.createComment({
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
