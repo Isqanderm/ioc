@@ -5,4 +5,3 @@ export interface HashUtilInterface {
 
 	incrementString(): string;
 }
-

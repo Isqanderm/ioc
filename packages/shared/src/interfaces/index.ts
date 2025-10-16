@@ -9,4 +9,3 @@ export * from "./module-graph.interface";
 export * from "./module-types.interface";
 export * from "./scope.interface";
 export * from "./type.interface";
-

@@ -12,4 +12,3 @@ export interface DynamicModule {
 	exports?: InjectionToken[];
 	imports?: (Module | DynamicModule)[];
 }
-

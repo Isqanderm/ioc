@@ -12,4 +12,3 @@ export interface ModuleContainerInterface {
 	get<T>(token: InjectionToken): Promise<T | undefined>;
 	errors: GraphError[];
 }
-

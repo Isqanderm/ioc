@@ -20,4 +20,3 @@ export interface ContainerInterface extends ContainerBaseInterface {
 	run(rootModule: Module): Promise<void>;
 	graph: ModuleGraphInterface;
 }
-

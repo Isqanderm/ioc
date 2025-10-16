@@ -11,4 +11,3 @@ export interface ModuleGraphInterface {
 	edges: Map<InjectionToken, unknown[]>;
 	errors: GraphError[];
 }
-

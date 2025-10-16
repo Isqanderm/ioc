@@ -31,4 +31,3 @@ export interface FactoryProvider<T = any> {
 	inject?: InjectionToken[];
 	scope?: Scope;
 }
-

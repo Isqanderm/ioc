@@ -9,4 +9,3 @@ export type InjectionToken<T = any> =
 	| Abstract<T>
 	// biome-ignore lint/complexity/noBannedTypes: <explanation>
 	| Function;
-

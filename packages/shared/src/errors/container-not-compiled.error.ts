@@ -5,4 +5,3 @@ export class ContainerNotCompiledError extends Error {
 		Object.setPrototypeOf(this, ContainerNotCompiledError.prototype);
 	}
 }
-

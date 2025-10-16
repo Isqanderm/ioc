@@ -4,4 +4,3 @@ export interface Type<T = any> extends Function {
 	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 	new (...args: any[]): T;
 }
-
