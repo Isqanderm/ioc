@@ -34,9 +34,7 @@ export class ModuleTemplate {
 		const [___, exports] = template.match(exportsRegex) || [];
 
 		this._imports.push(imports.endsWith(",") ? imports.slice(0, -1) : imports);
-		this._providers.push(
-			providers.endsWith(",") ? providers.slice(0, -1) : providers,
-		);
+		this._providers.push(providers.endsWith(",") ? providers.slice(0, -1) : providers);
 		this._exports.push(exports.endsWith(",") ? exports.slice(0, -1) : exports);
 	}
 

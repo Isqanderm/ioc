@@ -14,9 +14,7 @@ describe("Mocking and Provider Overriding", () => {
 
 			@Injectable()
 			class UserService {
-				constructor(
-					@Inject(RealDatabaseService) private db: RealDatabaseService,
-				) {}
+				constructor(@Inject(RealDatabaseService) private db: RealDatabaseService) {}
 
 				getUsers() {
 					return this.db.query();
@@ -64,10 +62,7 @@ describe("Mocking and Provider Overriding", () => {
 			};
 
 			const container = await Test.createModule({
-				providers: [
-					{ provide: CONFIG_TOKEN, useValue: mockConfig },
-					ConfigService,
-				],
+				providers: [{ provide: CONFIG_TOKEN, useValue: mockConfig }, ConfigService],
 			}).compile();
 
 			const service = await container.get<ConfigService>(ConfigService);
@@ -105,11 +100,8 @@ describe("Mocking and Provider Overriding", () => {
 				],
 			}).compile();
 
-			const service =
-				await container.get<NotificationService>(NotificationService);
-			expect(service?.notify("user@example.com")).toBe(
-				"mock-sent to user@example.com",
-			);
+			const service = await container.get<NotificationService>(NotificationService);
+			expect(service?.notify("user@example.com")).toBe("mock-sent to user@example.com");
 		});
 	});
 
@@ -367,9 +359,7 @@ describe("Mocking and Provider Overriding", () => {
 
 	describe("Error Mocking", () => {
 		it("should mock error scenarios", async () => {
-			const errorSpy = vi
-				.fn()
-				.mockRejectedValue(new Error("Database connection failed"));
+			const errorSpy = vi.fn().mockRejectedValue(new Error("Database connection failed"));
 
 			@Injectable()
 			class DatabaseService {
@@ -414,9 +404,7 @@ describe("Mocking and Provider Overriding", () => {
 
 			@Injectable()
 			class UserService {
-				constructor(
-					@Inject(ValidationService) private validator: ValidationService,
-				) {}
+				constructor(@Inject(ValidationService) private validator: ValidationService) {}
 
 				createUser(data: unknown) {
 					try {

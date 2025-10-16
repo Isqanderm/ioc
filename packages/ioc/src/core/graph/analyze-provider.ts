@@ -5,17 +5,11 @@ import {
 	NodeTypeEnum,
 	type Provider,
 } from "../../interfaces";
-import {
-	getProviderScope,
-	getProviderToken,
-	isFunctionToken,
-} from "../../utils/helpers";
+import { getProviderScope, getProviderToken, isFunctionToken } from "../../utils/helpers";
 
 export abstract class AnalyzeProvider {
 	private readonly _token = getProviderToken(this.provider);
-	private readonly _label = isFunctionToken(this._token)
-		? this._token.name
-		: this._token;
+	private readonly _label = isFunctionToken(this._token) ? this._token.name : this._token;
 	private readonly _scope = getProviderScope(this.provider);
 
 	constructor(

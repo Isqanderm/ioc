@@ -17,9 +17,7 @@ describe("ModuleGraph", () => {
 	const moduleTokenFactory = new ModuleTokenFactory(hashUtilsMock);
 	const moduleContainerFactory = new ModuleContainerFactory(moduleTokenFactory);
 	const container = {
-		async addModule(
-			metatype: Type<unknown>,
-		): Promise<ModuleContainerInterface> {
+		async addModule(metatype: Type<unknown>): Promise<ModuleContainerInterface> {
 			return await moduleContainerFactory.create(metatype, container);
 		},
 	} as ContainerInterface;
@@ -29,26 +27,16 @@ describe("ModuleGraph", () => {
 		class TestModule {}
 
 		it("should initialize with the root module", async () => {
-			const moduleContainerFactory = new ModuleContainerFactory(
-				moduleTokenFactory,
-			);
-			const mockModuleContainer = await moduleContainerFactory.create(
-				TestModule,
-				container,
-			);
+			const moduleContainerFactory = new ModuleContainerFactory(moduleTokenFactory);
+			const mockModuleContainer = await moduleContainerFactory.create(TestModule, container);
 			const graph = new ModuleGraph(mockModuleContainer);
 
 			expect(graph).toBeDefined();
 		});
 
 		it("should add the root module to nodes", async () => {
-			const moduleContainerFactory = new ModuleContainerFactory(
-				moduleTokenFactory,
-			);
-			const mockModuleContainer = await moduleContainerFactory.create(
-				TestModule,
-				container,
-			);
+			const moduleContainerFactory = new ModuleContainerFactory(moduleTokenFactory);
+			const mockModuleContainer = await moduleContainerFactory.create(TestModule, container);
 			const graph = new ModuleGraph(mockModuleContainer);
 			await graph.compile();
 
@@ -79,13 +67,8 @@ describe("ModuleGraph", () => {
 			})
 			class TestModule {}
 
-			const moduleContainerFactory = new ModuleContainerFactory(
-				moduleTokenFactory,
-			);
-			const mockModuleContainer = await moduleContainerFactory.create(
-				TestModule,
-				container,
-			);
+			const moduleContainerFactory = new ModuleContainerFactory(moduleTokenFactory);
+			const mockModuleContainer = await moduleContainerFactory.create(TestModule, container);
 			const mockImportedModuleContainer = await moduleContainerFactory.create(
 				ImportedModule,
 				container,
@@ -128,19 +111,16 @@ describe("ModuleGraph", () => {
 			})
 			class TestModule {}
 
-			const moduleContainerFactory = new ModuleContainerFactory(
-				moduleTokenFactory,
-			);
-			const mockModuleContainer = await moduleContainerFactory.create(
-				TestModule,
-				container,
-			);
+			const moduleContainerFactory = new ModuleContainerFactory(moduleTokenFactory);
+			const mockModuleContainer = await moduleContainerFactory.create(TestModule, container);
 			const mockImportedModuleContainer = await moduleContainerFactory.create(
 				ImportedModule,
 				container,
 			);
-			const anotherImportedModuleContainer =
-				await moduleContainerFactory.create(AnotherImportedModule, container);
+			const anotherImportedModuleContainer = await moduleContainerFactory.create(
+				AnotherImportedModule,
+				container,
+			);
 
 			const graph = new ModuleGraph(mockModuleContainer);
 			await graph.compile();
@@ -157,12 +137,8 @@ describe("ModuleGraph", () => {
 			expect(edgeList1).toBeDefined();
 			expect(edgeList1.length).toBe(2);
 
-			const edge1 = edgeList1.find(
-				(edge) => edge.source === mockImportedModuleContainer.token,
-			);
-			const edge2 = edgeList1.find(
-				(edge) => edge.source === anotherImportedModuleContainer.token,
-			);
+			const edge1 = edgeList1.find((edge) => edge.source === mockImportedModuleContainer.token);
+			const edge2 = edgeList1.find((edge) => edge.source === anotherImportedModuleContainer.token);
 
 			expect(edge1).toEqual({
 				type: "import",
@@ -200,19 +176,16 @@ describe("ModuleGraph", () => {
 				imports: [TestModule],
 			})(ImportedModule);
 
-			const moduleContainerFactory = new ModuleContainerFactory(
-				moduleTokenFactory,
-			);
-			const mockModuleContainer = await moduleContainerFactory.create(
-				TestModule,
-				container,
-			);
+			const moduleContainerFactory = new ModuleContainerFactory(moduleTokenFactory);
+			const mockModuleContainer = await moduleContainerFactory.create(TestModule, container);
 			const mockImportedModuleContainer = await moduleContainerFactory.create(
 				ImportedModule,
 				container,
 			);
-			const anotherImportedModuleContainer =
-				await moduleContainerFactory.create(AnotherImportedModule, container);
+			const anotherImportedModuleContainer = await moduleContainerFactory.create(
+				AnotherImportedModule,
+				container,
+			);
 
 			const graph = new ModuleGraph(mockModuleContainer);
 			await graph.compile();
@@ -229,9 +202,7 @@ describe("ModuleGraph", () => {
 			expect(edgeList1).toBeDefined();
 			expect(edgeList1.length).toBe(1);
 
-			const edge1 = edgeList1.find(
-				(edge) => edge.source === anotherImportedModuleContainer.token,
-			);
+			const edge1 = edgeList1.find((edge) => edge.source === anotherImportedModuleContainer.token);
 
 			expect(edge1).toEqual({
 				type: "import",
@@ -260,17 +231,9 @@ describe("ModuleGraph", () => {
 				})
 				class AppModule {}
 
-				const moduleContainerFactory = new ModuleContainerFactory(
-					moduleTokenFactory,
-				);
-				const testModuleContainer = await moduleContainerFactory.create(
-					TestModule,
-					container,
-				);
-				const appModuleContainer = await moduleContainerFactory.create(
-					AppModule,
-					container,
-				);
+				const moduleContainerFactory = new ModuleContainerFactory(moduleTokenFactory);
+				const testModuleContainer = await moduleContainerFactory.create(TestModule, container);
+				const appModuleContainer = await moduleContainerFactory.create(AppModule, container);
 				const graph = new ModuleGraph(appModuleContainer);
 
 				await graph.compile();
@@ -289,36 +252,22 @@ describe("ModuleGraph", () => {
 				})
 				class AppModule {}
 
-				const moduleContainerFactory = new ModuleContainerFactory(
-					moduleTokenFactory,
-				);
-				const testModuleContainer = await moduleContainerFactory.create(
-					TestModule,
-					container,
-				);
-				const appModuleContainer = await moduleContainerFactory.create(
-					AppModule,
-					container,
-				);
+				const moduleContainerFactory = new ModuleContainerFactory(moduleTokenFactory);
+				const testModuleContainer = await moduleContainerFactory.create(TestModule, container);
+				const appModuleContainer = await moduleContainerFactory.create(AppModule, container);
 				const graph = new ModuleGraph(appModuleContainer);
 
 				await graph.compile();
 
-				expect(
-					graph.getNode(getProviderToken(TestModuleProvider)).metatype,
-				).toBe(TestModuleProvider);
-
-				const testModuleContainerEdges = graph.getEdge(
-					testModuleContainer.token,
+				expect(graph.getNode(getProviderToken(TestModuleProvider)).metatype).toBe(
+					TestModuleProvider,
 				);
+
+				const testModuleContainerEdges = graph.getEdge(testModuleContainer.token);
 
 				expect(testModuleContainerEdges).toHaveLength(1);
-				expect(testModuleContainerEdges[0].source).toBe(
-					getProviderToken(TestModuleProvider),
-				);
-				expect(testModuleContainerEdges[0].target).toBe(
-					testModuleContainer.token,
-				);
+				expect(testModuleContainerEdges[0].source).toBe(getProviderToken(TestModuleProvider));
+				expect(testModuleContainerEdges[0].target).toBe(testModuleContainer.token);
 				expect(testModuleContainerEdges[0].metadata).toEqual({
 					isCircular: false,
 					unreached: false,
@@ -341,10 +290,7 @@ describe("ModuleGraph", () => {
 				})
 				class TestModule {}
 
-				const moduleContainer = await moduleContainerFactory.create(
-					TestModule,
-					container,
-				);
+				const moduleContainer = await moduleContainerFactory.create(TestModule, container);
 				const graph = new ModuleGraph(moduleContainer);
 				await graph.compile();
 
@@ -404,22 +350,10 @@ describe("ModuleGraph", () => {
 				})
 				class ChildModule {}
 
-				const childModuleContainer = await moduleContainerFactory.create(
-					ChildModule,
-					container,
-				);
-				const parentModuleContainer = await moduleContainerFactory.create(
-					ParentModule,
-					container,
-				);
-				const moduleAContainer = await moduleContainerFactory.create(
-					ModuleA,
-					container,
-				);
-				const moduleBContainer = await moduleContainerFactory.create(
-					ModuleB,
-					container,
-				);
+				const childModuleContainer = await moduleContainerFactory.create(ChildModule, container);
+				const parentModuleContainer = await moduleContainerFactory.create(ParentModule, container);
+				const moduleAContainer = await moduleContainerFactory.create(ModuleA, container);
+				const moduleBContainer = await moduleContainerFactory.create(ModuleB, container);
 				const graph = new ModuleGraph(childModuleContainer);
 
 				await graph.compile();
@@ -482,10 +416,7 @@ describe("ModuleGraph", () => {
 				})
 				class ImportingModule {}
 
-				const moduleContainer = await moduleContainerFactory.create(
-					ImportingModule,
-					container,
-				);
+				const moduleContainer = await moduleContainerFactory.create(ImportingModule, container);
 				const graph = new ModuleGraph(moduleContainer);
 				await graph.compile();
 
@@ -527,10 +458,7 @@ describe("ModuleGraph", () => {
 				})
 				class ImportingModule {}
 
-				const moduleContainer = await moduleContainerFactory.create(
-					ImportingModule,
-					container,
-				);
+				const moduleContainer = await moduleContainerFactory.create(ImportingModule, container);
 				const graph = new ModuleGraph(moduleContainer);
 				await graph.compile();
 
@@ -572,17 +500,9 @@ describe("ModuleGraph", () => {
 				})
 				class AppModule {}
 
-				const moduleContainerFactory = new ModuleContainerFactory(
-					moduleTokenFactory,
-				);
-				const testModuleContainer = await moduleContainerFactory.create(
-					TestModule,
-					container,
-				);
-				const appModuleContainer = await moduleContainerFactory.create(
-					AppModule,
-					container,
-				);
+				const moduleContainerFactory = new ModuleContainerFactory(moduleTokenFactory);
+				const testModuleContainer = await moduleContainerFactory.create(TestModule, container);
+				const appModuleContainer = await moduleContainerFactory.create(AppModule, container);
 				const graph = new ModuleGraph(appModuleContainer);
 
 				await graph.compile();
@@ -601,36 +521,20 @@ describe("ModuleGraph", () => {
 				})
 				class AppModule {}
 
-				const moduleContainerFactory = new ModuleContainerFactory(
-					moduleTokenFactory,
-				);
-				const testModuleContainer = await moduleContainerFactory.create(
-					TestModule,
-					container,
-				);
-				const appModuleContainer = await moduleContainerFactory.create(
-					AppModule,
-					container,
-				);
+				const moduleContainerFactory = new ModuleContainerFactory(moduleTokenFactory);
+				const testModuleContainer = await moduleContainerFactory.create(TestModule, container);
+				const appModuleContainer = await moduleContainerFactory.create(AppModule, container);
 				const graph = new ModuleGraph(appModuleContainer);
 
 				await graph.compile();
 
-				expect(graph.getNode(getProviderToken(valueProvider)).metatype).toBe(
-					valueProvider,
-				);
+				expect(graph.getNode(getProviderToken(valueProvider)).metatype).toBe(valueProvider);
 
-				const testModuleContainerEdges = graph.getEdge(
-					testModuleContainer.token,
-				);
+				const testModuleContainerEdges = graph.getEdge(testModuleContainer.token);
 
 				expect(testModuleContainerEdges).toHaveLength(1);
-				expect(testModuleContainerEdges[0].source).toBe(
-					getProviderToken(valueProvider),
-				);
-				expect(testModuleContainerEdges[0].target).toBe(
-					testModuleContainer.token,
-				);
+				expect(testModuleContainerEdges[0].source).toBe(getProviderToken(valueProvider));
+				expect(testModuleContainerEdges[0].target).toBe(testModuleContainer.token);
 				expect(testModuleContainerEdges[0].metadata).toEqual({
 					isCircular: false,
 					unreached: false,
@@ -665,13 +569,8 @@ describe("ModuleGraph", () => {
 				})
 				class AppModule {}
 
-				const moduleContainerFactory = new ModuleContainerFactory(
-					moduleTokenFactory,
-				);
-				const childModuleContainer = await moduleContainerFactory.create(
-					AppModule,
-					container,
-				);
+				const moduleContainerFactory = new ModuleContainerFactory(moduleTokenFactory);
+				const childModuleContainer = await moduleContainerFactory.create(AppModule, container);
 				const graph = new ModuleGraph(childModuleContainer);
 
 				await graph.compile();
@@ -732,10 +631,7 @@ describe("ModuleGraph", () => {
 				})
 				class AppModule {}
 
-				const appModuleContainer = await moduleContainerFactory.create(
-					AppModule,
-					container,
-				);
+				const appModuleContainer = await moduleContainerFactory.create(AppModule, container);
 				const graph = new ModuleGraph(appModuleContainer);
 
 				await graph.compile();
@@ -760,17 +656,12 @@ describe("ModuleGraph", () => {
 				})
 				class AppModule {}
 
-				const appModuleContainer = await moduleContainerFactory.create(
-					AppModule,
-					container,
-				);
+				const appModuleContainer = await moduleContainerFactory.create(AppModule, container);
 				const graph = new ModuleGraph(appModuleContainer);
 
 				await graph.compile();
 
-				const classProviderNode = graph.getNode(
-					getProviderToken(classProvider),
-				);
+				const classProviderNode = graph.getNode(getProviderToken(classProvider));
 
 				expect(classProviderNode.metatype).toBe(classProvider);
 
@@ -804,9 +695,7 @@ describe("ModuleGraph", () => {
 			class AppService {
 				constructor(
 					@Inject("FACTORY_PROVIDER")
-					private readonly config: ReturnType<
-						(typeof factoryProvider)["useFactory"]
-					>,
+					private readonly config: ReturnType<(typeof factoryProvider)["useFactory"]>,
 				) {}
 			}
 
@@ -815,10 +704,7 @@ describe("ModuleGraph", () => {
 			})
 			class AppModule {}
 
-			const appModuleContainer = await moduleContainerFactory.create(
-				AppModule,
-				container,
-			);
+			const appModuleContainer = await moduleContainerFactory.create(AppModule, container);
 			const graph = new ModuleGraph(appModuleContainer);
 
 			await graph.compile();
@@ -863,10 +749,7 @@ describe("ModuleGraph", () => {
 			})
 			class AppModule {}
 
-			const appModuleContainer = await moduleContainerFactory.create(
-				AppModule,
-				container,
-			);
+			const appModuleContainer = await moduleContainerFactory.create(AppModule, container);
 			const graph = new ModuleGraph(appModuleContainer);
 
 			await graph.compile();
@@ -916,9 +799,7 @@ describe("ModuleGraph", () => {
 			class AppService {
 				constructor(
 					@Inject("FACTORY_PROVIDER")
-					private readonly config: ReturnType<
-						(typeof factoryProvider)["useFactory"]
-					>,
+					private readonly config: ReturnType<(typeof factoryProvider)["useFactory"]>,
 				) {}
 			}
 
@@ -928,10 +809,7 @@ describe("ModuleGraph", () => {
 			})
 			class AppModule {}
 
-			const appModuleContainer = await moduleContainerFactory.create(
-				AppModule,
-				container,
-			);
+			const appModuleContainer = await moduleContainerFactory.create(AppModule, container);
 			const graph = new ModuleGraph(appModuleContainer);
 
 			await graph.compile();
@@ -976,9 +854,7 @@ describe("ModuleGraph", () => {
 
 		@Injectable()
 		class ServiceA {
-			constructor(
-				@Inject(GlobalService) private readonly globalService: GlobalService,
-			) {}
+			constructor(@Inject(GlobalService) private readonly globalService: GlobalService) {}
 		}
 
 		@NsModule({
@@ -992,14 +868,8 @@ describe("ModuleGraph", () => {
 		class AppModule {}
 
 		it("should correctly handle global modules", async () => {
-			const appModuleContainer = await moduleContainerFactory.create(
-				AppModule,
-				container,
-			);
-			const globalModuleContainer = await moduleContainerFactory.create(
-				GlobalModule,
-				container,
-			);
+			const appModuleContainer = await moduleContainerFactory.create(AppModule, container);
+			const globalModuleContainer = await moduleContainerFactory.create(GlobalModule, container);
 
 			const graph = new ModuleGraph(appModuleContainer);
 			await graph.compile();
@@ -1012,9 +882,7 @@ describe("ModuleGraph", () => {
 			const serviceAEdges = edges.get(getProviderToken(ServiceA));
 
 			expect(nodes.size).toBe(6);
-			expect(
-				globalModuleNode.type === "module" && globalModuleNode.isGlobal,
-			).toBe(true);
+			expect(globalModuleNode.type === "module" && globalModuleNode.isGlobal).toBe(true);
 			expect(serviceAEdges).toEqual([
 				{
 					type: "dependency",

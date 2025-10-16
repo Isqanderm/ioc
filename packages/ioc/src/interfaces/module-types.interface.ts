@@ -4,11 +4,7 @@ import type { Type } from "./type.interface";
 
 export type Module = Type;
 // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-export type Provider<T = any> =
-	| ClassProvider<T>
-	| ValueProvider<T>
-	| FactoryProvider<T>
-	| Type<T>;
+export type Provider<T = any> = ClassProvider<T> | ValueProvider<T> | FactoryProvider<T> | Type<T>;
 
 // biome-ignore lint/suspicious/noExplicitAny: <explanation>
 export interface ClassProvider<T = any> {

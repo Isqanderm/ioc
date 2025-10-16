@@ -13,19 +13,14 @@ import { Resolver } from "../resolver/resolver";
 import { ModulesContainer } from "./modules-container";
 
 export class Container implements ContainerInterface {
-	private readonly modulesContainer = new ModulesContainer(
-		this.hashUtils,
-		this,
-	);
+	private readonly modulesContainer = new ModulesContainer(this.hashUtils, this);
 
 	private _graph: ModuleGraphInterface | null = null;
 	private moduleGraphResolver: Resolver | null = null;
 
 	constructor(private readonly hashUtils: HashUtilInterface) {}
 
-	public async addModule(
-		module: Module | DynamicModule,
-	): Promise<ModuleContainerInterface> {
+	public async addModule(module: Module | DynamicModule): Promise<ModuleContainerInterface> {
 		return await this.modulesContainer.addModule(module);
 	}
 
@@ -33,15 +28,10 @@ export class Container implements ContainerInterface {
 		moduleToReplace: Module,
 		newModule: Module,
 	): Promise<ModuleContainerInterface> {
-		return await this.modulesContainer.replaceModule(
-			moduleToReplace,
-			newModule,
-		);
+		return await this.modulesContainer.replaceModule(moduleToReplace, newModule);
 	}
 
-	public async getModule(
-		module: Module,
-	): Promise<ModuleContainerInterface | undefined> {
+	public async getModule(module: Module): Promise<ModuleContainerInterface | undefined> {
 		return this.modulesContainer.getModule(module);
 	}
 

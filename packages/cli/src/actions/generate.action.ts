@@ -15,11 +15,10 @@ export class GenerateAction extends AbstractAction {
 		let outputDir = process.cwd();
 		let name = "";
 		let type = "";
-		const createOptions: { skipImport?: boolean; spec?: boolean } =
-			options.reduce((prev, next) => {
-				prev[next.name] = next.value;
-				return prev;
-			}, {});
+		const createOptions: { skipImport?: boolean; spec?: boolean } = options.reduce((prev, next) => {
+			prev[next.name] = next.value;
+			return prev;
+		}, {});
 
 		for (const input of inputs) {
 			if (input.name === "path") {
@@ -46,9 +45,7 @@ export class GenerateAction extends AbstractAction {
 			if (this.ifModuleExist(name, outputDir) && !createOptions.skipImport) {
 				await this.generateModule(name, outputDir, {
 					providers: [`${this.capitalize(name)}Service`],
-					addImports: [
-						`import { ${moduleName}Service } from './${name}.service';`,
-					],
+					addImports: [`import { ${moduleName}Service } from './${name}.service';`],
 				});
 			}
 
@@ -87,10 +84,7 @@ export class GenerateAction extends AbstractAction {
 		if (this.ifModuleExist(name, outputDir)) {
 			const sourceFile = this.project.addSourceFileAtPath(filePath);
 
-			const moduleTemplate = new ModuleTemplate(
-				{ name: moduleName },
-				sourceFile.getText(),
-			);
+			const moduleTemplate = new ModuleTemplate({ name: moduleName }, sourceFile.getText());
 
 			moduleTemplate.addProvider(moduleArgs.providers);
 

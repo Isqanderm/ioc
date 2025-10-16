@@ -158,18 +158,7 @@ describe("HashTestingUtil", () => {
 				values.push(hashUtil.incrementString());
 			}
 
-			expect(values).toEqual([
-				"1",
-				"2",
-				"3",
-				"4",
-				"5",
-				"6",
-				"7",
-				"8",
-				"9",
-				"10",
-			]);
+			expect(values).toEqual(["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]);
 		});
 
 		it("should handle large increments", () => {

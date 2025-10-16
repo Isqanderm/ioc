@@ -56,9 +56,7 @@ describe("Lifecycle Hooks", () => {
 
 			@Injectable()
 			class ServiceWithInit implements OnModuleInit {
-				constructor(
-					@Inject(DependencyService) private dep: DependencyService,
-				) {}
+				constructor(@Inject(DependencyService) private dep: DependencyService) {}
 
 				onModuleInit() {
 					capturedValue = this.dep.getValue();
@@ -177,8 +175,7 @@ describe("Lifecycle Hooks", () => {
 				providers: [ServiceWithoutInit],
 			}).compile();
 
-			const service =
-				await container.get<ServiceWithoutInit>(ServiceWithoutInit);
+			const service = await container.get<ServiceWithoutInit>(ServiceWithoutInit);
 
 			expect(service?.getValue()).toBe("value");
 		});
@@ -238,9 +235,7 @@ describe("Lifecycle Hooks", () => {
 
 			@Injectable()
 			class DataService implements OnModuleInit {
-				constructor(
-					@Inject(RepositoryService) private repo: RepositoryService,
-				) {}
+				constructor(@Inject(RepositoryService) private repo: RepositoryService) {}
 
 				onModuleInit() {
 					initOrder.push("DataService");
@@ -258,9 +253,7 @@ describe("Lifecycle Hooks", () => {
 
 			@Injectable()
 			class ControllerService implements OnModuleInit {
-				constructor(
-					@Inject(BusinessService) private business: BusinessService,
-				) {}
+				constructor(@Inject(BusinessService) private business: BusinessService) {}
 
 				onModuleInit() {
 					initOrder.push("Controller");
@@ -268,22 +261,12 @@ describe("Lifecycle Hooks", () => {
 			}
 
 			const container = await Test.createModule({
-				providers: [
-					RepositoryService,
-					DataService,
-					BusinessService,
-					ControllerService,
-				],
+				providers: [RepositoryService, DataService, BusinessService, ControllerService],
 			}).compile();
 
 			await container.get<ControllerService>(ControllerService);
 
-			expect(initOrder).toEqual([
-				"Repository",
-				"DataService",
-				"BusinessService",
-				"Controller",
-			]);
+			expect(initOrder).toEqual(["Repository", "DataService", "BusinessService", "Controller"]);
 		});
 
 		it("should work with multiple modules", async () => {

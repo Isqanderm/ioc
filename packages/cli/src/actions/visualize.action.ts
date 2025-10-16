@@ -60,24 +60,21 @@ export class VisualizeAction extends AbstractAction {
 
 	private async installDeps() {
 		return new Promise<void>((resolve, reject) => {
-			exec(
-				"npm install --save-dev nexus-ioc-graph-visualizer",
-				(error, stdout, stderr) => {
-					if (error) {
-						console.error(`Install error: ${error.message}`);
-						reject();
-						return;
-					}
+			exec("npm install --save-dev nexus-ioc-graph-visualizer", (error, stdout, stderr) => {
+				if (error) {
+					console.error(`Install error: ${error.message}`);
+					reject();
+					return;
+				}
 
-					if (stderr) {
-						console.error(`Error: ${stderr}`);
-						reject();
-						return;
-					}
+				if (stderr) {
+					console.error(`Error: ${stderr}`);
+					reject();
+					return;
+				}
 
-					resolve();
-				},
-			);
+				resolve();
+			});
 		});
 	}
 

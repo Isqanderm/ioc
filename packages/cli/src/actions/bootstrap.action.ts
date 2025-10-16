@@ -12,9 +12,7 @@ export class BootstrapAction extends AbstractAction {
 
 	async handler(inputs: Input[], options: Input[]): Promise<void> {
 		if (options.find((item) => item.name === "skipDeps" && !item.value)) {
-			const installReact = !!options.find(
-				(item) => item.name === "skipDeps" && !item.value,
-			);
+			const installReact = !!options.find((item) => item.name === "skipDeps" && !item.value);
 			await this.installDeps({
 				installReact,
 			});

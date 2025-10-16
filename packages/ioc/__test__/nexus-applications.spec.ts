@@ -1,12 +1,6 @@
 import "reflect-metadata";
 import { vi } from "vitest";
-import {
-	Inject,
-	Injectable,
-	NexusApplications,
-	NsModule,
-	type OnModuleInit,
-} from "../src";
+import { Inject, Injectable, NexusApplications, NsModule, type OnModuleInit } from "../src";
 
 describe("NexusApplications", () => {
 	@Injectable()

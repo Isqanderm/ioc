@@ -67,9 +67,7 @@ describe("Real-World Scenarios E2E", () => {
 			// Products Module
 			@Injectable()
 			class ProductRepository {
-				constructor(
-					@Inject(DatabaseConnection) private db: DatabaseConnection,
-				) {}
+				constructor(@Inject(DatabaseConnection) private db: DatabaseConnection) {}
 
 				findById(id: string): Product {
 					return { id, name: "Test Product", price: 100 };
@@ -78,9 +76,7 @@ describe("Real-World Scenarios E2E", () => {
 
 			@Injectable()
 			class ProductService {
-				constructor(
-					@Inject(ProductRepository) private repo: ProductRepository,
-				) {}
+				constructor(@Inject(ProductRepository) private repo: ProductRepository) {}
 
 				getProduct(id: string) {
 					return this.repo.findById(id);
@@ -97,9 +93,7 @@ describe("Real-World Scenarios E2E", () => {
 			// Orders Module
 			@Injectable()
 			class OrderRepository {
-				constructor(
-					@Inject(DatabaseConnection) private db: DatabaseConnection,
-				) {}
+				constructor(@Inject(DatabaseConnection) private db: DatabaseConnection) {}
 
 				save(order: Order) {
 					return order;
@@ -115,9 +109,7 @@ describe("Real-World Scenarios E2E", () => {
 				) {}
 
 				createOrder(productIds: string[]): Order {
-					const products = productIds.map((id) =>
-						this.productService.getProduct(id),
-					);
+					const products = productIds.map((id) => this.productService.getProduct(id));
 					const subtotal = products.reduce((sum, p) => sum + p.price, 0);
 					const tax = subtotal * this.config.getConfig().taxRate;
 					const total = subtotal + tax;
@@ -260,11 +252,7 @@ describe("Real-World Scenarios E2E", () => {
 			}
 
 			@NsModule({
-				imports: [
-					MessageBusModule,
-					UserServiceModule,
-					NotificationServiceModule,
-				],
+				imports: [MessageBusModule, UserServiceModule, NotificationServiceModule],
 				providers: [UserOrchestrator],
 			})
 			class AppModule {}
@@ -273,15 +261,13 @@ describe("Real-World Scenarios E2E", () => {
 				imports: [AppModule],
 			}).compile();
 
-			const orchestrator =
-				await container.get<UserOrchestrator>(UserOrchestrator);
+			const orchestrator = await container.get<UserOrchestrator>(UserOrchestrator);
 			const user = orchestrator?.registerUser("John", "john@example.com");
 
 			expect(user?.name).toBe("John");
 			expect(orchestrator?.getUserEvents().length).toBe(1);
 
-			const notificationService =
-				await container.get<NotificationService>(NotificationService);
+			const notificationService = await container.get<NotificationService>(NotificationService);
 			expect(notificationService?.getNotifications().length).toBe(1);
 		});
 	});
@@ -428,12 +414,7 @@ describe("Real-World Scenarios E2E", () => {
 			}
 
 			const container = await Test.createModule({
-				providers: [
-					ValidationPlugin,
-					LoggingPlugin,
-					TransformPlugin,
-					PluginManager,
-				],
+				providers: [ValidationPlugin, LoggingPlugin, TransformPlugin, PluginManager],
 			}).compile();
 
 			const manager = await container.get<PluginManager>(PluginManager);

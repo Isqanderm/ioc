@@ -195,8 +195,7 @@ describe("Module System Integration", () => {
 			// Note: In current implementation, all providers in the graph are accessible
 			// even if not exported. This is a design decision.
 			// Private service is accessible because it's in the module graph
-			const privateService =
-				await container.get<PrivateService>(PrivateService);
+			const privateService = await container.get<PrivateService>(PrivateService);
 			expect(privateService).toBeDefined(); // Changed from toBeUndefined
 			expect(privateService?.getValue()).toBe("private");
 		});
@@ -352,10 +351,7 @@ describe("Module System Integration", () => {
 				static forRoot(config: DatabaseConfig) {
 					return {
 						module: DatabaseModule,
-						providers: [
-							{ provide: "DB_CONFIG", useValue: config },
-							DatabaseService,
-						],
+						providers: [{ provide: "DB_CONFIG", useValue: config }, DatabaseService],
 						exports: [DatabaseService],
 					};
 				}
@@ -384,10 +380,7 @@ describe("Module System Integration", () => {
 				static forFeature(featureName: string) {
 					return {
 						module: FeatureModule,
-						providers: [
-							{ provide: "FEATURE_NAME", useValue: featureName },
-							FeatureRepository,
-						],
+						providers: [{ provide: "FEATURE_NAME", useValue: featureName }, FeatureRepository],
 						exports: [FeatureRepository],
 					};
 				}
@@ -436,9 +429,7 @@ describe("Module System Integration", () => {
 			// Users Module
 			@Injectable()
 			class UserRepository {
-				constructor(
-					@Inject(DatabaseConnection) private db: DatabaseConnection,
-				) {}
+				constructor(@Inject(DatabaseConnection) private db: DatabaseConnection) {}
 
 				findAll() {
 					return `users-${this.db.connect()}`;

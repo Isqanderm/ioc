@@ -11,5 +11,4 @@ export const MODULE_TOKEN_WATERMARK = "__module__token__";
 export const SELF_DECLARED_DEPS_METADATA = "self:paramtypes";
 export const PROPERTY_DEPS_METADATA = "self:properties_metadata";
 export const SELF_DECLARED_OPTIONAL_DEPS_METADATA = "self:paramtypes:optional";
-export const PROPERTY_OPTIONAL_DEPS_METADATA =
-	"self:properties_metadata:optional";
+export const PROPERTY_OPTIONAL_DEPS_METADATA = "self:properties_metadata:optional";

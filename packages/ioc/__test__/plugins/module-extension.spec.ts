@@ -46,10 +46,7 @@ describe("Module extension", () => {
 				const nodes = graph.getAllNodes();
 
 				for (const node of nodes) {
-					if (
-						node.type === "provider" &&
-						Reflect.getMetadata(CONTROLLERS, node.metatype)
-					) {
+					if (node.type === "provider" && Reflect.getMetadata(CONTROLLERS, node.metatype)) {
 						this.controllers.push(node);
 					}
 				}

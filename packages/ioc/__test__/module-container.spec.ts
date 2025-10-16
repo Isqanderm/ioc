@@ -50,8 +50,7 @@ describe("ModuleContainer", () => {
 		const WithImportsModule = await WithImportsModuleContainer.compile();
 
 		await WithImportsModuleContainer.addModule(TestModule);
-		const TestModuleContainer =
-			await WithImportsModuleContainer.getModule(TestModule);
+		const TestModuleContainer = await WithImportsModuleContainer.getModule(TestModule);
 
 		expect(await WithImportsModule.imports).toEqual([TestModuleContainer]);
 	});

@@ -21,12 +21,7 @@
 		"container",
 		"CLI"
 	],
-	"files": [
-		"dist",
-		"package.json",
-		"LICENSE",
-		"README.md"
-	],
+	"files": ["dist", "package.json", "LICENSE", "README.md"],
 	"bin": {
 		"nexus-cli": "dist/index.js"
 	},

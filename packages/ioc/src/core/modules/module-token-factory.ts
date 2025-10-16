@@ -9,10 +9,7 @@ import { isDynamicModule } from "../../utils/helpers";
 export class ModuleTokenFactory implements ModuleTokenFactoryInterface {
 	private readonly moduleTokenCache = new Map<string, string>();
 	private readonly moduleTokens = new WeakMap<Module | DynamicModule, string>();
-	private readonly moduleIdsCache = new WeakMap<
-		Module | DynamicModule,
-		string
-	>();
+	private readonly moduleIdsCache = new WeakMap<Module | DynamicModule, string>();
 
 	constructor(private readonly hashUtils: HashUtilInterface) {}
 
@@ -33,10 +30,7 @@ export class ModuleTokenFactory implements ModuleTokenFactoryInterface {
 		return token;
 	}
 
-	private async getStaticModuleToken(
-		moduleId: string,
-		moduleName: string,
-	): Promise<string> {
+	private async getStaticModuleToken(moduleId: string, moduleName: string): Promise<string> {
 		const key = `${moduleId}_${moduleName}`;
 		if (this.moduleTokenCache.has(key)) {
 			return this.moduleTokenCache.get(key) as string;

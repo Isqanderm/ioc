@@ -1,8 +1,4 @@
-import {
-	EdgeTypeEnum,
-	type ModuleContainerInterface,
-	NodeTypeEnum,
-} from "../../interfaces";
+import { EdgeTypeEnum, type ModuleContainerInterface, NodeTypeEnum } from "../../interfaces";
 import { isDynamicModule, isGlobalModule } from "../../utils/helpers";
 
 export class AnalyzeModule {
@@ -77,10 +73,7 @@ export class AnalyzeModule {
 		let isGlobal = isGlobalModule(this._metatype);
 
 		if (isDynamicModule(this._module.metatype)) {
-			if (
-				this._module.metatype.module.forRoot ||
-				this._module.metatype.module.forRootAsync
-			) {
+			if (this._module.metatype.module.forRoot || this._module.metatype.module.forRootAsync) {
 				isGlobal = true;
 			}
 		}

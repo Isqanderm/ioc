@@ -1,9 +1,7 @@
 {
 	"name": "root",
 	"private": true,
-	"workspaces": [
-		"packages/*"
-	],
+	"workspaces": ["packages/*"],
 	"version": "independent",
 	"command": {
 		"version": {
@@ -38,6 +36,12 @@
 		"build:testing": "npx lerna exec --scope=@nexus-ioc/testing -- npm run build",
 		"build:cli": "npx lerna exec --scope=@nexus-ioc/cli -- npm run build",
 		"build:all": "npm run build:shared && npm run build:ioc && npm run build:testing && npm run build:cli",
+		"format": "npx @biomejs/biome format --write .",
+		"format:check": "npx @biomejs/biome format .",
+		"lint": "npx @biomejs/biome lint --write .",
+		"lint:check": "npx @biomejs/biome lint .",
+		"check": "npx @biomejs/biome check --write .",
+		"check:ci": "npx @biomejs/biome ci .",
 		"changelog": "conventional-changelog -p angular -i CHANGELOG.md -s",
 		"commit": "cz",
 		"prepare": "husky"
@@ -48,9 +52,6 @@
 		}
 	},
 	"lint-staged": {
-		"*.{js,jsx,ts,tsx}": [
-			"npx @biomejs/biome lint . --write",
-			"git add"
-		]
+		"*.{js,jsx,ts,tsx,json}": ["npx @biomejs/biome check --write --unsafe"]
 	}
 }

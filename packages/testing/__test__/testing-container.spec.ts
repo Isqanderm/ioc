@@ -141,8 +141,7 @@ describe("TestingContainer (Test class)", () => {
 				providers: [ExistingService],
 			}).compile();
 
-			const service =
-				await testingModule.get<NonExistentService>(NonExistentService);
+			const service = await testingModule.get<NonExistentService>(NonExistentService);
 			expect(service).toBeUndefined();
 		});
 
@@ -154,9 +153,7 @@ describe("TestingContainer (Test class)", () => {
 				providers: [MyService],
 			});
 
-			expect(() => testInstance.get<MyService>(MyService)).toThrow(
-				"container not compiled",
-			);
+			expect(() => testInstance.get<MyService>(MyService)).toThrow("container not compiled");
 		});
 	});
 
@@ -260,10 +257,7 @@ describe("TestingContainer (Test class)", () => {
 				imports: [OldModule],
 			});
 
-			const replacedModule = await testInstance.replaceModule(
-				OldModule,
-				NewModule,
-			);
+			const replacedModule = await testInstance.replaceModule(OldModule, NewModule);
 			expect(replacedModule).toBeDefined();
 			expect(replacedModule.metatype).toBe(NewModule);
 		});
@@ -352,9 +346,7 @@ describe("TestingContainer (Test class)", () => {
 				providers: [],
 			});
 
-			expect(() => testInstance.moduleContainer).toThrow(
-				"container not compiled",
-			);
+			expect(() => testInstance.moduleContainer).toThrow("container not compiled");
 		});
 	});
 

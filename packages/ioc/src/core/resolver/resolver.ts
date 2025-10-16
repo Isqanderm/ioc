@@ -7,11 +7,7 @@ import {
 	Scope,
 	type Type,
 } from "../../interfaces";
-import {
-	isClassProvider,
-	isFactoryProvider,
-	isValueProvider,
-} from "../../utils/helpers";
+import { isClassProvider, isFactoryProvider, isValueProvider } from "../../utils/helpers";
 import type { AnalyzeProvider } from "../graph/analyze-provider";
 import { ProvidersContainer } from "./providers-container";
 
@@ -147,15 +143,15 @@ export class Resolver {
 			resolvedDependencies.push(instance);
 		}
 
-		resolvedDependencies = resolvedDependencies.map<
-			InjectionToken | CircularDependencyFn
-		>((dependency, index) => {
-			if (depsChunks[0]?.[index]) {
-				return depsChunks[0]?.[index] as CircularDependencyFn;
-			}
+		resolvedDependencies = resolvedDependencies.map<InjectionToken | CircularDependencyFn>(
+			(dependency, index) => {
+				if (depsChunks[0]?.[index]) {
+					return depsChunks[0]?.[index] as CircularDependencyFn;
+				}
 
-			return dependency as InjectionToken;
-		});
+				return dependency as InjectionToken;
+			},
+		);
 
 		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
 		let instance: any;
@@ -204,10 +200,7 @@ export class Resolver {
 			);
 
 		for (const edge of dependencies) {
-			instance[edge.metadata.key as string] = await this.resolveProvider(
-				edge.target,
-				resolveCache,
-			);
+			instance[edge.metadata.key as string] = await this.resolveProvider(edge.target, resolveCache);
 		}
 	}
 }

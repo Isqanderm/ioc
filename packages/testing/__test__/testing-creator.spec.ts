@@ -1,10 +1,5 @@
 import "reflect-metadata";
-import {
-	MODULE_METADATA,
-	MODULE_WATERMARK,
-	type ModuleMetadata,
-	NsModule,
-} from "@nexus-ioc/core";
+import { MODULE_METADATA, MODULE_WATERMARK, type ModuleMetadata, NsModule } from "@nexus-ioc/core";
 import { TestingCreator } from "../src/core/testing-creator";
 
 describe("TestingCreator", () => {
@@ -49,10 +44,7 @@ describe("TestingCreator", () => {
 
 			const moduleClass = creator.create(metadata, NsModule);
 
-			const providers = Reflect.getMetadata(
-				MODULE_METADATA.PROVIDERS,
-				moduleClass,
-			);
+			const providers = Reflect.getMetadata(MODULE_METADATA.PROVIDERS, moduleClass);
 			expect(providers).toBeDefined();
 			expect(providers).toContain(TestService);
 		});
@@ -101,10 +93,7 @@ describe("TestingCreator", () => {
 			const moduleClass = creator.create(metadata, NsModule);
 
 			const imports = Reflect.getMetadata(MODULE_METADATA.IMPORTS, moduleClass);
-			const providers = Reflect.getMetadata(
-				MODULE_METADATA.PROVIDERS,
-				moduleClass,
-			);
+			const providers = Reflect.getMetadata(MODULE_METADATA.PROVIDERS, moduleClass);
 			const exports = Reflect.getMetadata(MODULE_METADATA.EXPORTS, moduleClass);
 
 			expect(imports).toContain(ImportedModule);

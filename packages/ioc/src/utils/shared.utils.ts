@@ -1,10 +1,8 @@
 // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-export const isUndefined = (obj: any): obj is undefined =>
-	typeof obj === "undefined";
+export const isUndefined = (obj: any): obj is undefined => typeof obj === "undefined";
 
 // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-export const isObject = (fn: any): fn is object =>
-	!isNil(fn) && typeof fn === "object";
+export const isObject = (fn: any): fn is object => !isNil(fn) && typeof fn === "object";
 
 // biome-ignore lint/suspicious/noExplicitAny: <explanation>
 export const isPlainObject = (fn: any): fn is object => {
@@ -15,14 +13,11 @@ export const isPlainObject = (fn: any): fn is object => {
 	if (proto === null) {
 		return true;
 	}
-	const ctor =
-		Object.prototype.hasOwnProperty.call(proto, "constructor") &&
-		proto.constructor;
+	const ctor = Object.prototype.hasOwnProperty.call(proto, "constructor") && proto.constructor;
 	return (
 		typeof ctor === "function" &&
 		ctor instanceof ctor &&
-		Function.prototype.toString.call(ctor) ===
-			Function.prototype.toString.call(Object)
+		Function.prototype.toString.call(ctor) === Function.prototype.toString.call(Object)
 	);
 };
 
@@ -48,8 +43,7 @@ export const stripEndSlash = (path: string) =>
 
 // biome-ignore lint/suspicious/noExplicitAny: <explanation>
 // biome-ignore lint/complexity/noBannedTypes: <explanation>
-export const isFunction = (val: any): val is Function =>
-	typeof val === "function";
+export const isFunction = (val: any): val is Function => typeof val === "function";
 
 // biome-ignore lint/suspicious/noExplicitAny: <explanation>
 export const isString = (val: any): val is string => typeof val === "string";
@@ -61,8 +55,7 @@ export const isNumber = (val: any): val is number => typeof val === "number";
 export const isConstructor = (val: any): boolean => val === "constructor";
 
 // biome-ignore lint/suspicious/noExplicitAny: <explanation>
-export const isNil = (val: any): val is null | undefined =>
-	isUndefined(val) || val === null;
+export const isNil = (val: any): val is null | undefined => isUndefined(val) || val === null;
 
 // biome-ignore lint/suspicious/noExplicitAny: <explanation>
 export const isEmpty = (array: any): boolean => !(array && array.length > 0);

@@ -7,10 +7,7 @@ import type { Module } from "./module-types.interface";
 
 export interface ContainerBaseInterface {
 	addModule(module: Module | DynamicModule): Promise<ModuleContainerInterface>;
-	replaceModule(
-		moduleToReplace: Module,
-		newModule: Module,
-	): Promise<ModuleContainerInterface>;
+	replaceModule(moduleToReplace: Module, newModule: Module): Promise<ModuleContainerInterface>;
 	getModule(module: Module): Promise<ModuleContainerInterface | undefined>;
 	get<T>(token: InjectionToken): Promise<T | undefined>;
 	errors: GraphError[];
