@@ -1,6 +1,6 @@
 import "reflect-metadata";
 import { Test } from "@nexus-ioc/testing";
-import { Injectable, Inject, NsModule, type OnModuleInit } from "../../src";
+import { Inject, Injectable, NsModule, type OnModuleInit } from "../../src";
 
 describe("Lifecycle Hooks", () => {
 	describe("OnModuleInit", () => {
@@ -56,7 +56,9 @@ describe("Lifecycle Hooks", () => {
 
 			@Injectable()
 			class ServiceWithInit implements OnModuleInit {
-				constructor(@Inject(DependencyService) private dep: DependencyService) {}
+				constructor(
+					@Inject(DependencyService) private dep: DependencyService,
+				) {}
 
 				onModuleInit() {
 					capturedValue = this.dep.getValue();
@@ -175,7 +177,8 @@ describe("Lifecycle Hooks", () => {
 				providers: [ServiceWithoutInit],
 			}).compile();
 
-			const service = await container.get<ServiceWithoutInit>(ServiceWithoutInit);
+			const service =
+				await container.get<ServiceWithoutInit>(ServiceWithoutInit);
 
 			expect(service?.getValue()).toBe("value");
 		});
@@ -235,7 +238,9 @@ describe("Lifecycle Hooks", () => {
 
 			@Injectable()
 			class DataService implements OnModuleInit {
-				constructor(@Inject(RepositoryService) private repo: RepositoryService) {}
+				constructor(
+					@Inject(RepositoryService) private repo: RepositoryService,
+				) {}
 
 				onModuleInit() {
 					initOrder.push("DataService");
@@ -322,4 +327,3 @@ describe("Lifecycle Hooks", () => {
 		});
 	});
 });
-

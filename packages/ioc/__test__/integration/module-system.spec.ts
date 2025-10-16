@@ -1,6 +1,6 @@
 import "reflect-metadata";
 import { Test } from "@nexus-ioc/testing";
-import { Injectable, Inject, NsModule, Global } from "../../src";
+import { Global, Inject, Injectable, NsModule } from "../../src";
 
 describe("Module System Integration", () => {
 	describe("Module Imports", () => {
@@ -195,7 +195,8 @@ describe("Module System Integration", () => {
 			// Note: In current implementation, all providers in the graph are accessible
 			// even if not exported. This is a design decision.
 			// Private service is accessible because it's in the module graph
-			const privateService = await container.get<PrivateService>(PrivateService);
+			const privateService =
+				await container.get<PrivateService>(PrivateService);
 			expect(privateService).toBeDefined(); // Changed from toBeUndefined
 			expect(privateService?.getValue()).toBe("private");
 		});
@@ -435,7 +436,9 @@ describe("Module System Integration", () => {
 			// Users Module
 			@Injectable()
 			class UserRepository {
-				constructor(@Inject(DatabaseConnection) private db: DatabaseConnection) {}
+				constructor(
+					@Inject(DatabaseConnection) private db: DatabaseConnection,
+				) {}
 
 				findAll() {
 					return `users-${this.db.connect()}`;
@@ -477,4 +480,3 @@ describe("Module System Integration", () => {
 		});
 	});
 });
-

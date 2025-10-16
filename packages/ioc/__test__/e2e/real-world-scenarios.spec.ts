@@ -1,12 +1,12 @@
 import "reflect-metadata";
 import { Test } from "@nexus-ioc/testing";
 import {
-	Injectable,
-	Inject,
-	NsModule,
 	Global,
-	Optional,
+	Inject,
+	Injectable,
+	NsModule,
 	type OnModuleInit,
+	Optional,
 	Scope,
 } from "../../src";
 
@@ -67,7 +67,9 @@ describe("Real-World Scenarios E2E", () => {
 			// Products Module
 			@Injectable()
 			class ProductRepository {
-				constructor(@Inject(DatabaseConnection) private db: DatabaseConnection) {}
+				constructor(
+					@Inject(DatabaseConnection) private db: DatabaseConnection,
+				) {}
 
 				findById(id: string): Product {
 					return { id, name: "Test Product", price: 100 };
@@ -76,7 +78,9 @@ describe("Real-World Scenarios E2E", () => {
 
 			@Injectable()
 			class ProductService {
-				constructor(@Inject(ProductRepository) private repo: ProductRepository) {}
+				constructor(
+					@Inject(ProductRepository) private repo: ProductRepository,
+				) {}
 
 				getProduct(id: string) {
 					return this.repo.findById(id);
@@ -93,7 +97,9 @@ describe("Real-World Scenarios E2E", () => {
 			// Orders Module
 			@Injectable()
 			class OrderRepository {
-				constructor(@Inject(DatabaseConnection) private db: DatabaseConnection) {}
+				constructor(
+					@Inject(DatabaseConnection) private db: DatabaseConnection,
+				) {}
 
 				save(order: Order) {
 					return order;
@@ -237,7 +243,8 @@ describe("Real-World Scenarios E2E", () => {
 			class UserOrchestrator {
 				constructor(
 					@Inject(UserService) private userService: UserService,
-					@Inject(NotificationService) private notificationService: NotificationService,
+					@Inject(NotificationService)
+					private notificationService: NotificationService,
 					@Inject(MessageBus) private bus: MessageBus,
 				) {}
 
@@ -266,17 +273,15 @@ describe("Real-World Scenarios E2E", () => {
 				imports: [AppModule],
 			}).compile();
 
-			const orchestrator = await container.get<UserOrchestrator>(
-				UserOrchestrator,
-			);
+			const orchestrator =
+				await container.get<UserOrchestrator>(UserOrchestrator);
 			const user = orchestrator?.registerUser("John", "john@example.com");
 
 			expect(user?.name).toBe("John");
 			expect(orchestrator?.getUserEvents().length).toBe(1);
 
-			const notificationService = await container.get<NotificationService>(
-				NotificationService,
-			);
+			const notificationService =
+				await container.get<NotificationService>(NotificationService);
 			expect(notificationService?.getNotifications().length).toBe(1);
 		});
 	});
@@ -492,4 +497,3 @@ describe("Real-World Scenarios E2E", () => {
 		});
 	});
 });
-

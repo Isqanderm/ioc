@@ -1,8 +1,8 @@
 import "reflect-metadata";
 import {
 	addLeadingSlash,
-	isEmpty,
 	isConstructor,
+	isEmpty,
 	isFunction,
 	isNil,
 	isNumber,
@@ -291,4 +291,3 @@ describe("Shared Utils", () => {
 		});
 	});
 });
-

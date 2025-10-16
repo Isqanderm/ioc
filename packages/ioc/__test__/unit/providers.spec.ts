@@ -1,6 +1,6 @@
 import "reflect-metadata";
 import { Test } from "@nexus-ioc/testing";
-import { Injectable, Inject, NsModule, Scope } from "../../src";
+import { Inject, Injectable, NsModule, Scope } from "../../src";
 
 describe("Providers", () => {
 	describe("ClassProvider", () => {
@@ -280,8 +280,12 @@ describe("Providers", () => {
 				],
 			}).compile();
 
-			const instance1 = await container.get<{ id: number }>("TRANSIENT_FACTORY");
-			const instance2 = await container.get<{ id: number }>("TRANSIENT_FACTORY");
+			const instance1 = await container.get<{ id: number }>(
+				"TRANSIENT_FACTORY",
+			);
+			const instance2 = await container.get<{ id: number }>(
+				"TRANSIENT_FACTORY",
+			);
 
 			expect(instance1?.id).toBe(1);
 			expect(instance2?.id).toBe(2);
@@ -316,7 +320,9 @@ describe("Providers", () => {
 
 			@Injectable()
 			class ServiceWithDeps {
-				constructor(@Inject(DependencyService) private dep: DependencyService) {}
+				constructor(
+					@Inject(DependencyService) private dep: DependencyService,
+				) {}
 
 				getValue() {
 					return `service-${this.dep.getValue()}`;
@@ -379,4 +385,3 @@ describe("Providers", () => {
 		});
 	});
 });
-

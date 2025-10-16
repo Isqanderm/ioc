@@ -1,6 +1,6 @@
 import "reflect-metadata";
 import { Test } from "@nexus-ioc/testing";
-import { Injectable, Inject, Scope } from "../../src";
+import { Inject, Injectable, Scope } from "../../src";
 
 describe("Scope Management", () => {
 	describe("Singleton Scope", () => {
@@ -32,12 +32,10 @@ describe("Scope Management", () => {
 				providers: [DefaultScopeService],
 			}).compile();
 
-			const instance1 = await container.get<DefaultScopeService>(
-				DefaultScopeService,
-			);
-			const instance2 = await container.get<DefaultScopeService>(
-				DefaultScopeService,
-			);
+			const instance1 =
+				await container.get<DefaultScopeService>(DefaultScopeService);
+			const instance2 =
+				await container.get<DefaultScopeService>(DefaultScopeService);
 
 			expect(instance1?.id).toBe(instance2?.id);
 		});
@@ -142,12 +140,16 @@ describe("Scope Management", () => {
 
 			@Injectable()
 			class ServiceA {
-				constructor(@Inject(TransientService) public transient: TransientService) {}
+				constructor(
+					@Inject(TransientService) public transient: TransientService,
+				) {}
 			}
 
 			@Injectable()
 			class ServiceB {
-				constructor(@Inject(TransientService) public transient: TransientService) {}
+				constructor(
+					@Inject(TransientService) public transient: TransientService,
+				) {}
 			}
 
 			const container = await Test.createModule({
@@ -290,11 +292,15 @@ describe("Scope Management", () => {
 				providers: [SingletonService, TransientService],
 			}).compile();
 
-			const singleton1 = await container.get<SingletonService>(SingletonService);
-			const singleton2 = await container.get<SingletonService>(SingletonService);
+			const singleton1 =
+				await container.get<SingletonService>(SingletonService);
+			const singleton2 =
+				await container.get<SingletonService>(SingletonService);
 
-			const transient1 = await container.get<TransientService>(TransientService);
-			const transient2 = await container.get<TransientService>(TransientService);
+			const transient1 =
+				await container.get<TransientService>(TransientService);
+			const transient2 =
+				await container.get<TransientService>(TransientService);
 
 			expect(singleton1?.id).toBe(singleton2?.id);
 			expect(transient1?.id).not.toBe(transient2?.id);
@@ -309,7 +315,9 @@ describe("Scope Management", () => {
 
 			@Injectable({ scope: Scope.Singleton }) // Transient not implemented
 			class TransientService {
-				constructor(@Inject(SingletonService) public singleton: SingletonService) {}
+				constructor(
+					@Inject(SingletonService) public singleton: SingletonService,
+				) {}
 				id = Math.random();
 			}
 
@@ -317,8 +325,10 @@ describe("Scope Management", () => {
 				providers: [SingletonService, TransientService],
 			}).compile();
 
-			const transient1 = await container.get<TransientService>(TransientService);
-			const transient2 = await container.get<TransientService>(TransientService);
+			const transient1 =
+				await container.get<TransientService>(TransientService);
+			const transient2 =
+				await container.get<TransientService>(TransientService);
 
 			// Transient instances should be different
 			expect(transient1?.id).not.toBe(transient2?.id);
@@ -334,15 +344,19 @@ describe("Scope Management", () => {
 
 			@Injectable({ scope: Scope.Singleton })
 			class SingletonService {
-				constructor(@Inject(TransientService) public transient: TransientService) {}
+				constructor(
+					@Inject(TransientService) public transient: TransientService,
+				) {}
 			}
 
 			const container = await Test.createModule({
 				providers: [TransientService, SingletonService],
 			}).compile();
 
-			const singleton1 = await container.get<SingletonService>(SingletonService);
-			const singleton2 = await container.get<SingletonService>(SingletonService);
+			const singleton1 =
+				await container.get<SingletonService>(SingletonService);
+			const singleton2 =
+				await container.get<SingletonService>(SingletonService);
 
 			// Singleton should be the same
 			expect(singleton1).toBe(singleton2);
@@ -351,4 +365,3 @@ describe("Scope Management", () => {
 		});
 	});
 });
-

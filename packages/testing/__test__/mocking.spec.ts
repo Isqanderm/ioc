@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import { Injectable, Inject, NsModule } from "@nexus-ioc/core";
+import { Inject, Injectable, NsModule } from "@nexus-ioc/core";
 import { Test } from "../src/core/testing-container";
 
 describe("Mocking and Provider Overriding", () => {
@@ -14,7 +14,9 @@ describe("Mocking and Provider Overriding", () => {
 
 			@Injectable()
 			class UserService {
-				constructor(@Inject(RealDatabaseService) private db: RealDatabaseService) {}
+				constructor(
+					@Inject(RealDatabaseService) private db: RealDatabaseService,
+				) {}
 
 				getUsers() {
 					return this.db.query();
@@ -103,9 +105,8 @@ describe("Mocking and Provider Overriding", () => {
 				],
 			}).compile();
 
-			const service = await container.get<NotificationService>(
-				NotificationService,
-			);
+			const service =
+				await container.get<NotificationService>(NotificationService);
 			expect(service?.notify("user@example.com")).toBe(
 				"mock-sent to user@example.com",
 			);
@@ -413,7 +414,9 @@ describe("Mocking and Provider Overriding", () => {
 
 			@Injectable()
 			class UserService {
-				constructor(@Inject(ValidationService) private validator: ValidationService) {}
+				constructor(
+					@Inject(ValidationService) private validator: ValidationService,
+				) {}
 
 				createUser(data: unknown) {
 					try {
@@ -440,4 +443,3 @@ describe("Mocking and Provider Overriding", () => {
 		});
 	});
 });
-

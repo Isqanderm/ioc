@@ -1,6 +1,6 @@
 import "reflect-metadata";
 import { Test } from "@nexus-ioc/testing";
-import { Injectable, Inject, Optional, NsModule } from "../../src";
+import { Inject, Injectable, NsModule, Optional } from "../../src";
 
 describe("Dependency Injection Integration", () => {
 	describe("Multi-level Dependencies", () => {
@@ -32,7 +32,9 @@ describe("Dependency Injection Integration", () => {
 
 			@Injectable()
 			class LevelFourService {
-				constructor(@Inject(LevelThreeService) private level3: LevelThreeService) {}
+				constructor(
+					@Inject(LevelThreeService) private level3: LevelThreeService,
+				) {}
 
 				getValue() {
 					return `level-4->${this.level3.getValue()}`;
@@ -127,10 +129,7 @@ describe("Dependency Injection Integration", () => {
 			}
 
 			const container = await Test.createModule({
-				providers: [
-					ServiceA,
-					{ provide: "ServiceB", useClass: ServiceB },
-				],
+				providers: [ServiceA, { provide: "ServiceB", useClass: ServiceB }],
 			}).compile();
 
 			const errors = container.errors;
@@ -159,10 +158,7 @@ describe("Dependency Injection Integration", () => {
 			}
 
 			const container = await Test.createModule({
-				providers: [
-					ServiceA,
-					{ provide: "ServiceB", useClass: ServiceB },
-				],
+				providers: [ServiceA, { provide: "ServiceB", useClass: ServiceB }],
 			}).compile();
 
 			// Should have circular dependency error
@@ -193,9 +189,8 @@ describe("Dependency Injection Integration", () => {
 			}).compile();
 
 			expect(container.errors).toEqual([]);
-			const service = await container.get<ServiceWithOptional>(
-				ServiceWithOptional,
-			);
+			const service =
+				await container.get<ServiceWithOptional>(ServiceWithOptional);
 			expect(service?.hasOptional()).toBe(false);
 		});
 
@@ -224,9 +219,8 @@ describe("Dependency Injection Integration", () => {
 				providers: [OptionalDependency, ServiceWithOptional],
 			}).compile();
 
-			const service = await container.get<ServiceWithOptional>(
-				ServiceWithOptional,
-			);
+			const service =
+				await container.get<ServiceWithOptional>(ServiceWithOptional);
 			expect(service?.getValue()).toBe("optional-value");
 		});
 
@@ -417,4 +411,3 @@ describe("Dependency Injection Integration", () => {
 		});
 	});
 });
-
