@@ -31,7 +31,8 @@ export function isClassProvider(target: Provider): target is ClassProvider {
 }
 
 export function isValueProvider(target: Provider): target is ValueProvider {
-	return !!(target as ValueProvider).useValue;
+	// Check if target has 'useValue' property (even if it's null or undefined)
+	return 'useValue' in (target as object);
 }
 
 export function isFactoryProvider(target: Provider): target is FactoryProvider {

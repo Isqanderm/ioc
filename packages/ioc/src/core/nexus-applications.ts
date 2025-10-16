@@ -65,7 +65,8 @@ export class NexusApplications implements NexusApplicationInterface {
 	public async get<T>(token: InjectionToken) {
 		const dependency = await this.container.get<T>(token);
 
-		if (!dependency) {
+		// Check for undefined specifically, not falsy values (null, 0, false, etc. are valid)
+		if (dependency === undefined) {
 			return this._parentContainer?.get<T>(token);
 		}
 

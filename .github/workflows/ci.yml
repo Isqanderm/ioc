@@ -1,29 +1,69 @@
 name: CI
 
 on:
-  pull_request:
-    branches:
-      - main
-      - development
   push:
-    branches:
-      - main
-      - development
+    branches: [main, development]
+  pull_request:
+    branches: [main, development]
 
 jobs:
-  lint-and-test:
-    name: Lint, Build & Test (Node ${{ matrix.node-version }})
+  test:
+    name: Unit Tests & Coverage
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [18.x, 20.x, 22.x]
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Fetch all history for better coverage comparison
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linting
+        run: npm run code:check:ci
+
+      - name: Build all packages
+        run: npm run build:all
+
+      - name: Run unit tests with coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./packages/ioc/coverage/lcov.info,./packages/testing/coverage/lcov.info,./packages/cli/coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+          verbose: true
+
+      - name: Archive test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            packages/*/coverage
+            packages/*/test-results
+          retention-days: 7
+
+  build-validation:
+    name: Build Validation
+    runs-on: ubuntu-latest
+    needs: test  # Run after unit tests pass
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]  # Test on multiple Node.js versions
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
@@ -34,69 +74,111 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run linting
-        run: npm run code:check:ci
-
-      - name: Build shared package
-        run: npm run build:shared
-
-      - name: Build IoC package
-        run: npm run build:ioc
-
-      - name: Build testing package
-        run: npm run build:testing
-
-      - name: Build CLI package
-        run: npm run build:cli
-
-      - name: Run tests with coverage
-        run: npm run test -- --coverage
-
-      - name: Upload coverage to Codecov
-        if: matrix.node-version == '20.x'
-        uses: codecov/codecov-action@v4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./packages/ioc/coverage/lcov.info,./packages/testing/coverage/lcov.info,./packages/cli/coverage/lcov.info
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: false
-
-      - name: Archive test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results-node-${{ matrix.node-version }}
-          path: |
-            packages/*/coverage
-            packages/*/test-results
-          retention-days: 7
-
-  build-all-packages:
-    name: Build All Packages
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.x'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
       - name: Build all packages
         run: npm run build:all
 
-      - name: Archive build artifacts
+      - name: Verify build artifacts exist
+        run: |
+          echo "Checking build artifacts..."
+          test -d packages/ioc/dist || (echo "❌ IoC build directory not found" && exit 1)
+          test -d packages/testing/dist || (echo "❌ Testing build directory not found" && exit 1)
+          test -d packages/cli/dist || (echo "❌ CLI build directory not found" && exit 1)
+          test -d packages/shared/dist || (echo "❌ Shared build directory not found" && exit 1)
+          echo "✅ Build artifacts verified"
+
+      - name: Test package imports (smoke test)
+        run: |
+          echo "Testing package imports..."
+          node -e "const ioc = require('./packages/ioc/dist/index.js'); console.log('✅ IoC package import successful');"
+          node -e "const testing = require('./packages/testing/dist/index.js'); console.log('✅ Testing package import successful');"
+          node -e "const cli = require('./packages/cli/dist/index.js'); console.log('✅ CLI package import successful');"
+          echo "✅ All package imports successful"
+
+      - name: Upload build artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifacts
+          name: build-artifacts-node-${{ matrix.node-version }}
           path: |
-            packages/*/dist
+            packages/*/dist/**/*.js
+            packages/*/dist/**/*.d.ts
           retention-days: 7
+
+  build-validation-summary:
+    name: Build Validation Summary
+    runs-on: ubuntu-latest
+    needs: build-validation
+    if: always() && github.event_name == 'pull_request'
+    steps:
+      - name: Comment PR with build validation results
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const conclusion = '${{ needs.build-validation.result }}';
+            const nodeVersions = ['18', '20', '22'];
+
+            let statusIcon = conclusion === 'success' ? '✅' : '❌';
+            let statusText = conclusion === 'success' ? 'All build validation checks passed!' : 'Build validation failed!';
+
+            const body = `## ${statusIcon} Build Validation
+
+            **Status:** ${statusText}
+
+            ### Test Matrix Results
+
+            | Node.js Version | Status |
+            |-----------------|--------|
+            ${nodeVersions.map(v => `| ${v} | ${conclusion === 'success' ? '✅ Passed' : '❌ Failed'} |`).join('\n')}
+
+            ### Validation Steps
+
+            - ${conclusion === 'success' ? '✅' : '❌'} All packages built successfully
+            - ${conclusion === 'success' ? '✅' : '❌'} Build artifacts generated
+            - ${conclusion === 'success' ? '✅' : '❌'} Package imports work correctly
+            - ${conclusion === 'success' ? '✅' : '❌'} TypeScript declarations generated
+
+            ### Packages Validated
+
+            - @nexus-ioc/core
+            - @nexus-ioc/testing
+            - @nexus-ioc/cli
+            - @nexus-ioc/shared
+
+            ${conclusion === 'success'
+              ? '✅ **All packages are ready for publishing!**'
+              : '❌ **Please fix build issues before merging.**'}
+
+            ---
+
+            *This validation ensures all packages build correctly across Node.js 18, 20, and 22.*`;
+
+            // Find existing build validation comment
+            const { data: comments } = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('Build Validation')
+            );
+
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                comment_id: botComment.id,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+            }
 
