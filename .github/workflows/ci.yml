@@ -66,14 +66,326 @@ jobs:
           retention-days: 7
 
   # ============================================================================
-  # STAGE 2: Build Validation (Matrix)
+  # STAGE 2: Coverage Protection Check
   # ============================================================================
   # This job runs only if unit tests pass
+  # Compares coverage between PR and main branch
+  coverage-check:
+    name: Coverage Protection Check
+    runs-on: ubuntu-latest
+    needs: [test]  # ⚠️ Depends on test job - won't run if tests fail
+    # Run only on pull_request events
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests with coverage on PR branch
+        run: npx lerna run test:coverage --stream
+        continue-on-error: true
+
+      - name: Save PR coverage
+        run: |
+          echo "Saving PR coverage summaries..."
+          mkdir -p coverage-reports/pr
+          if [ -f packages/ioc/coverage/coverage-summary.json ]; then
+            cp packages/ioc/coverage/coverage-summary.json coverage-reports/pr/ioc-coverage.json
+          fi
+          if [ -f packages/testing/coverage/coverage-summary.json ]; then
+            cp packages/testing/coverage/coverage-summary.json coverage-reports/pr/testing-coverage.json
+          fi
+
+      - name: Checkout main branch
+        run: |
+          git fetch origin main
+          git checkout main
+
+      - name: Install dependencies on main
+        run: npm ci
+
+      - name: Run tests with coverage on main branch
+        run: npx lerna run test:coverage --stream
+        continue-on-error: true
+
+      - name: Save main coverage
+        run: |
+          echo "Saving main coverage summaries..."
+          mkdir -p coverage-reports/main
+          if [ -f packages/ioc/coverage/coverage-summary.json ]; then
+            cp packages/ioc/coverage/coverage-summary.json coverage-reports/main/ioc-coverage.json
+            echo "MAIN_BRANCH_HAS_IOC_COVERAGE=true" >> "$GITHUB_ENV"
+          else
+            echo "⚠️ IoC coverage summary not found for main branch"
+            echo '{"total":{"lines":{"total":0,"covered":0,"skipped":0,"pct":0},"statements":{"total":0,"covered":0,"skipped":0,"pct":0},"functions":{"total":0,"covered":0,"skipped":0,"pct":0},"branches":{"total":0,"covered":0,"skipped":0,"pct":0}}}' > coverage-reports/main/ioc-coverage.json
+            echo "MAIN_BRANCH_HAS_IOC_COVERAGE=false" >> "$GITHUB_ENV"
+          fi
+          if [ -f packages/testing/coverage/coverage-summary.json ]; then
+            cp packages/testing/coverage/coverage-summary.json coverage-reports/main/testing-coverage.json
+            echo "MAIN_BRANCH_HAS_TESTING_COVERAGE=true" >> "$GITHUB_ENV"
+          else
+            echo "⚠️ Testing coverage summary not found for main branch"
+            echo '{"total":{"lines":{"total":0,"covered":0,"skipped":0,"pct":0},"statements":{"total":0,"covered":0,"skipped":0,"pct":0},"functions":{"total":0,"covered":0,"skipped":0,"pct":0},"branches":{"total":0,"covered":0,"skipped":0,"pct":0}}}' > coverage-reports/main/testing-coverage.json
+            echo "MAIN_BRANCH_HAS_TESTING_COVERAGE=false" >> "$GITHUB_ENV"
+          fi
+
+      - name: Compare coverage and create report
+        run: |
+          echo "📊 Comparing coverage between main and PR..."
+
+          # Function to compare coverage for a package
+          compare_package_coverage() {
+            local package_name=$1
+            local main_file="coverage-reports/main/${package_name}-coverage.json"
+            local pr_file="coverage-reports/pr/${package_name}-coverage.json"
+
+            if [ ! -f "$pr_file" ]; then
+              echo "⚠️ No coverage found for ${package_name} in PR"
+              return 0
+            fi
+
+            # Extract coverage percentages using jq
+            MAIN_LINES=$(jq -r '.total.lines.pct // 0' "$main_file")
+            MAIN_STATEMENTS=$(jq -r '.total.statements.pct // 0' "$main_file")
+            MAIN_FUNCTIONS=$(jq -r '.total.functions.pct // 0' "$main_file")
+            MAIN_BRANCHES=$(jq -r '.total.branches.pct // 0' "$main_file")
+
+            PR_LINES=$(jq -r '.total.lines.pct // 0' "$pr_file")
+            PR_STATEMENTS=$(jq -r '.total.statements.pct // 0' "$pr_file")
+            PR_FUNCTIONS=$(jq -r '.total.functions.pct // 0' "$pr_file")
+            PR_BRANCHES=$(jq -r '.total.branches.pct // 0' "$pr_file")
+
+            echo ""
+            echo "=== ${package_name} Package ==="
+            echo "Main branch coverage:"
+            echo "  Lines: ${MAIN_LINES}%"
+            echo "  Statements: ${MAIN_STATEMENTS}%"
+            echo "  Functions: ${MAIN_FUNCTIONS}%"
+            echo "  Branches: ${MAIN_BRANCHES}%"
+            echo ""
+            echo "PR branch coverage:"
+            echo "  Lines: ${PR_LINES}%"
+            echo "  Statements: ${PR_STATEMENTS}%"
+            echo "  Functions: ${PR_FUNCTIONS}%"
+            echo "  Branches: ${PR_BRANCHES}%"
+            echo ""
+
+            # Compare coverage
+            local failed=0
+
+            if [ $(echo "$PR_LINES < $MAIN_LINES" | bc -l) -eq 1 ]; then
+              echo "❌ Lines coverage decreased from ${MAIN_LINES}% to ${PR_LINES}%"
+              failed=1
+            else
+              echo "✅ Lines coverage: ${PR_LINES}% (main: ${MAIN_LINES}%)"
+            fi
+
+            if [ $(echo "$PR_STATEMENTS < $MAIN_STATEMENTS" | bc -l) -eq 1 ]; then
+              echo "❌ Statements coverage decreased from ${MAIN_STATEMENTS}% to ${PR_STATEMENTS}%"
+              failed=1
+            else
+              echo "✅ Statements coverage: ${PR_STATEMENTS}% (main: ${MAIN_STATEMENTS}%)"
+            fi
+
+            if [ $(echo "$PR_FUNCTIONS < $MAIN_FUNCTIONS" | bc -l) -eq 1 ]; then
+              echo "❌ Functions coverage decreased from ${MAIN_FUNCTIONS}% to ${PR_FUNCTIONS}%"
+              failed=1
+            else
+              echo "✅ Functions coverage: ${PR_FUNCTIONS}% (main: ${MAIN_FUNCTIONS}%)"
+            fi
+
+            if [ $(echo "$PR_BRANCHES < $MAIN_BRANCHES" | bc -l) -eq 1 ]; then
+              echo "❌ Branches coverage decreased from ${MAIN_BRANCHES}% to ${PR_BRANCHES}%"
+              failed=1
+            else
+              echo "✅ Branches coverage: ${PR_BRANCHES}% (main: ${MAIN_BRANCHES}%)"
+            fi
+
+            # Save coverage values for this package
+            echo "${package_name^^}_MAIN_LINES=${MAIN_LINES}" >> "$GITHUB_ENV"
+            echo "${package_name^^}_MAIN_STATEMENTS=${MAIN_STATEMENTS}" >> "$GITHUB_ENV"
+            echo "${package_name^^}_MAIN_FUNCTIONS=${MAIN_FUNCTIONS}" >> "$GITHUB_ENV"
+            echo "${package_name^^}_MAIN_BRANCHES=${MAIN_BRANCHES}" >> "$GITHUB_ENV"
+            echo "${package_name^^}_PR_LINES=${PR_LINES}" >> "$GITHUB_ENV"
+            echo "${package_name^^}_PR_STATEMENTS=${PR_STATEMENTS}" >> "$GITHUB_ENV"
+            echo "${package_name^^}_PR_FUNCTIONS=${PR_FUNCTIONS}" >> "$GITHUB_ENV"
+            echo "${package_name^^}_PR_BRANCHES=${PR_BRANCHES}" >> "$GITHUB_ENV"
+
+            return $failed
+          }
+
+          # Compare coverage for each package
+          OVERALL_FAILED=0
+
+          compare_package_coverage "ioc" || OVERALL_FAILED=1
+          compare_package_coverage "testing" || OVERALL_FAILED=1
+
+          echo ""
+          if [ $OVERALL_FAILED -eq 1 ]; then
+            echo "❌ Coverage check FAILED: Coverage has decreased for one or more packages"
+            echo "COVERAGE_STATUS=failed" >> "$GITHUB_ENV"
+            echo "COVERAGE_FAILED=1" >> "$GITHUB_ENV"
+          else
+            echo "✅ Coverage check PASSED: Coverage maintained or improved for all packages"
+            echo "COVERAGE_STATUS=passed" >> "$GITHUB_ENV"
+            echo "COVERAGE_FAILED=0" >> "$GITHUB_ENV"
+          fi
+
+      - name: Comment PR with coverage comparison
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const failed = process.env.COVERAGE_FAILED === '1';
+            const mainHasIocCoverage = process.env.MAIN_BRANCH_HAS_IOC_COVERAGE === 'true';
+            const mainHasTestingCoverage = process.env.MAIN_BRANCH_HAS_TESTING_COVERAGE === 'true';
+            const isFirstTime = !mainHasIocCoverage && !mainHasTestingCoverage;
+
+            const getIcon = (pr, main) => {
+              const prNum = parseFloat(pr);
+              const mainNum = parseFloat(main);
+              if (prNum > mainNum) return '📈';
+              if (prNum < mainNum) return '📉';
+              return '➡️';
+            };
+
+            const getStatus = (pr, main) => {
+              const prNum = parseFloat(pr);
+              const mainNum = parseFloat(main);
+              if (prNum < mainNum) return '❌';
+              return '✅';
+            };
+
+            const formatDiff = (pr, main) => {
+              const diff = parseFloat(pr) - parseFloat(main);
+              const sign = diff > 0 ? '+' : '';
+              return `${sign}${diff.toFixed(2)}%`;
+            };
+
+            const statusIcon = failed ? '❌' : '✅';
+            const statusText = failed ? 'FAILED - Coverage Decreased' : 'PASSED - Coverage Maintained';
+
+            let body;
+
+            if (isFirstTime) {
+              body = `## ℹ️ Code Coverage Protection - First Time Setup
+
+            **Status:** ✅ PASSED (Initial Setup)
+
+            ### @nexus-ioc/core Coverage
+
+            | Metric | This PR |
+            |--------|---------|
+            | Lines | ${process.env.IOC_PR_LINES}% |
+            | Statements | ${process.env.IOC_PR_STATEMENTS}% |
+            | Functions | ${process.env.IOC_PR_FUNCTIONS}% |
+            | Branches | ${process.env.IOC_PR_BRANCHES}% |
+
+            ### @nexus-ioc/testing Coverage
+
+            | Metric | This PR |
+            |--------|---------|
+            | Lines | ${process.env.TESTING_PR_LINES}% |
+            | Statements | ${process.env.TESTING_PR_STATEMENTS}% |
+            | Functions | ${process.env.TESTING_PR_FUNCTIONS}% |
+            | Branches | ${process.env.TESTING_PR_BRANCHES}% |
+
+            ### 📝 Note
+
+            This is the first PR with coverage protection enabled. The main branch doesn't have the \`json-summary\` reporter configured yet, so we can't compare coverage.
+
+            **Once this PR is merged**, all future PRs will be compared against the main branch coverage and will be blocked if coverage decreases.
+
+            ---
+
+            *Coverage protection will be fully active after this PR is merged.*`;
+            } else {
+              body = `## ${statusIcon} Code Coverage Protection
+
+            **Status:** ${statusText}
+
+            ### @nexus-ioc/core Coverage
+
+            | Metric | Main Branch | This PR | Change | Status |
+            |--------|-------------|---------|--------|--------|
+            | Lines | ${process.env.IOC_MAIN_LINES}% | ${process.env.IOC_PR_LINES}% | ${getIcon(process.env.IOC_PR_LINES, process.env.IOC_MAIN_LINES)} ${formatDiff(process.env.IOC_PR_LINES, process.env.IOC_MAIN_LINES)} | ${getStatus(process.env.IOC_PR_LINES, process.env.IOC_MAIN_LINES)} |
+            | Statements | ${process.env.IOC_MAIN_STATEMENTS}% | ${process.env.IOC_PR_STATEMENTS}% | ${getIcon(process.env.IOC_PR_STATEMENTS, process.env.IOC_MAIN_STATEMENTS)} ${formatDiff(process.env.IOC_PR_STATEMENTS, process.env.IOC_MAIN_STATEMENTS)} | ${getStatus(process.env.IOC_PR_STATEMENTS, process.env.IOC_MAIN_STATEMENTS)} |
+            | Functions | ${process.env.IOC_MAIN_FUNCTIONS}% | ${process.env.IOC_PR_FUNCTIONS}% | ${getIcon(process.env.IOC_PR_FUNCTIONS, process.env.IOC_MAIN_FUNCTIONS)} ${formatDiff(process.env.IOC_PR_FUNCTIONS, process.env.IOC_MAIN_FUNCTIONS)} | ${getStatus(process.env.IOC_PR_FUNCTIONS, process.env.IOC_MAIN_FUNCTIONS)} |
+            | Branches | ${process.env.IOC_MAIN_BRANCHES}% | ${process.env.IOC_PR_BRANCHES}% | ${getIcon(process.env.IOC_PR_BRANCHES, process.env.IOC_MAIN_BRANCHES)} ${formatDiff(process.env.IOC_PR_BRANCHES, process.env.IOC_MAIN_BRANCHES)} | ${getStatus(process.env.IOC_PR_BRANCHES, process.env.IOC_MAIN_BRANCHES)} |
+
+            ### @nexus-ioc/testing Coverage
+
+            | Metric | Main Branch | This PR | Change | Status |
+            |--------|-------------|---------|--------|--------|
+            | Lines | ${process.env.TESTING_MAIN_LINES}% | ${process.env.TESTING_PR_LINES}% | ${getIcon(process.env.TESTING_PR_LINES, process.env.TESTING_MAIN_LINES)} ${formatDiff(process.env.TESTING_PR_LINES, process.env.TESTING_MAIN_LINES)} | ${getStatus(process.env.TESTING_PR_LINES, process.env.TESTING_MAIN_LINES)} |
+            | Statements | ${process.env.TESTING_MAIN_STATEMENTS}% | ${process.env.TESTING_PR_STATEMENTS}% | ${getIcon(process.env.TESTING_PR_STATEMENTS, process.env.TESTING_MAIN_STATEMENTS)} ${formatDiff(process.env.TESTING_PR_STATEMENTS, process.env.TESTING_MAIN_STATEMENTS)} | ${getStatus(process.env.TESTING_PR_STATEMENTS, process.env.TESTING_MAIN_STATEMENTS)} |
+            | Functions | ${process.env.TESTING_MAIN_FUNCTIONS}% | ${process.env.TESTING_PR_FUNCTIONS}% | ${getIcon(process.env.TESTING_PR_FUNCTIONS, process.env.TESTING_MAIN_FUNCTIONS)} ${formatDiff(process.env.TESTING_PR_FUNCTIONS, process.env.TESTING_MAIN_FUNCTIONS)} | ${getStatus(process.env.TESTING_PR_FUNCTIONS, process.env.TESTING_MAIN_FUNCTIONS)} |
+            | Branches | ${process.env.TESTING_MAIN_BRANCHES}% | ${process.env.TESTING_PR_BRANCHES}% | ${getIcon(process.env.TESTING_PR_BRANCHES, process.env.TESTING_MAIN_BRANCHES)} ${formatDiff(process.env.TESTING_PR_BRANCHES, process.env.TESTING_MAIN_BRANCHES)} | ${getStatus(process.env.TESTING_PR_BRANCHES, process.env.TESTING_MAIN_BRANCHES)} |
+
+            ${failed
+              ? '### ⚠️ Action Required\n\nThis PR decreases code coverage for one or more packages. Please add tests to cover the new/modified code before merging.\n\n**This check is blocking the PR from being merged.**'
+              : '### ✅ Great Job!\n\nCode coverage has been maintained or improved for all packages. This PR is ready for review.'}
+
+            ---
+
+            *Coverage protection is enabled. PRs that decrease coverage will be blocked from merging.*`;
+            }
+
+            // Find existing coverage comment
+            const { data: comments } = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('Code Coverage Protection')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                comment_id: botComment.id,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+            }
+
+      - name: Fail if coverage decreased
+        if: env.COVERAGE_FAILED == '1'
+        run: |
+          echo "❌ Coverage check failed - blocking PR merge"
+          exit 1
+
+  # ============================================================================
+  # STAGE 3: Build Validation (Matrix)
+  # ============================================================================
+  # This job runs only if coverage check passes (or is skipped for non-PR events)
   # Tests build across multiple Node.js versions in parallel
   build-validation:
     name: Build Validation
     runs-on: ubuntu-latest
-    needs: [test]  # ⚠️ Depends on test job - won't run if tests fail
+    needs: [test, coverage-check]  # ⚠️ Depends on test and coverage-check jobs
+    # Run always for push events, but for PRs only if coverage-check passes or is skipped
+    if: always() && (needs.test.result == 'success') && (github.event_name == 'push' || needs.coverage-check.result == 'success' || needs.coverage-check.result == 'skipped')
     strategy:
       fail-fast: true  # Stop all matrix jobs if one fails
       matrix:
@@ -164,7 +476,7 @@ jobs:
   pr-validation:
     name: PR Validation Check
     runs-on: ubuntu-latest
-    needs: [build-validation]  # ⚠️ Depends on build-validation - won't run if builds fail
+    needs: [build-validation, coverage-check]  # ⚠️ Depends on build-validation and coverage-check
     if: github.event_name == 'pull_request'
     steps:
       - name: Comment PR with validation results
@@ -172,8 +484,9 @@ jobs:
         with:
           script: |
             const testResult = '${{ needs.test.result }}';
+            const coverageResult = '${{ needs.coverage-check.result }}';
             const buildResult = '${{ needs.build-validation.result }}';
-            const allSuccess = testResult === 'success' && buildResult === 'success';
+            const allSuccess = testResult === 'success' && coverageResult === 'success' && buildResult === 'success';
 
             const statusIcon = allSuccess ? '✅' : '❌';
             const statusText = allSuccess ? 'All validation checks passed!' : 'Validation failed!';
@@ -187,12 +500,14 @@ jobs:
             | Stage | Status |
             |-------|--------|
             | Unit Tests & Coverage | ${testResult === 'success' ? '✅ Passed' : '❌ Failed'} |
+            | Coverage Protection Check | ${coverageResult === 'success' ? '✅ Passed' : coverageResult === 'skipped' ? '⏭️ Skipped' : '❌ Failed'} |
             | Build Validation (Node 18, 20, 22) | ${buildResult === 'success' ? '✅ Passed' : '❌ Failed'} |
 
             ### Checks Performed
 
             - ${testResult === 'success' ? '✅' : '❌'} Code linting (Biome)
             - ${testResult === 'success' ? '✅' : '❌'} Unit tests with coverage
+            - ${coverageResult === 'success' ? '✅' : coverageResult === 'skipped' ? '⏭️' : '❌'} Coverage protection (no coverage decrease)
             - ${buildResult === 'success' ? '✅' : '❌'} Build all packages (Node 18, 20, 22)
             - ${buildResult === 'success' ? '✅' : '❌'} Package imports verification
             - ${buildResult === 'success' ? '✅' : '❌'} TypeScript declarations

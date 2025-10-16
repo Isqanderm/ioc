@@ -7,7 +7,7 @@ export default defineConfig({
 		include: ["__test__/**/*.spec.ts"],
 		coverage: {
 			provider: "v8",
-			reporter: ["json", "text", "lcov", "clover", "html"],
+			reporter: ["json", "json-summary", "text", "lcov", "clover", "html"],
 			reportsDirectory: "./coverage",
 			exclude: [
 				"node_modules/",
