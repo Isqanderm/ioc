@@ -1,3 +1,4 @@
+import type { GraphError } from "@nexus-ioc/shared";
 import type { AnalyzeModule } from "../../core/graph/analyze-module";
 import type { AnalyzeProvider } from "../../core/graph/analyze-provider";
 import type { Token } from "../../core/modules/modules-container";
@@ -6,7 +7,6 @@ import type { InjectionToken } from "../injection-token.interface";
 import type { Module, Provider } from "../module-types.interface";
 import type { Scope } from "../scope.interface";
 import type { ModuleContainerInterface } from "./module-container.interface";
-import type { GraphError } from "@nexus-ioc/shared";
 
 // Re-export GraphError from shared package
 export type { GraphError } from "@nexus-ioc/shared";
@@ -38,8 +38,6 @@ export type Edge = {
 		unreached?: boolean;
 	};
 };
-
-
 
 export interface ModuleGraphInterface {
 	compile(): Promise<void>;
