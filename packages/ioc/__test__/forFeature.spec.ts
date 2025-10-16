@@ -24,7 +24,10 @@ describe("forFeature/forFeatureAsync", () => {
 				imports: [FeatureModule.forFeature()],
 			}).compile();
 
-			const config = await container.get<(typeof featureConfig)["useValue"]>("FEATURE_CONFIG");
+			const config =
+				await container.get<(typeof featureConfig)["useValue"]>(
+					"FEATURE_CONFIG",
+				);
 
 			expect(config).toEqual({ feature: true });
 		});

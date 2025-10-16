@@ -59,7 +59,9 @@ export function getDependencyToken(target: Provider): InjectionToken {
 	return target as unknown as InjectionToken;
 }
 
-export function isDynamicModule(module: Module | DynamicModule): module is DynamicModule {
+export function isDynamicModule(
+	module: Module | DynamicModule,
+): module is DynamicModule {
 	return "module" in module;
 }
 
@@ -92,5 +94,7 @@ export function getProviderScope(target: Provider): Scope {
 		return Scope.Singleton;
 	}
 
-	return Reflect.getMetadata(INJECTABLE_OPTIONS, target)?.scope || Scope.Singleton;
+	return (
+		Reflect.getMetadata(INJECTABLE_OPTIONS, target)?.scope || Scope.Singleton
+	);
 }

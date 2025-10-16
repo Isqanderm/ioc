@@ -4,7 +4,9 @@ import { AnalyzeFactoryProvider } from "../providers/analyze-factory-provider";
 import { AnalyzeFunctionProvider } from "../providers/analyze-function-provider";
 import { AnalyzeValueProvider } from "../providers/analyze-value-provider";
 
-export function isAnalyzeClassProvider(target: AnalyzeProvider): target is AnalyzeClassProvider {
+export function isAnalyzeClassProvider(
+	target: AnalyzeProvider,
+): target is AnalyzeClassProvider {
 	return target instanceof AnalyzeClassProvider;
 }
 
@@ -20,6 +22,8 @@ export function isAnalyzeFunctionProvider(
 	return target instanceof AnalyzeFunctionProvider;
 }
 
-export function isAnalyzeValueProvider(target: AnalyzeProvider): target is AnalyzeValueProvider {
+export function isAnalyzeValueProvider(
+	target: AnalyzeProvider,
+): target is AnalyzeValueProvider {
 	return target instanceof AnalyzeValueProvider;
 }

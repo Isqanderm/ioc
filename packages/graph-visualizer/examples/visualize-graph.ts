@@ -100,7 +100,9 @@ NsModule({
 const visualizer = new GraphScannerVisualizer("./__test__build__/graph.png");
 
 async function bootstrap() {
-	await NexusApplicationsServer.create(AppModule).addScannerPlugin(visualizer).bootstrap();
+	await NexusApplicationsServer.create(AppModule)
+		.addScannerPlugin(visualizer)
+		.bootstrap();
 }
 
 bootstrap();

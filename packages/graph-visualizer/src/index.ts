@@ -148,11 +148,15 @@ export class GraphScannerVisualizer implements ScannerPluginInterface {
 
 	protected getEdgeColor(edge: NexusEdge): string {
 		if (edge.type === "import") {
-			return edge.metadata.isCircular ? this.config.circularColor : this.config.importColor;
+			return edge.metadata.isCircular
+				? this.config.circularColor
+				: this.config.importColor;
 		}
 
 		if (edge.type === "dependency") {
-			return edge.metadata.isCircular ? this.config.circularColor : this.config.dependencyColor;
+			return edge.metadata.isCircular
+				? this.config.circularColor
+				: this.config.dependencyColor;
 		}
 
 		if (edge.type === "provider") {
@@ -162,14 +166,19 @@ export class GraphScannerVisualizer implements ScannerPluginInterface {
 		return "#000000"; // Default color (black)
 	}
 
-	protected createModuleSubgraph(moduleNode: NexusNode, edges: NexusEdge[]): string {
+	protected createModuleSubgraph(
+		moduleNode: NexusNode,
+		edges: NexusEdge[],
+	): string {
 		let dot = `  subgraph cluster_${moduleNode.label} {\n`;
 		dot += `    label = "${moduleNode.label}";\n`;
 		dot += `    "${moduleNode.label}" [label="${moduleNode.label}" style=filled fillcolor="${this.config.moduleColor}" fontcolor="${this.config.moduleFontColor}" shape=box];\n`; // Configurable color and shape for modules, configurable font color
 		if (this.config.showProviders) {
 			for (const edge of edges) {
 				const edgeName =
-					typeof edge.source === "function" ? edge.source.name : edge.source.toString();
+					typeof edge.source === "function"
+						? edge.source.name
+						: edge.source.toString();
 				dot += `    "${edgeName}" [label="${edgeName}" style=filled fillcolor="${this.config.providerColor}" fontcolor="${this.config.providerFontColor}" shape=ellipse];\n`; // Configurable color and shape for providers, configurable font color
 			}
 		}

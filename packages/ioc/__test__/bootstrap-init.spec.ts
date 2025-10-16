@@ -1,6 +1,13 @@
 import "reflect-metadata";
 import { vi } from "vitest";
-import { Inject, Injectable, NexusApplications, NsModule, type OnModuleInit, Scope } from "../src";
+import {
+	Inject,
+	Injectable,
+	NexusApplications,
+	NsModule,
+	type OnModuleInit,
+	Scope,
+} from "../src";
 
 describe("Bootstrap Initialization via OnModuleInit", () => {
 	it("should call onModuleInit during bootstrap and not during get", async () => {

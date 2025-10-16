@@ -14,7 +14,9 @@ describe("VisualizerTemplate", () => {
 				"import { GraphScannerVisualizer } from 'nexus-ioc-graph-visualizer'",
 			);
 			expect(result).toContain('import { AppModule } from "./app.module"');
-			expect(result).toContain("const visualizer = new GraphScannerVisualizer('graph.png')");
+			expect(result).toContain(
+				"const visualizer = new GraphScannerVisualizer('graph.png')",
+			);
 			expect(result).toContain("async function bootstrap()");
 			expect(result).toContain("NexusApplicationsServer.create(AppModule)");
 			expect(result).toContain(".addScannerPlugin(visualizer)");

@@ -22,21 +22,28 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 	private readonly container = new Container(this.hashTestingUtil);
 	private readonly moduleTestingCreator = new TestingCreator<T>();
 	private _moduleContainer: ModuleContainerInterface | null = null;
-	private _moduleDecorator: <D extends T>(metadata: D) => ClassDecorator = ModuleDecorator;
+	private _moduleDecorator: <D extends T>(metadata: D) => ClassDecorator =
+		ModuleDecorator;
 	private _module: Module | null = null;
 	private containerCompiled = false;
 
 	private constructor(private readonly metatype: T) {}
 
-	public static createModule<M extends ModuleMetadata = ModuleMetadata>(metatype: M): Test<M> {
+	public static createModule<M extends ModuleMetadata = ModuleMetadata>(
+		metatype: M,
+	): Test<M> {
 		return new Test<M>(metatype);
 	}
 
-	public async addModule(metatype: Module | DynamicModule): Promise<ModuleContainerInterface> {
+	public async addModule(
+		metatype: Module | DynamicModule,
+	): Promise<ModuleContainerInterface> {
 		return this.container.addModule(metatype);
 	}
 
-	public async getModule(metatype: Module): Promise<ModuleContainerInterface | undefined> {
+	public async getModule(
+		metatype: Module,
+	): Promise<ModuleContainerInterface | undefined> {
 		return this.container.getModule(metatype);
 	}
 
@@ -56,7 +63,10 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 	}
 
 	public async compile(): Promise<ModuleContainerInterface> {
-		this._module = this.moduleTestingCreator.create(this.metatype, this._moduleDecorator);
+		this._module = this.moduleTestingCreator.create(
+			this.metatype,
+			this._moduleDecorator,
+		);
 		this._moduleContainer = await this.container.addModule(this._module);
 
 		await this.container.run(this._moduleContainer.metatype as Module);
@@ -86,7 +96,9 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 		return this._moduleContainer;
 	}
 
-	addScannerPlugin(scanner: ScannerPluginInterface | ScannerPluginInterface[]): this {
+	addScannerPlugin(
+		scanner: ScannerPluginInterface | ScannerPluginInterface[],
+	): this {
 		const plugins = Array.isArray(scanner) ? scanner : [scanner];
 		this.scannerPlugins.push(...plugins);
 		return this;

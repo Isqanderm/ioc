@@ -19,7 +19,9 @@ describe("GraphResolver", () => {
 	const moduleTokenFactory = new ModuleTokenFactory(hashUtilsMock);
 	const moduleContainerFactory = new ModuleContainerFactory(moduleTokenFactory);
 	const container = {
-		async addModule(metatype: Type<unknown>): Promise<ModuleContainerInterface> {
+		async addModule(
+			metatype: Type<unknown>,
+		): Promise<ModuleContainerInterface> {
 			return await moduleContainerFactory.create(metatype, container);
 		},
 	} as ContainerInterface;
@@ -33,7 +35,10 @@ describe("GraphResolver", () => {
 		})
 		class TestModule {}
 
-		const moduleContainer = await moduleContainerFactory.create(TestModule, container);
+		const moduleContainer = await moduleContainerFactory.create(
+			TestModule,
+			container,
+		);
 		const graph = new ModuleGraph(moduleContainer);
 		await graph.compile();
 
@@ -57,7 +62,10 @@ describe("GraphResolver", () => {
 		})
 		class TestModule {}
 
-		const moduleContainer = await moduleContainerFactory.create(TestModule, container);
+		const moduleContainer = await moduleContainerFactory.create(
+			TestModule,
+			container,
+		);
 		const graph = new ModuleGraph(moduleContainer);
 		await graph.compile();
 
@@ -84,7 +92,10 @@ describe("GraphResolver", () => {
 		})
 		class TestModule {}
 
-		const moduleContainer = await moduleContainerFactory.create(TestModule, container);
+		const moduleContainer = await moduleContainerFactory.create(
+			TestModule,
+			container,
+		);
 		const graph = new ModuleGraph(moduleContainer);
 		await graph.compile();
 
@@ -107,7 +118,10 @@ describe("GraphResolver", () => {
 		})
 		class TestModule {}
 
-		const moduleContainer = await moduleContainerFactory.create(TestModule, container);
+		const moduleContainer = await moduleContainerFactory.create(
+			TestModule,
+			container,
+		);
 		const graph = new ModuleGraph(moduleContainer);
 		await graph.compile();
 
@@ -138,7 +152,10 @@ describe("GraphResolver", () => {
 		})
 		class TestModule {}
 
-		const moduleContainer = await moduleContainerFactory.create(TestModule, container);
+		const moduleContainer = await moduleContainerFactory.create(
+			TestModule,
+			container,
+		);
 		const graph = new ModuleGraph(moduleContainer);
 		await graph.compile();
 
@@ -183,7 +200,10 @@ describe("GraphResolver", () => {
 		})
 		class AppModule {}
 
-		const moduleContainer = await moduleContainerFactory.create(AppModule, container);
+		const moduleContainer = await moduleContainerFactory.create(
+			AppModule,
+			container,
+		);
 		const graph = new ModuleGraph(moduleContainer);
 		await graph.compile();
 
@@ -212,7 +232,10 @@ describe("GraphResolver", () => {
 			})
 			class TestModule {}
 
-			const moduleContainer = await moduleContainerFactory.create(TestModule, container);
+			const moduleContainer = await moduleContainerFactory.create(
+				TestModule,
+				container,
+			);
 			const graph = new ModuleGraph(moduleContainer);
 			await graph.compile();
 

@@ -32,7 +32,9 @@ describe("Dependency Injection Integration", () => {
 
 			@Injectable()
 			class LevelFourService {
-				constructor(@Inject(LevelThreeService) private level3: LevelThreeService) {}
+				constructor(
+					@Inject(LevelThreeService) private level3: LevelThreeService,
+				) {}
 
 				getValue() {
 					return `level-4->${this.level3.getValue()}`;
@@ -40,7 +42,12 @@ describe("Dependency Injection Integration", () => {
 			}
 
 			const container = await Test.createModule({
-				providers: [LevelOneService, LevelTwoService, LevelThreeService, LevelFourService],
+				providers: [
+					LevelOneService,
+					LevelTwoService,
+					LevelThreeService,
+					LevelFourService,
+				],
 			}).compile();
 
 			const service = await container.get<LevelFourService>(LevelFourService);
@@ -182,7 +189,8 @@ describe("Dependency Injection Integration", () => {
 			}).compile();
 
 			expect(container.errors).toEqual([]);
-			const service = await container.get<ServiceWithOptional>(ServiceWithOptional);
+			const service =
+				await container.get<ServiceWithOptional>(ServiceWithOptional);
 			expect(service?.hasOptional()).toBe(false);
 		});
 
@@ -211,7 +219,8 @@ describe("Dependency Injection Integration", () => {
 				providers: [OptionalDependency, ServiceWithOptional],
 			}).compile();
 
-			const service = await container.get<ServiceWithOptional>(ServiceWithOptional);
+			const service =
+				await container.get<ServiceWithOptional>(ServiceWithOptional);
 			expect(service?.getValue()).toBe("optional-value");
 		});
 
@@ -241,7 +250,9 @@ describe("Dependency Injection Integration", () => {
 				providers: [OptionalA, ServiceWithMultipleOptional],
 			}).compile();
 
-			const service = await container.get<ServiceWithMultipleOptional>(ServiceWithMultipleOptional);
+			const service = await container.get<ServiceWithMultipleOptional>(
+				ServiceWithMultipleOptional,
+			);
 			const status = service?.getStatus();
 
 			expect(status?.hasA).toBe(true);
@@ -264,7 +275,10 @@ describe("Dependency Injection Integration", () => {
 			}
 
 			const container = await Test.createModule({
-				providers: [{ provide: CONFIG_TOKEN, useValue: config }, ServiceWithConfig],
+				providers: [
+					{ provide: CONFIG_TOKEN, useValue: config },
+					ServiceWithConfig,
+				],
 			}).compile();
 
 			const service = await container.get<ServiceWithConfig>(ServiceWithConfig);
@@ -285,7 +299,10 @@ describe("Dependency Injection Integration", () => {
 			}
 
 			const container = await Test.createModule({
-				providers: [{ provide: CONFIG_TOKEN, useValue: config }, ServiceWithConfig],
+				providers: [
+					{ provide: CONFIG_TOKEN, useValue: config },
+					ServiceWithConfig,
+				],
 			}).compile();
 
 			const service = await container.get<ServiceWithConfig>(ServiceWithConfig);
@@ -319,7 +336,9 @@ describe("Dependency Injection Integration", () => {
 				],
 			}).compile();
 
-			const service = await container.get<ServiceWithMultipleConfigs>(ServiceWithMultipleConfigs);
+			const service = await container.get<ServiceWithMultipleConfigs>(
+				ServiceWithMultipleConfigs,
+			);
 			const configs = service?.getConfigs();
 
 			expect(configs?.db.host).toBe("localhost");

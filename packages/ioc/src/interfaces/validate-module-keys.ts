@@ -4,10 +4,16 @@ export const MODULE_METADATA = {
 	EXPORTS: "exports",
 };
 
-export const INVALID_MODULE_CONFIG_MESSAGE = (text: TemplateStringsArray, property: string) =>
-	`Invalid property '${property}' passed into the @Module() decorator.`;
+export const INVALID_MODULE_CONFIG_MESSAGE = (
+	text: TemplateStringsArray,
+	property: string,
+) => `Invalid property '${property}' passed into the @Module() decorator.`;
 
-const metadataKeys = [MODULE_METADATA.IMPORTS, MODULE_METADATA.EXPORTS, MODULE_METADATA.PROVIDERS];
+const metadataKeys = [
+	MODULE_METADATA.IMPORTS,
+	MODULE_METADATA.EXPORTS,
+	MODULE_METADATA.PROVIDERS,
+];
 
 export function validateModuleKeys(keys: string[]) {
 	const validateKey = (key: string) => {

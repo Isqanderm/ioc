@@ -26,7 +26,10 @@ export class NexusApplications implements NexusApplicationInterface {
 		}
 	}
 
-	static create(rootModule: Module, options?: { hashFn: new () => HashUtilInterface }) {
+	static create(
+		rootModule: Module,
+		options?: { hashFn: new () => HashUtilInterface },
+	) {
 		return new NexusApplications(rootModule, options);
 	}
 
@@ -39,7 +42,10 @@ export class NexusApplications implements NexusApplicationInterface {
 
 		if (!this.isAsyncContainer) {
 			for (const [token, node] of this.container.graph.nodes) {
-				if (node.type === NodeTypeEnum.PROVIDER && node.scope === Scope.Singleton) {
+				if (
+					node.type === NodeTypeEnum.PROVIDER &&
+					node.scope === Scope.Singleton
+				) {
 					await this.container.get(token);
 				}
 			}
@@ -48,7 +54,9 @@ export class NexusApplications implements NexusApplicationInterface {
 		return this;
 	}
 
-	public addScannerPlugin(scanner: ScannerPluginInterface | ScannerPluginInterface[]): this {
+	public addScannerPlugin(
+		scanner: ScannerPluginInterface | ScannerPluginInterface[],
+	): this {
 		const plugins = Array.isArray(scanner) ? scanner : [scanner];
 		this.scannerPlugins.push(...plugins);
 		return this;

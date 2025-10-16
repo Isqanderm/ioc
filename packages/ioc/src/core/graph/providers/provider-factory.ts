@@ -10,7 +10,10 @@ import { AnalyzeFactoryProvider } from "./analyze-factory-provider";
 import { AnalyzeFunctionProvider } from "./analyze-function-provider";
 import { AnalyzeValueProvider } from "./analyze-value-provider";
 
-export function ProviderFactory(provider: Provider, module: ModuleContainerInterface) {
+export function ProviderFactory(
+	provider: Provider,
+	module: ModuleContainerInterface,
+) {
 	if (isFactoryProvider(provider)) {
 		return new AnalyzeFactoryProvider(provider, module);
 	}

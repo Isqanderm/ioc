@@ -17,7 +17,11 @@ import {
 	SELF_DECLARED_OPTIONAL_DEPS_METADATA,
 	type Type,
 } from "../../interfaces";
-import { getDependencyToken, getProviderToken, isModule } from "../../utils/helpers";
+import {
+	getDependencyToken,
+	getProviderToken,
+	isModule,
+} from "../../utils/helpers";
 import { AnalyzeModule } from "./analyze-module";
 import type { AnalyzeProvider } from "./analyze-provider";
 import {
@@ -33,7 +37,8 @@ import { ProviderFactory } from "./providers/provider-factory";
 export class ModuleGraph implements ModuleGraphInterface {
 	private _nodes: Map<InjectionToken, Node> = new Map();
 	private _edges: Map<InjectionToken, Edge[]> = new Map();
-	private _globalModules: Map<InjectionToken, ModuleContainerInterface> = new Map();
+	private _globalModules: Map<InjectionToken, ModuleContainerInterface> =
+		new Map();
 	private readonly _errors: GraphError[] = [];
 
 	constructor(private readonly _root: ModuleContainerInterface) {}
@@ -114,7 +119,10 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 	private async addModuleProviders(analyzeModule: AnalyzeModule) {
 		for (const provider of analyzeModule.providers) {
-			const analyzeProvider = ProviderFactory(provider, analyzeModule.moduleContainer);
+			const analyzeProvider = ProviderFactory(
+				provider,
+				analyzeModule.moduleContainer,
+			);
 
 			if (analyzeProvider === null) {
 				continue;
@@ -164,9 +172,16 @@ export class ModuleGraph implements ModuleGraphInterface {
 		}
 	}
 
-	private async addClassDependency(token: InjectionToken, node: AnalyzeFunctionProvider) {
-		const constructorDependencies = this.getConstructorDependencies(node.metatype);
-		const optionalDependency = this.getOptionalConstructorDependencies(node.metatype);
+	private async addClassDependency(
+		token: InjectionToken,
+		node: AnalyzeFunctionProvider,
+	) {
+		const constructorDependencies = this.getConstructorDependencies(
+			node.metatype,
+		);
+		const optionalDependency = this.getOptionalConstructorDependencies(
+			node.metatype,
+		);
 
 		for (const [index, dependency] of constructorDependencies.entries()) {
 			const dependencyToken = getDependencyToken(dependency.param);
@@ -201,8 +216,12 @@ export class ModuleGraph implements ModuleGraphInterface {
 			this.addEdge(token, newEdge);
 		}
 
-		const propertiesDependencies = this.getPropertiesDependencies(node.metatype);
-		const optionalProperties = this.getOptionalPropertyDependencies(node.metatype);
+		const propertiesDependencies = this.getPropertiesDependencies(
+			node.metatype,
+		);
+		const optionalProperties = this.getOptionalPropertyDependencies(
+			node.metatype,
+		);
 
 		for (const dependency of propertiesDependencies) {
 			const dependencyToken = getDependencyToken(dependency.type);
@@ -238,7 +257,10 @@ export class ModuleGraph implements ModuleGraphInterface {
 		}
 	}
 
-	private async addClassProviderDependency(token: InjectionToken, node: AnalyzeClassProvider) {
+	private async addClassProviderDependency(
+		token: InjectionToken,
+		node: AnalyzeClassProvider,
+	) {
 		const Class = node.useClass;
 		const constructorDependencies = this.getConstructorDependencies(Class);
 		const optionalDependency = this.getOptionalConstructorDependencies(Class);
@@ -311,18 +333,27 @@ export class ModuleGraph implements ModuleGraphInterface {
 		}
 	}
 
-	private async addFactoryProviderDependency(token: InjectionToken, node: AnalyzeFactoryProvider) {
+	private async addFactoryProviderDependency(
+		token: InjectionToken,
+		node: AnalyzeFactoryProvider,
+	) {
 		const dependencies = node.inject || [];
 		let index = 0;
 
 		for (const dependency of dependencies) {
-			const isExported = await this.isProviderExported(node.moduleContainer, dependency);
+			const isExported = await this.isProviderExported(
+				node.moduleContainer,
+				dependency,
+			);
 
 			if (!isExported) {
 				this.errors.push({
 					type: "UNREACHED_DEP_FACTORY",
 					token: node.label,
-					dependency: typeof dependency === "function" ? dependency.name : (dependency as string),
+					dependency:
+						typeof dependency === "function"
+							? dependency.name
+							: (dependency as string),
 					key: index,
 				});
 			}
@@ -350,7 +381,9 @@ export class ModuleGraph implements ModuleGraphInterface {
 	): Promise<boolean> {
 		// check globals
 		for (const globalModule of this._globalModules.values()) {
-			if (globalModule.exports.some((provider) => provider === dependencyToken)) {
+			if (
+				globalModule.exports.some((provider) => provider === dependencyToken)
+			) {
 				return true;
 			}
 		}
@@ -358,7 +391,9 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 		// check internals
 		if (
-			moduleContainer.providers.some((provider) => getProviderToken(provider) === dependencyToken)
+			moduleContainer.providers.some(
+				(provider) => getProviderToken(provider) === dependencyToken,
+			)
 		) {
 			return true;
 		}
@@ -366,7 +401,9 @@ export class ModuleGraph implements ModuleGraphInterface {
 		// externals
 		const containerImports = await moduleContainer.imports;
 		const visitedModules = new Set<InjectionToken | Module>();
-		const queue = containerImports.flatMap((firstLevelContainer) => firstLevelContainer.exports);
+		const queue = containerImports.flatMap(
+			(firstLevelContainer) => firstLevelContainer.exports,
+		);
 
 		while (queue.length) {
 			const currentExportToken = queue.shift();
@@ -383,7 +420,10 @@ export class ModuleGraph implements ModuleGraphInterface {
 				isModule(currentExportToken) &&
 				Reflect.hasMetadata(MODULE_WATERMARK, currentExportToken)
 			) {
-				const token = Reflect.getMetadata(MODULE_TOKEN_WATERMARK, currentExportToken) as string;
+				const token = Reflect.getMetadata(
+					MODULE_TOKEN_WATERMARK,
+					currentExportToken,
+				) as string;
 				const moduleContainer = this.getNode(token) as AnalyzeModule;
 
 				if (moduleContainer) {
@@ -405,10 +445,9 @@ export class ModuleGraph implements ModuleGraphInterface {
 			stack: Set<InjectionToken>,
 		): boolean => {
 			if (stack.has(nodeId)) {
-				const cyclePath: [InjectionToken, InjectionToken][] = path.map((node, index) => [
-					node,
-					path[index + 1] || nodeId,
-				]);
+				const cyclePath: [InjectionToken, InjectionToken][] = path.map(
+					(node, index) => [node, path[index + 1] || nodeId],
+				);
 
 				const from = cyclePath[0];
 				const to = cyclePath[cyclePath.length - 1];
@@ -452,7 +491,9 @@ export class ModuleGraph implements ModuleGraphInterface {
 			return false;
 		};
 
-		const providers = [...this._nodes].filter(([_, node]) => node.type === NodeTypeEnum.PROVIDER);
+		const providers = [...this._nodes].filter(
+			([_, node]) => node.type === NodeTypeEnum.PROVIDER,
+		);
 
 		for (const [nodeId, _] of providers) {
 			visit(nodeId, [], new Set<InjectionToken>(), new Set<InjectionToken>());
@@ -508,32 +549,38 @@ export class ModuleGraph implements ModuleGraphInterface {
 			path.pop();
 		};
 
-		const modules = [...this._nodes].filter(([_, node]) => node.type === NodeTypeEnum.MODULE);
+		const modules = [...this._nodes].filter(
+			([_, node]) => node.type === NodeTypeEnum.MODULE,
+		);
 
 		for (const [nodeId, _] of modules) {
 			visit(nodeId, [], new Set<InjectionToken>(), new Set<InjectionToken>());
 		}
 	}
 
-	private getConstructorDependencies(provider: Type): { index: number; param: Type<unknown> }[] {
-		return (Reflect.getMetadata(SELF_DECLARED_DEPS_METADATA, provider) || []).sort(
-			(a, b) => a.index - b.index,
-		);
+	private getConstructorDependencies(
+		provider: Type,
+	): { index: number; param: Type<unknown> }[] {
+		return (
+			Reflect.getMetadata(SELF_DECLARED_DEPS_METADATA, provider) || []
+		).sort((a, b) => a.index - b.index);
 	}
 
 	private getOptionalConstructorDependencies(provider: Provider): number[] {
-		return (Reflect.getMetadata(SELF_DECLARED_OPTIONAL_DEPS_METADATA, provider) || []).map(
-			({ index }) => index,
-		);
+		return (
+			Reflect.getMetadata(SELF_DECLARED_OPTIONAL_DEPS_METADATA, provider) || []
+		).map(({ index }) => index);
 	}
 
 	private getOptionalPropertyDependencies(provider: Provider): string[] {
-		return (Reflect.getMetadata(PROPERTY_OPTIONAL_DEPS_METADATA, provider) || []).map(
-			({ key }) => key,
-		);
+		return (
+			Reflect.getMetadata(PROPERTY_OPTIONAL_DEPS_METADATA, provider) || []
+		).map(({ key }) => key);
 	}
 
-	private getPropertiesDependencies(provider: Provider): { key: string; type: Type<unknown> }[] {
+	private getPropertiesDependencies(
+		provider: Provider,
+	): { key: string; type: Type<unknown> }[] {
 		return Reflect.getMetadata(PROPERTY_DEPS_METADATA, provider) || [];
 	}
 }

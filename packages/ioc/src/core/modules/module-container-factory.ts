@@ -11,7 +11,9 @@ import type {
 import { ModuleContainer } from "./module-container";
 
 export class ModuleContainerFactory implements ModuleContainerFactoryInterface {
-	constructor(private readonly moduleTokenFactory: ModuleTokenFactoryInterface) {}
+	constructor(
+		private readonly moduleTokenFactory: ModuleTokenFactoryInterface,
+	) {}
 
 	public async create(
 		module: Module | DynamicModule,
@@ -21,7 +23,11 @@ export class ModuleContainerFactory implements ModuleContainerFactoryInterface {
 
 		moduleContainer.token = await this.getModuleToken(module);
 
-		Reflect.defineMetadata(MODULE_TOKEN_WATERMARK, moduleContainer.token, module);
+		Reflect.defineMetadata(
+			MODULE_TOKEN_WATERMARK,
+			moduleContainer.token,
+			module,
+		);
 
 		return moduleContainer;
 	}

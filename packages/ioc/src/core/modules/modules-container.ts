@@ -16,14 +16,18 @@ export type Token = string;
 export class ModulesContainer implements ModulesContainerInterface {
 	private readonly containers = new Map<Token, ModuleContainerInterface>();
 	private readonly moduleTokenFactory = new ModuleTokenFactory(this.hashUtils);
-	private readonly moduleContainerFactory = new ModuleContainerFactory(this.moduleTokenFactory);
+	private readonly moduleContainerFactory = new ModuleContainerFactory(
+		this.moduleTokenFactory,
+	);
 
 	constructor(
 		private readonly hashUtils: HashUtilInterface,
 		private readonly container: ContainerInterface,
 	) {}
 
-	async addModule(module: Module | DynamicModule): Promise<ModuleContainerInterface> {
+	async addModule(
+		module: Module | DynamicModule,
+	): Promise<ModuleContainerInterface> {
 		const cacheModule = await this.getModule(module);
 
 		if (cacheModule) {
@@ -33,7 +37,9 @@ export class ModulesContainer implements ModulesContainerInterface {
 		return this.setModule(module);
 	}
 
-	getModule(module: Module | DynamicModule): ModuleContainerInterface | undefined {
+	getModule(
+		module: Module | DynamicModule,
+	): ModuleContainerInterface | undefined {
 		return this.getModuleFromCache(module);
 	}
 
@@ -44,20 +50,30 @@ export class ModulesContainer implements ModulesContainerInterface {
 		const tokenToReplace = this.getModule(moduleToReplace);
 		const newModuleContainer = await this.setModule(newModule);
 
-		this.containers.set(tokenToReplace?.token || newModuleContainer.token, newModuleContainer);
+		this.containers.set(
+			tokenToReplace?.token || newModuleContainer.token,
+			newModuleContainer,
+		);
 
 		return newModuleContainer;
 	}
 
-	private async setModule(module: Module | DynamicModule): Promise<ModuleContainerInterface> {
-		const moduleContainer = await this.moduleContainerFactory.create(module, this.container);
+	private async setModule(
+		module: Module | DynamicModule,
+	): Promise<ModuleContainerInterface> {
+		const moduleContainer = await this.moduleContainerFactory.create(
+			module,
+			this.container,
+		);
 
 		this.containers.set(moduleContainer.token, moduleContainer);
 
 		return moduleContainer;
 	}
 
-	private getModuleFromCache(module: Module | DynamicModule): ModuleContainerInterface | undefined {
+	private getModuleFromCache(
+		module: Module | DynamicModule,
+	): ModuleContainerInterface | undefined {
 		const token = Reflect.getMetadata(MODULE_TOKEN_WATERMARK, module) as Token;
 
 		return this.containers.get(token);

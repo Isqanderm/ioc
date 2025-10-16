@@ -25,7 +25,10 @@ describe("Decorators", () => {
 			@Injectable()
 			class TestService {}
 
-			const isInjectable = Reflect.getMetadata(INJECTABLE_WATERMARK, TestService);
+			const isInjectable = Reflect.getMetadata(
+				INJECTABLE_WATERMARK,
+				TestService,
+			);
 			expect(isInjectable).toBe(true);
 		});
 
@@ -57,7 +60,10 @@ describe("Decorators", () => {
 			@Injectable()
 			class TestService {}
 
-			const isInjectable = Reflect.getMetadata(INJECTABLE_WATERMARK, TestService);
+			const isInjectable = Reflect.getMetadata(
+				INJECTABLE_WATERMARK,
+				TestService,
+			);
 			const options = Reflect.getMetadata(INJECTABLE_OPTIONS, TestService);
 
 			expect(isInjectable).toBe(true);
@@ -110,7 +116,10 @@ describe("Decorators", () => {
 			})
 			class TestModule {}
 
-			const providers = Reflect.getMetadata(MODULE_METADATA.PROVIDERS, TestModule);
+			const providers = Reflect.getMetadata(
+				MODULE_METADATA.PROVIDERS,
+				TestModule,
+			);
 			expect(providers).toEqual([TestService]);
 		});
 
@@ -133,7 +142,10 @@ describe("Decorators", () => {
 			class TestModule {}
 
 			const imports = Reflect.getMetadata(MODULE_METADATA.IMPORTS, TestModule);
-			const providers = Reflect.getMetadata(MODULE_METADATA.PROVIDERS, TestModule);
+			const providers = Reflect.getMetadata(
+				MODULE_METADATA.PROVIDERS,
+				TestModule,
+			);
 			const exports = Reflect.getMetadata(MODULE_METADATA.EXPORTS, TestModule);
 
 			expect(imports).toEqual([]);
@@ -148,7 +160,9 @@ describe("Decorators", () => {
 					invalidKey: [],
 				})
 				class TestModule {}
-			}).toThrow("Invalid property 'invalidKey' passed into the @Module() decorator");
+			}).toThrow(
+				"Invalid property 'invalidKey' passed into the @Module() decorator",
+			);
 		});
 
 		it("should handle complex module configuration", () => {
@@ -188,7 +202,9 @@ describe("Decorators", () => {
 
 			@Injectable()
 			class TestService {
-				constructor(@Inject(DependencyService) private dep: DependencyService) {}
+				constructor(
+					@Inject(DependencyService) private dep: DependencyService,
+				) {}
 			}
 
 			const hasInject = Reflect.getMetadata(INJECT_WATERMARK, TestService);
@@ -201,10 +217,15 @@ describe("Decorators", () => {
 
 			@Injectable()
 			class TestService {
-				constructor(@Inject(DependencyService) private dep: DependencyService) {}
+				constructor(
+					@Inject(DependencyService) private dep: DependencyService,
+				) {}
 			}
 
-			const deps = Reflect.getMetadata(SELF_DECLARED_DEPS_METADATA, TestService);
+			const deps = Reflect.getMetadata(
+				SELF_DECLARED_DEPS_METADATA,
+				TestService,
+			);
 			expect(deps).toEqual([{ index: 0, param: DependencyService }]);
 		});
 
@@ -223,7 +244,10 @@ describe("Decorators", () => {
 				) {}
 			}
 
-			const deps = Reflect.getMetadata(SELF_DECLARED_DEPS_METADATA, TestService);
+			const deps = Reflect.getMetadata(
+				SELF_DECLARED_DEPS_METADATA,
+				TestService,
+			);
 			// Dependencies are stored in reverse order
 			expect(deps).toEqual([
 				{ index: 1, param: ServiceB },
@@ -253,7 +277,10 @@ describe("Decorators", () => {
 				constructor(@Inject(TOKEN) private dep: unknown) {}
 			}
 
-			const deps = Reflect.getMetadata(SELF_DECLARED_DEPS_METADATA, TestService);
+			const deps = Reflect.getMetadata(
+				SELF_DECLARED_DEPS_METADATA,
+				TestService,
+			);
 			expect(deps).toEqual([{ index: 0, param: TOKEN }]);
 		});
 
@@ -265,7 +292,10 @@ describe("Decorators", () => {
 				constructor(@Inject(TOKEN) private dep: unknown) {}
 			}
 
-			const deps = Reflect.getMetadata(SELF_DECLARED_DEPS_METADATA, TestService);
+			const deps = Reflect.getMetadata(
+				SELF_DECLARED_DEPS_METADATA,
+				TestService,
+			);
 			expect(deps).toEqual([{ index: 0, param: TOKEN }]);
 		});
 	});
@@ -287,7 +317,10 @@ describe("Decorators", () => {
 				constructor(@Optional() private dep?: unknown) {}
 			}
 
-			const optionalDeps = Reflect.getMetadata(SELF_DECLARED_OPTIONAL_DEPS_METADATA, TestService);
+			const optionalDeps = Reflect.getMetadata(
+				SELF_DECLARED_OPTIONAL_DEPS_METADATA,
+				TestService,
+			);
 			expect(optionalDeps).toEqual([{ index: 0 }]);
 		});
 
@@ -302,7 +335,10 @@ describe("Decorators", () => {
 				private dep?: DependencyService;
 			}
 
-			const optionalDeps = Reflect.getMetadata(PROPERTY_OPTIONAL_DEPS_METADATA, TestService);
+			const optionalDeps = Reflect.getMetadata(
+				PROPERTY_OPTIONAL_DEPS_METADATA,
+				TestService,
+			);
 			expect(optionalDeps).toEqual([{ key: "dep" }]);
 		});
 	});
@@ -313,7 +349,10 @@ describe("Decorators", () => {
 			@NsModule({})
 			class GlobalModule {}
 
-			const isGlobal = Reflect.getMetadata(MODULE_GLOBAL_WATERMARK, GlobalModule);
+			const isGlobal = Reflect.getMetadata(
+				MODULE_GLOBAL_WATERMARK,
+				GlobalModule,
+			);
 			expect(isGlobal).toBe(true);
 		});
 
@@ -328,8 +367,14 @@ describe("Decorators", () => {
 			})
 			class GlobalModule {}
 
-			const isGlobal = Reflect.getMetadata(MODULE_GLOBAL_WATERMARK, GlobalModule);
-			const providers = Reflect.getMetadata(MODULE_METADATA.PROVIDERS, GlobalModule);
+			const isGlobal = Reflect.getMetadata(
+				MODULE_GLOBAL_WATERMARK,
+				GlobalModule,
+			);
+			const providers = Reflect.getMetadata(
+				MODULE_METADATA.PROVIDERS,
+				GlobalModule,
+			);
 
 			expect(isGlobal).toBe(true);
 			expect(providers).toEqual([GlobalService]);

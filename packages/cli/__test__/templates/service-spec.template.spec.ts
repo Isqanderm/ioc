@@ -13,8 +13,12 @@ describe("ServiceSpecTemplate", () => {
 			expect(result).toContain("it('should get service instance'");
 			expect(result).toContain("Test.createModule({");
 			expect(result).toContain("providers: [AuthService]");
-			expect(result).toContain("const authService = await moduleRef.get<AuthService>(AuthService)");
-			expect(result).toContain("expect(authService).toBeInstanceOf(AuthService)");
+			expect(result).toContain(
+				"const authService = await moduleRef.get<AuthService>(AuthService)",
+			);
+			expect(result).toContain(
+				"expect(authService).toBeInstanceOf(AuthService)",
+			);
 		});
 
 		it("should generate a service spec template with different names", () => {
@@ -28,7 +32,9 @@ describe("ServiceSpecTemplate", () => {
 
 			const template2 = new ServiceSpecTemplate({ name: "Product" });
 			const result2 = template2.generate();
-			expect(result2).toContain('import { ProductService } from "./product.service"');
+			expect(result2).toContain(
+				'import { ProductService } from "./product.service"',
+			);
 			expect(result2).toContain("describe('ProductService'");
 			expect(result2).toContain(
 				"const productService = await moduleRef.get<ProductService>(ProductService)",
@@ -47,7 +53,10 @@ describe("ServiceSpecTemplate", () => {
 
 		it("should accept custom template parameter", () => {
 			const customTemplate = "custom template";
-			const template = new ServiceSpecTemplate({ name: "Test" }, customTemplate);
+			const template = new ServiceSpecTemplate(
+				{ name: "Test" },
+				customTemplate,
+			);
 			const result = template.generate();
 
 			expect(result).toContain("describe('TestService'");

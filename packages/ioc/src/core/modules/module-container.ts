@@ -35,7 +35,8 @@ export class ModuleContainer implements ModuleContainerInterface {
 		if (isDynamicModule(this.metatype)) {
 			modules = this.metatype.imports || [];
 		} else {
-			modules = Reflect.getMetadata(MODULE_METADATA.IMPORTS, this.metatype) || [];
+			modules =
+				Reflect.getMetadata(MODULE_METADATA.IMPORTS, this.metatype) || [];
 		}
 
 		const self = this;

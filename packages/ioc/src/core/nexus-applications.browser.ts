@@ -34,7 +34,9 @@ export class NexusApplicationsBrowser implements NexusApplicationInterface {
 		return this;
 	}
 
-	public addScannerPlugin(scanner: ScannerPluginInterface | ScannerPluginInterface[]): this {
+	public addScannerPlugin(
+		scanner: ScannerPluginInterface | ScannerPluginInterface[],
+	): this {
 		const plugins = Array.isArray(scanner) ? scanner : [scanner];
 		this.scannerPlugins.push(...plugins);
 		return this;

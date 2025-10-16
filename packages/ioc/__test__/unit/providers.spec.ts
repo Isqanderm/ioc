@@ -67,7 +67,9 @@ describe("Providers", () => {
 
 			@Injectable()
 			class ServiceWithDeps {
-				constructor(@Inject(DependencyService) private dep: DependencyService) {}
+				constructor(
+					@Inject(DependencyService) private dep: DependencyService,
+				) {}
 
 				getValue() {
 					return this.dep.getValue();
@@ -200,7 +202,9 @@ describe("Providers", () => {
 				],
 			}).compile();
 
-			const client = await container.get<{ apiUrl: string; timeout: number }>("HTTP_CLIENT");
+			const client = await container.get<{ apiUrl: string; timeout: number }>(
+				"HTTP_CLIENT",
+			);
 			expect(client?.apiUrl).toBe("https://api.example.com");
 			expect(client?.timeout).toBe(5000);
 		});
@@ -255,7 +259,9 @@ describe("Providers", () => {
 				],
 			}).compile();
 
-			const service = await container.get<{ combined: string }>("COMBINED_SERVICE");
+			const service = await container.get<{ combined: string }>(
+				"COMBINED_SERVICE",
+			);
 			expect(service?.combined).toBe("A-B");
 		});
 
@@ -274,8 +280,12 @@ describe("Providers", () => {
 				],
 			}).compile();
 
-			const instance1 = await container.get<{ id: number }>("TRANSIENT_FACTORY");
-			const instance2 = await container.get<{ id: number }>("TRANSIENT_FACTORY");
+			const instance1 = await container.get<{ id: number }>(
+				"TRANSIENT_FACTORY",
+			);
+			const instance2 = await container.get<{ id: number }>(
+				"TRANSIENT_FACTORY",
+			);
 
 			expect(instance1?.id).toBe(1);
 			expect(instance2?.id).toBe(2);
@@ -310,7 +320,9 @@ describe("Providers", () => {
 
 			@Injectable()
 			class ServiceWithDeps {
-				constructor(@Inject(DependencyService) private dep: DependencyService) {}
+				constructor(
+					@Inject(DependencyService) private dep: DependencyService,
+				) {}
 
 				getValue() {
 					return `service-${this.dep.getValue()}`;

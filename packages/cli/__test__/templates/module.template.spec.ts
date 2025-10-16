@@ -202,7 +202,9 @@ describe("ModuleTemplate", () => {
 			expect(result).toContain("@NsModule({");
 			expect(result).toContain("export class AuthModule");
 			expect(result).toContain("imports: [DatabaseModule,ConfigModule]");
-			expect(result).toContain("providers: [AuthService,UserService,TokenService]");
+			expect(result).toContain(
+				"providers: [AuthService,UserService,TokenService]",
+			);
 			expect(result).toContain("exports: [AuthService]");
 		});
 	});

@@ -16,7 +16,9 @@ describe("Container error", () => {
 	const moduleTokenFactory = new ModuleTokenFactory(hashUtilsMock);
 	const moduleContainerFactory = new ModuleContainerFactory(moduleTokenFactory);
 	const container = {
-		async addModule(metatype: Type<unknown>): Promise<ModuleContainerInterface> {
+		async addModule(
+			metatype: Type<unknown>,
+		): Promise<ModuleContainerInterface> {
 			return await moduleContainerFactory.create(metatype, container);
 		},
 	} as ContainerInterface;
@@ -38,8 +40,13 @@ describe("Container error", () => {
 			imports: [TestModule],
 		})(ImportedModule);
 
-		const moduleContainerFactory = new ModuleContainerFactory(moduleTokenFactory);
-		const mockModuleContainer = await moduleContainerFactory.create(TestModule, container);
+		const moduleContainerFactory = new ModuleContainerFactory(
+			moduleTokenFactory,
+		);
+		const mockModuleContainer = await moduleContainerFactory.create(
+			TestModule,
+			container,
+		);
 
 		const graph = new ModuleGraph(mockModuleContainer);
 		await graph.compile();

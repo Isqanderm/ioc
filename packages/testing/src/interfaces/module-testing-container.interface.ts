@@ -9,7 +9,9 @@ export interface ModuleTestingContainerInterface<T extends ModuleMetadata>
 	extends ContainerBaseInterface,
 		ModulePluginInterface {
 	setModuleDecorator(
-		decorator: <M extends ModuleMetadata = ModuleMetadata>(metadata: M) => ClassDecorator,
+		decorator: <M extends ModuleMetadata = ModuleMetadata>(
+			metadata: M,
+		) => ClassDecorator,
 	): this;
 
 	compile(): Promise<ModuleContainerInterface>;

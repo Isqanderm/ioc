@@ -8,7 +8,12 @@ export class VisualizerCommand extends AbstractCommand {
 			.description("Visualisation helper")
 			.arguments("[type] [path]")
 			.alias("vi")
-			.option("--install-deps", "Install deps for this functionality", () => true, false)
+			.option(
+				"--install-deps",
+				"Install deps for this functionality",
+				() => true,
+				false,
+			)
 			.action(
 				async (
 					type: string,
