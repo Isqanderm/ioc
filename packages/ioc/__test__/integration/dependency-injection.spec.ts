@@ -1,6 +1,6 @@
 import "reflect-metadata";
 import { Test } from "@nexus-ioc/testing";
-import { Inject, Injectable, NsModule, Optional } from "../../src";
+import { Inject, Injectable, Optional } from "../../src";
 
 describe("Dependency Injection Integration", () => {
 	describe("Multi-level Dependencies", () => {
