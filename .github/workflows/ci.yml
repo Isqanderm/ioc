@@ -50,7 +50,7 @@ jobs:
         run: npm run build:cli
 
       - name: Run tests with coverage
-        run: npm run test -- --coverage --coverageReporters=json --coverageReporters=lcov --coverageReporters=text
+        run: npm run test -- --coverage
 
       - name: Upload coverage to Codecov
         if: matrix.node-version == '20.x'

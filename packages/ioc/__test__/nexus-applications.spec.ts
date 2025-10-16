@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import { vi } from "vitest";
 import {
 	Inject,
 	Injectable,
@@ -52,7 +53,7 @@ describe("Dependency Resolution", () => {
 });
 
 describe("Lifecycle Hooks", () => {
-	const initSpy = jest.fn();
+	const initSpy = vi.fn();
 
 	@Injectable()
 	class LifecycleService implements OnModuleInit {

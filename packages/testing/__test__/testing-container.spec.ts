@@ -1,5 +1,6 @@
 import "reflect-metadata";
 import { Injectable, type Module, NsModule } from "@nexus-ioc/core";
+import { vi } from "vitest";
 import { Test } from "../src/core/testing-container";
 
 describe("TestingContainer (Test class)", () => {
@@ -264,7 +265,7 @@ describe("TestingContainer (Test class)", () => {
 		it("should add a scanner plugin to the container", async () => {
 			const mockPlugin = {
 				name: "test-plugin",
-				scan: jest.fn(),
+				scan: vi.fn(),
 			};
 
 			const testingModule = Test.createModule({
