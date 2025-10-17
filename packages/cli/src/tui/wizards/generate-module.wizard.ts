@@ -47,15 +47,24 @@ export class GenerateModuleWizard {
 				return;
 			}
 
-			// Step 4: Preview files
+			// Step 4: Test generation
+			const generateTests = await this.promptTestGeneration();
+			if (generateTests === null) {
+				clack.cancel("Module generation cancelled");
+				return;
+			}
+
+			// Step 5: Preview files
 			const files = this.generatePreviewFiles(
 				moduleName,
 				outputPath,
 				providers,
+				generateTests,
 			);
 
 			CodePreview.showSummary({
 				module: `${moduleName}Module`,
+				tests: generateTests,
 				path: outputPath,
 			});
 
@@ -81,7 +90,12 @@ export class GenerateModuleWizard {
 			}
 
 			// Step 6: Generate files
-			await this.generateFiles(moduleName, outputPath, providers);
+			await this.generateFiles(
+				moduleName,
+				outputPath,
+				providers,
+				generateTests,
+			);
 
 			clack.outro(pc.green("✓ Module generated successfully!"));
 		} catch (error) {
@@ -125,6 +139,22 @@ export class GenerateModuleWizard {
 		}
 
 		return outputPath as string;
+	}
+
+	/**
+	 * Prompt for test generation
+	 */
+	private async promptTestGeneration(): Promise<boolean | null> {
+		const generateTests = await clack.confirm({
+			message: "Generate test file?",
+			initialValue: true,
+		});
+
+		if (clack.isCancel(generateTests)) {
+			return null;
+		}
+
+		return generateTests;
 	}
 
 	/**
@@ -180,6 +210,7 @@ export class GenerateModuleWizard {
 		moduleName: string,
 		outputPath: string,
 		providers: ServiceInfo[],
+		generateTests: boolean,
 	): PreviewFile[] {
 		const files: PreviewFile[] = [];
 
@@ -207,6 +238,29 @@ ${moduleTemplate.generate()}`;
 			path: path.join(outputPath, `${moduleName.toLowerCase()}.module.ts`),
 			content: moduleContent,
 		});
+
+		// Test file (if requested)
+		if (generateTests) {
+			const moduleNameLC = moduleName.toLowerCase();
+			const moduleClassName = `${moduleName}Module`;
+			const testContent = `import { Test } from "@nexus-ioc/testing";
+import { ${moduleClassName} } from "./${moduleNameLC}.module";
+
+describe('${moduleClassName}', () => {
+  it('should compile the module', async () => {
+    const moduleRef = await Test.createModule({
+      imports: [${moduleClassName}]
+    }).compile();
+
+    expect(moduleRef).toBeDefined();
+  });
+});`;
+
+			files.push({
+				path: path.join(outputPath, `${moduleNameLC}.module.spec.ts`),
+				content: testContent,
+			});
+		}
 
 		return files;
 	}
@@ -241,6 +295,7 @@ ${moduleTemplate.generate()}`;
 		moduleName: string,
 		outputPath: string,
 		providers: ServiceInfo[],
+		generateTests: boolean,
 	): Promise<void> {
 		const s = clack.spinner();
 		s.start("Generating module files...");
@@ -254,7 +309,7 @@ ${moduleTemplate.generate()}`;
 
 			const options: Input[] = [
 				{ name: "skipImport", value: true },
-				{ name: "spec", value: true }, // Modules don't have specs, but keeping for compatibility
+				{ name: "spec", value: generateTests },
 			];
 
 			await this.generateAction.handler(inputs, options);
