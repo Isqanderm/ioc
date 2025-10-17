@@ -41,7 +41,7 @@ export type Edge = {
 
 export interface ModuleGraphInterface {
 	compile(): Promise<void>;
-	getNode(token: InjectionToken): Node;
+	getNode(token: InjectionToken): Node | undefined;
 	getEdge(token: InjectionToken): Edge[];
 	getAllNodes(): Node[];
 	getAllEdges(): Edge[][];

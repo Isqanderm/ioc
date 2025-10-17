@@ -59,8 +59,13 @@ export class Container implements ContainerInterface {
 		await this._graph.compile();
 	}
 
-	public get graph() {
-		return this._graph as ModuleGraphInterface;
+	public get graph(): ModuleGraphInterface {
+		if (!this._graph) {
+			throw new Error(
+				"Graph is not initialized. Call run() method before accessing the graph.",
+			);
+		}
+		return this._graph;
 	}
 
 	public get errors() {
