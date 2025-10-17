@@ -44,13 +44,13 @@
 	"sideEffects": false,
 	"license": "MIT",
 	"peerDependencies": {
-		"reflect-metadata": "^0.1.12 || ^0.2.0"
+		"reflect-metadata": "^0.2.2"
 	},
 	"devDependencies": {
 		"@nexus-ioc/testing": "^0.4.0",
 		"@types/node": "^24.8.1",
 		"@vitest/coverage-v8": "^3.0.0",
-		"reflect-metadata": "^0.1.12 || ^0.2.0",
+		"reflect-metadata": "^0.2.2",
 		"sinon": "^21.0.0",
 		"typescript": "^5.9.3",
 		"vite": "^7.0.0",
