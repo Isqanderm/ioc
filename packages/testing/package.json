@@ -1,75 +1,75 @@
 {
-	"name": "@nexus-ioc/testing",
-	"version": "0.4.2",
-	"description": "Testing helpers for Nexus IoC library",
-	"author": "IsqanderM <aleksandr.melnik.personal@gmail.com>",
-	"homepage": "https://github.com/Isqanderm/ioc#readme",
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/Isqanderm/ioc.git"
-	},
-	"bugs": {
-		"url": "https://github.com/Isqanderm/ioc/issues"
-	},
-	"directories": {
-		"lib": "src",
-		"test": "__test__"
-	},
-	"files": [
-		"dist",
-		"package.json",
-		"LICENSE",
-		"README.md"
-	],
-	"main": "./dist/cjs/index.js",
-	"module": "./dist/esm/index.js",
-	"types": "./dist/types/index.d.ts",
-	"exports": {
-		".": {
-			"import": {
-				"types": "./dist/types/index.d.ts",
-				"default": "./dist/esm/index.js"
-			},
-			"require": {
-				"types": "./dist/types/index.d.ts",
-				"default": "./dist/cjs/index.js"
-			}
-		}
-	},
-	"sideEffects": false,
-	"license": "MIT",
-	"peerDependencies": {
-		"@nexus-ioc/core": "^0.4.0",
-		"reflect-metadata": "^0.1.12 || ^0.2.0"
-	},
-	"devDependencies": {
-		"@nexus-ioc/core": "^0.4.0",
-		"@types/node": "^24.8.1",
-		"@vitest/coverage-v8": "^3.0.0",
-		"reflect-metadata": "^0.1.12 || ^0.2.0",
-		"sinon": "^21.0.0",
-		"typescript": "^5.9.3",
-		"vite": "^7.0.0",
-		"vitest": "^3.0.0"
-	},
-	"dependencies": {
-		"@nexus-ioc/shared": "^0.4.2",
-		"tslib": "^2.7.0"
-	},
-	"scripts": {
-		"build": "npm run build:cjs && npm run build:esm",
-		"build:cjs": "tsc -p tsconfig.cjs.json",
-		"build:esm": "tsc -p tsconfig.esm.json && node ../../scripts/fix-esm-imports.js dist/esm && echo '{\"type\":\"module\"}' > dist/esm/package.json",
-		"test": "vitest run",
-		"clean": "rm -rf ./dist && rm -f tsconfig*.tsbuildinfo",
-		"test:watch": "vitest",
-		"test:ui": "vitest --ui",
-		"test:coverage": "vitest run --coverage",
-		"code:format": "npx @biomejs/biome format --write",
-		"code:lint": "npx @biomejs/biome lint --write",
-		"code:check": "npx @biomejs/biome check",
-		"code:check:ci": "npx @biomejs/biome ci",
-		"code:check:apply": "npx @biomejs/biome check --write",
-		"test:ready": "npm run build"
-	}
+  "name": "@nexus-ioc/testing",
+  "version": "0.5.0",
+  "description": "Testing helpers for Nexus IoC library",
+  "author": "IsqanderM <aleksandr.melnik.personal@gmail.com>",
+  "homepage": "https://github.com/Isqanderm/ioc#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Isqanderm/ioc.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Isqanderm/ioc/issues"
+  },
+  "directories": {
+    "lib": "src",
+    "test": "__test__"
+  },
+  "files": [
+    "dist",
+    "package.json",
+    "LICENSE",
+    "README.md"
+  ],
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/types/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/types/index.d.ts",
+        "default": "./dist/cjs/index.js"
+      }
+    }
+  },
+  "sideEffects": false,
+  "license": "MIT",
+  "peerDependencies": {
+    "@nexus-ioc/core": "^0.4.0",
+    "reflect-metadata": "^0.1.12 || ^0.2.0"
+  },
+  "devDependencies": {
+    "@nexus-ioc/core": "^0.5.0",
+    "@types/node": "^24.8.1",
+    "@vitest/coverage-v8": "^3.0.0",
+    "reflect-metadata": "^0.1.12 || ^0.2.0",
+    "sinon": "^21.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.0.0",
+    "vitest": "^3.0.0"
+  },
+  "dependencies": {
+    "@nexus-ioc/shared": "^0.5.0",
+    "tslib": "^2.7.0"
+  },
+  "scripts": {
+    "build": "npm run build:cjs && npm run build:esm",
+    "build:cjs": "tsc -p tsconfig.cjs.json",
+    "build:esm": "tsc -p tsconfig.esm.json && node ../../scripts/fix-esm-imports.js dist/esm && echo '{\"type\":\"module\"}' > dist/esm/package.json",
+    "test": "vitest run",
+    "clean": "rm -rf ./dist && rm -f tsconfig*.tsbuildinfo",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "code:format": "npx @biomejs/biome format --write",
+    "code:lint": "npx @biomejs/biome lint --write",
+    "code:check": "npx @biomejs/biome check",
+    "code:check:ci": "npx @biomejs/biome ci",
+    "code:check:apply": "npx @biomejs/biome check --write",
+    "test:ready": "npm run build"
+  }
 }
