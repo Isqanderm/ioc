@@ -1,6 +1,9 @@
 import * as clack from "@clack/prompts";
 import pc from "picocolors";
+import { GenerateAction } from "../actions/generate.action";
 import type { CommandsHelper } from "../commands.helper";
+import { GenerateModuleWizard } from "./wizards/generate-module.wizard";
+import { GenerateServiceWizard } from "./wizards/generate-service.wizard";
 
 export interface MainMenuOptions {
 	commandsHelper: CommandsHelper;
@@ -111,31 +114,29 @@ export class MainMenu {
 	}
 
 	/**
-	 * Generate a service (placeholder for now)
+	 * Generate a service
 	 */
 	private async generateService(): Promise<void> {
-		const s = clack.spinner();
-		s.start("Preparing service generation wizard...");
-
-		// TODO: Implement service generation wizard
-		await new Promise((resolve) => setTimeout(resolve, 500));
-
-		s.stop("Service generation wizard not yet implemented");
-		clack.log.warn("This feature will be implemented in Phase 2");
+		try {
+			const generateAction = new GenerateAction();
+			const wizard = new GenerateServiceWizard(generateAction);
+			await wizard.run();
+		} catch (error) {
+			clack.log.error(`Service generation failed: ${error}`);
+		}
 	}
 
 	/**
-	 * Generate a module (placeholder for now)
+	 * Generate a module
 	 */
 	private async generateModule(): Promise<void> {
-		const s = clack.spinner();
-		s.start("Preparing module generation wizard...");
-
-		// TODO: Implement module generation wizard
-		await new Promise((resolve) => setTimeout(resolve, 500));
-
-		s.stop("Module generation wizard not yet implemented");
-		clack.log.warn("This feature will be implemented in Phase 2");
+		try {
+			const generateAction = new GenerateAction();
+			const wizard = new GenerateModuleWizard(generateAction);
+			await wizard.run();
+		} catch (error) {
+			clack.log.error(`Module generation failed: ${error}`);
+		}
 	}
 
 	/**
