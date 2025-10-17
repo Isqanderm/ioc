@@ -57,7 +57,7 @@
 	"dependencies": {
 		"commander": "^12.1.0",
 		"prettier": "^3.6.2",
-		"ts-morph": "^23.0.0",
+		"ts-morph": "^27.0.2",
 		"tslib": "^2.6.3"
 	},
 	"scripts": {
