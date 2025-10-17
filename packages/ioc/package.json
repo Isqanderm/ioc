@@ -64,6 +64,7 @@
 		"test:watch": "vitest",
 		"test:ui": "vitest --ui",
 		"test:coverage": "vitest run --coverage",
+		"test:memory": "vitest run --config vitest.memory.config.mts",
 		"code:format": "npx @biomejs/biome format --write",
 		"code:lint": "npx @biomejs/biome lint --write",
 		"code:check": "npx @biomejs/biome check",
