@@ -13,7 +13,7 @@ describe("Bootstrap Initialization via OnModuleInit", () => {
 	it("should call onModuleInit during bootstrap and not during get", async () => {
 		const initSpy = vi.fn();
 
-		@Injectable({ scope: Scope.Request })
+		@Injectable()
 		class AService implements OnModuleInit {
 			onModuleInit() {
 				initSpy();

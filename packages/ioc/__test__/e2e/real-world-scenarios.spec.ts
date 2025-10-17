@@ -448,7 +448,7 @@ describe("Real-World Scenarios E2E", () => {
 	describe("Multi-Tenant Application", () => {
 		it("should support multi-tenant architecture", async () => {
 			// Tenant Context
-			@Injectable({ scope: Scope.Request })
+			@Injectable()
 			class TenantContext {
 				private tenantId?: string;
 

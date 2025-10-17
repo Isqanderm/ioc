@@ -111,9 +111,8 @@ describe("Scope Management", () => {
 	});
 
 	describe("Transient Scope", () => {
-		// TODO: Implement Transient scope - currently not defined in Scope enum
-		it.todo("should create new instance for each resolution", async () => {
-			@Injectable({ scope: Scope.Singleton }) // Using Singleton as Transient doesn't exist
+		it("should create new instance for each resolution", async () => {
+			@Injectable({ scope: Scope.Transient })
 			class TransientService {
 				id = Math.random();
 			}
@@ -131,9 +130,8 @@ describe("Scope Management", () => {
 			expect(instance1?.id).not.toBe(instance3?.id);
 		});
 
-		// TODO: Implement Transient scope
-		it.todo("should create new instances in dependency injection", async () => {
-			@Injectable({ scope: Scope.Singleton })
+		it("should create new instances in dependency injection", async () => {
+			@Injectable({ scope: Scope.Transient })
 			class TransientService {
 				id = Math.random();
 			}
@@ -163,8 +161,7 @@ describe("Scope Management", () => {
 			expect(serviceA?.transient.id).not.toBe(serviceB?.transient.id);
 		});
 
-		// TODO: Implement Transient scope - Scope.Transient is not defined in enum
-		it.skip("should work with class providers", async () => {
+		it("should work with class providers", async () => {
 			@Injectable()
 			class ImplementationService {
 				id = Math.random();
@@ -175,7 +172,7 @@ describe("Scope Management", () => {
 					{
 						provide: "SERVICE",
 						useClass: ImplementationService,
-						// scope: Scope.Transient, // Not implemented
+						scope: Scope.Transient,
 					},
 				],
 			}).compile();
@@ -186,8 +183,7 @@ describe("Scope Management", () => {
 			expect(instance1?.id).not.toBe(instance2?.id);
 		});
 
-		// TODO: Implement Transient scope
-		it.skip("should work with factory providers", async () => {
+		it("should work with factory providers", async () => {
 			let counter = 0;
 			const factory = () => ({ id: ++counter });
 
@@ -196,7 +192,7 @@ describe("Scope Management", () => {
 					{
 						provide: "FACTORY",
 						useFactory: factory,
-						// scope: Scope.Transient, // Not implemented
+						scope: Scope.Transient,
 					},
 				],
 			}).compile();
@@ -210,9 +206,7 @@ describe("Scope Management", () => {
 	});
 
 	describe("Request Scope", () => {
-		// TODO: Request scope is partially implemented - it's not cached in providersContainer
-		// but still cached in resolveCache during single resolution
-		it.skip("should not cache request-scoped providers", async () => {
+		it("should not cache request-scoped providers globally", async () => {
 			@Injectable({ scope: Scope.Request })
 			class RequestService {
 				id = Math.random();
@@ -225,7 +219,7 @@ describe("Scope Management", () => {
 			const instance1 = await container.get<RequestService>(RequestService);
 			const instance2 = await container.get<RequestService>(RequestService);
 
-			// Request scope should create new instances
+			// Request scope should create new instances for each request (each get() call)
 			expect(instance1?.id).not.toBe(instance2?.id);
 		});
 
@@ -276,14 +270,13 @@ describe("Scope Management", () => {
 	});
 
 	describe("Mixed Scopes", () => {
-		// TODO: Implement Transient scope
-		it.skip("should handle different scopes in same module", async () => {
+		it("should handle different scopes in same module", async () => {
 			@Injectable({ scope: Scope.Singleton })
 			class SingletonService {
 				id = Math.random();
 			}
 
-			@Injectable({ scope: Scope.Singleton }) // Transient not implemented
+			@Injectable({ scope: Scope.Transient })
 			class TransientService {
 				id = Math.random();
 			}
