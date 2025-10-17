@@ -9,6 +9,7 @@ Thank you for your interest in contributing to Nexus IoC! This document provides
 - [Development Workflow](#development-workflow)
 - [Coding Standards](#coding-standards)
 - [Commit Guidelines](#commit-guidelines)
+- [Versioning and Publishing](#versioning-and-publishing)
 - [Pull Request Process](#pull-request-process)
 - [Testing Guidelines](#testing-guidelines)
 - [Documentation](#documentation)
@@ -191,6 +192,43 @@ npm run commit
 
 This will guide you through creating a properly formatted commit message.
 
+## Versioning and Publishing
+
+**🎉 Good news!** Versioning and publishing are **fully automated** when your PR is merged to `main`.
+
+### How It Works
+
+1. **You commit** using conventional commit format (e.g., `feat:`, `fix:`)
+2. **PR is merged** to `main` branch
+3. **CI automatically:**
+   - Analyzes your commits
+   - Determines version bump (major/minor/patch)
+   - Updates package.json versions
+   - Generates CHANGELOG.md
+   - Creates git tags
+   - Publishes to NPM
+   - Creates GitHub releases
+
+### Version Bump Rules
+
+- `feat:` → **Minor** version bump (0.x.0)
+- `fix:` → **Patch** version bump (0.0.x)
+- `BREAKING CHANGE:` → **Major** version bump (x.0.0)
+- `docs:`, `chore:`, `style:` → **No** version bump
+
+### Example
+
+```bash
+# Your commit
+git commit -m "feat(core): add lazy loading support"
+
+# After merge to main:
+# @nexus-ioc/core: 0.4.2 → 0.5.0 ✅
+# Automatically published to NPM ✅
+```
+
+**📚 For detailed information, see [docs/VERSIONING.md](docs/VERSIONING.md)**
+
 ## Pull Request Process
 
 ### Before Submitting
@@ -200,7 +238,8 @@ This will guide you through creating a properly formatted commit message.
 3. ✅ No linting errors
 4. ✅ Coverage maintained or improved
 5. ✅ Documentation updated
-6. ✅ CHANGELOG.md updated (if applicable)
+6. ✅ Commits follow conventional commit format
+7. ✅ **No need to update versions or CHANGELOG** - automated!
 
 ### Submitting a PR
 
