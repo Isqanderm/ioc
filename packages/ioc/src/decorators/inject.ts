@@ -6,6 +6,45 @@ import {
 	type Type,
 } from "../interfaces";
 
+/**
+ * Explicitly specifies the injection token for a constructor parameter or property.
+ *
+ * This decorator is used when:
+ * - You need to inject a provider by a string or symbol token
+ * - TypeScript's reflection cannot determine the type (e.g., interfaces, circular dependencies)
+ * - You want to inject a different implementation than the declared type
+ *
+ * @param token - The injection token (class, string, or symbol)
+ * @returns A decorator that can be applied to constructor parameters or properties
+ * @throws {Error} If the token is undefined (often due to circular dependencies)
+ *
+ * @example
+ * ```typescript
+ * // Constructor parameter injection
+ * @Injectable()
+ * class UserService {
+ *   constructor(
+ *     @Inject('DATABASE_CONFIG') private config: DatabaseConfig,
+ *     @Inject(Logger) private logger: Logger
+ *   ) {}
+ * }
+ *
+ * // Property injection
+ * @Injectable()
+ * class ProductService {
+ *   @Inject('CACHE_MANAGER')
+ *   private cache: CacheManager;
+ * }
+ *
+ * // Resolving circular dependencies
+ * @Injectable()
+ * class ServiceA {
+ *   constructor(
+ *     @Inject(forwardRef(() => ServiceB)) private serviceB: ServiceB
+ *   ) {}
+ * }
+ * ```
+ */
 export function Inject(
 	token: Type | symbol | string,
 ): PropertyDecorator & ParameterDecorator {
