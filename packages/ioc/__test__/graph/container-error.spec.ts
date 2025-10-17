@@ -169,10 +169,13 @@ describe("Container error", () => {
 
 	it("should return Providers unreached property dependency errors", async () => {
 		@Injectable()
-		class _DependencyService {}
+		class DependencyService {}
 
 		@Injectable()
-		class TestService {}
+		class TestService {
+			@Inject(DependencyService)
+			dependencyService!: DependencyService;
+		}
 
 		const container = await Test.createModule({
 			providers: [TestService],

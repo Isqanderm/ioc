@@ -256,7 +256,10 @@ describe("Decorators", () => {
 			class DependencyService {}
 
 			@Injectable()
-			class TestService {}
+			class TestService {
+				@Inject(DependencyService)
+				dep!: DependencyService;
+			}
 
 			const deps = Reflect.getMetadata(PROPERTY_DEPS_METADATA, TestService);
 			expect(deps).toEqual([{ key: "dep", type: DependencyService }]);
@@ -322,7 +325,10 @@ describe("Decorators", () => {
 			class _DependencyService {}
 
 			@Injectable()
-			class TestService {}
+			class TestService {
+				@Optional()
+				dep?: _DependencyService;
+			}
 
 			const optionalDeps = Reflect.getMetadata(
 				PROPERTY_OPTIONAL_DEPS_METADATA,
