@@ -143,7 +143,6 @@ export class Resolver {
 
 		for (const depToken of dependencies) {
 			if (isCircularDependencyFn(depToken)) {
-				// @ts-expect-error
 				if (isCircularDependency) {
 					resolvedDependencies.push(depToken);
 					continue;
