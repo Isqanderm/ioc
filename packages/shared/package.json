@@ -1,6 +1,6 @@
 {
   "name": "@nexus-ioc/shared",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Shared interfaces and utilities for Nexus IoC packages",
   "author": "Isqanderm <aleksandr.melnik.personal@gmail.com> (https://www.linkedin.com/in/isqander-melnik)",
   "homepage": "https://github.com/Isqanderm/ioc#readme",

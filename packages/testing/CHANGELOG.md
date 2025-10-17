@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+## [0.6.1](https://github.com/Isqanderm/ioc/compare/@nexus-ioc/testing@0.6.0...@nexus-ioc/testing@0.6.1) (2025-10-17)
+
+### Bug Fixes
+
+- add publishConfig for scoped packages to enable NPM publishing ([839da89](https://github.com/Isqanderm/ioc/commit/839da890ee9e7dce21c4492643acecc0381c64b0))
+
 # [0.6.0](https://github.com/Isqanderm/ioc/compare/@nexus-ioc/testing@0.5.0...@nexus-ioc/testing@0.6.0) (2025-10-17)
 
 ### Features
