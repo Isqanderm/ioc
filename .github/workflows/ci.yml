@@ -100,12 +100,12 @@ jobs:
           fetch-depth: 0
 
       - name: Download build artifacts from test job
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: build-artifacts
 
       - name: Download test results from test job
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: test-results
 
