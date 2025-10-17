@@ -7,7 +7,7 @@ export interface ServiceDependency {
 export interface EnhancedServiceParams {
 	name: string;
 	dependencies?: ServiceDependency[];
-	scope?: "Singleton" | "Transient";
+	scope?: "Singleton" | "Transient" | "Request";
 }
 
 export class EnhancedServiceTemplate {
@@ -40,7 +40,7 @@ export class ${name}Service {${constructorCode}
 	): string {
 		const coreImports = ["Injectable"];
 
-		if (scope === "Singleton") {
+		if (scope === "Singleton" || scope === "Request") {
 			coreImports.push("Scope");
 		}
 
@@ -74,6 +74,10 @@ export class ${name}Service {${constructorCode}
 	private generateDecorator(scope?: string): string {
 		if (scope === "Singleton") {
 			return "@Injectable({ scope: Scope.SINGLETON })";
+		}
+
+		if (scope === "Request") {
+			return "@Injectable({ scope: Scope.REQUEST })";
 		}
 
 		return "@Injectable()";

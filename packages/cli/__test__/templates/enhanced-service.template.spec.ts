@@ -111,6 +111,31 @@ describe("EnhancedServiceTemplate", () => {
 			expect(result).toContain("private readonly config: ConfigService");
 		});
 
+		it("should generate service with dependencies and request scope", () => {
+			const template = new EnhancedServiceTemplate({
+				name: "RequestContext",
+				scope: "Request",
+				dependencies: [
+					{
+						className: "LoggerService",
+						importPath: "./logger.service",
+						paramName: "logger",
+					},
+				],
+			});
+
+			const result = template.generate();
+
+			expect(result).toContain("@Injectable({ scope: Scope.REQUEST })");
+			expect(result).toContain(
+				'import { Injectable, Scope } from "@nexus-ioc/core"',
+			);
+			expect(result).toContain(
+				'import { LoggerService } from "./logger.service"',
+			);
+			expect(result).toContain("private readonly logger: LoggerService");
+		});
+
 		it("should format constructor parameters correctly", () => {
 			const template = new EnhancedServiceTemplate({
 				name: "Test",

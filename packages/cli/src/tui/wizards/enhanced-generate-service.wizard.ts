@@ -77,7 +77,7 @@ export class EnhancedGenerateServiceWizard {
 			const previewFiles = await this.generatePreview({
 				serviceName: serviceName as string,
 				outputPath: outputPath as string,
-				scope: scope as "Singleton" | "Transient" | undefined,
+				scope: scope as "Singleton" | "Transient" | "Request" | undefined,
 				dependencies: dependencies as ServiceDependency[],
 				generateTests: generateTests as boolean,
 			});
@@ -142,7 +142,7 @@ export class EnhancedGenerateServiceWizard {
 	}
 
 	private async promptScope(): Promise<
-		"Singleton" | "Transient" | undefined | symbol
+		"Singleton" | "Transient" | "Request" | undefined | symbol
 	> {
 		const choice = await clack.select({
 			message: "Select service scope:",
@@ -157,12 +157,19 @@ export class EnhancedGenerateServiceWizard {
 					label: "Singleton",
 					hint: "Single instance shared across the app",
 				},
+				{
+					value: "request",
+					label: "Request",
+					hint: "New instance per request/context",
+				},
 			],
 		});
 
 		if (clack.isCancel(choice)) return choice;
 
-		return choice === "singleton" ? "Singleton" : undefined;
+		if (choice === "singleton") return "Singleton";
+		if (choice === "request") return "Request";
+		return undefined;
 	}
 
 	private async promptDependencies(
@@ -270,7 +277,7 @@ export class EnhancedGenerateServiceWizard {
 	private async generatePreview(params: {
 		serviceName: string;
 		outputPath: string;
-		scope?: "Singleton" | "Transient";
+		scope?: "Singleton" | "Transient" | "Request";
 		dependencies: ServiceDependency[];
 		generateTests: boolean;
 	}): Promise<Array<{ path: string; content: string }>> {
