@@ -64,7 +64,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "🔍 Analyzing commits for version bump..."
-          npx lerna version --conventional-commits --yes --no-push --create-release github
+          npx lerna version --conventional-commits --yes --no-push
 
           echo "📝 Version bump completed. Checking for changes..."
           if git diff --quiet HEAD; then
@@ -89,6 +89,19 @@ jobs:
         run: |
           echo "📦 Publishing packages to NPM..."
           npx lerna publish from-git --yes --no-verify-access
+
+      - name: Create GitHub releases
+        if: env.SHOULD_PUBLISH == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🏷️ Creating GitHub releases for new tags..."
+          # Get all tags created in this run
+          TAGS=$(git tag --points-at HEAD)
+          for TAG in $TAGS; do
+            echo "Creating release for $TAG..."
+            gh release create "$TAG" --generate-notes --verify-tag || echo "Release for $TAG may already exist"
+          done
 
       - name: Summary
         if: always()
