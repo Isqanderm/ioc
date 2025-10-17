@@ -1,7 +1,17 @@
-![npm](https://img.shields.io/npm/v/nexus-ioc)
-![license](https://img.shields.io/npm/l/nexus-ioc)
-![CI](https://github.com/Isqanderm/ioc/actions/workflows/ci.yml/badge.svg)
+# @nexus-ioc/core
+
+[![npm version](https://img.shields.io/npm/v/@nexus-ioc/core.svg)](https://www.npmjs.com/package/@nexus-ioc/core)
+[![npm downloads](https://img.shields.io/npm/dm/@nexus-ioc/core.svg)](https://www.npmjs.com/package/@nexus-ioc/core)
+[![npm downloads](https://img.shields.io/npm/dt/@nexus-ioc/core.svg)](https://www.npmjs.com/package/@nexus-ioc/core)
+[![License: MIT](https://img.shields.io/npm/l/@nexus-ioc/core.svg)](https://github.com/Isqanderm/ioc/blob/main/LICENSE)
+[![Bundle Size](https://img.shields.io/bundlephobia/minzip/@nexus-ioc/core)](https://bundlephobia.com/package/@nexus-ioc/core)
+[![CI](https://github.com/Isqanderm/ioc/actions/workflows/ci.yml/badge.svg)](https://github.com/Isqanderm/ioc/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/Isqanderm/ioc/branch/main/graph/badge.svg)](https://codecov.io/gh/Isqanderm/ioc)
+[![Dependencies](https://img.shields.io/librariesio/release/npm/@nexus-ioc/core)](https://libraries.io/npm/@nexus-ioc%2Fcore)
+[![GitHub stars](https://img.shields.io/github/stars/Isqanderm/ioc.svg?style=social&label=Star)](https://github.com/Isqanderm/ioc)
+[![GitHub issues](https://img.shields.io/github/issues/Isqanderm/ioc.svg)](https://github.com/Isqanderm/ioc/issues)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Isqanderm/ioc/blob/main/CONTRIBUTING.md)
 
 Nexus IoC is a powerful and flexible Inversion of Control (IoC) container for TypeScript applications. Inspired by Angular and NestJS, it leverages decorators to provide a simple and efficient way to manage dependencies and modules.
 
