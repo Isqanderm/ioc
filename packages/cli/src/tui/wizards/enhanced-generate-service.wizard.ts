@@ -12,7 +12,7 @@ import { ServiceSpecTemplate } from "../../templates/service-spec.template";
 import { CodePreview } from "../components/code-preview";
 import type { DependencyOption } from "../utils/dependency-resolver";
 import { DependencyResolver } from "../utils/dependency-resolver";
-import { formatCode } from "../utils/formatters";
+import { formatCode, prettifyCode } from "../utils/formatters";
 import { ProjectScanner } from "../utils/project-scanner";
 import { validatePascalCase, validatePath } from "../utils/validators";
 
@@ -359,7 +359,10 @@ export class EnhancedGenerateServiceWizard {
 			};
 
 			const serviceTemplate = new EnhancedServiceTemplate(serviceParams);
-			const serviceContent = await formatCode(serviceTemplate.generate());
+			const serviceContent = await prettifyCode(
+				serviceTemplate.generate(),
+				serviceFilePath,
+			);
 
 			fs.writeFileSync(serviceFilePath, serviceContent, "utf-8");
 
@@ -374,7 +377,10 @@ export class EnhancedGenerateServiceWizard {
 					params.serviceName,
 					params.dependencies,
 				);
-				const formattedTestContent = await formatCode(testContent);
+				const formattedTestContent = await prettifyCode(
+					testContent,
+					testFilePath,
+				);
 
 				fs.writeFileSync(testFilePath, formattedTestContent, "utf-8");
 			}

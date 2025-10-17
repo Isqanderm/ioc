@@ -1,18 +1,40 @@
 import { highlight } from "cli-highlight";
 import pc from "picocolors";
+import prettier from "prettier";
 
 /**
  * Formatting utilities for TUI display
  */
 
 /**
- * Formats TypeScript code with syntax highlighting
+ * Formats TypeScript code with syntax highlighting for terminal display
+ * NOTE: This adds ANSI color codes and should ONLY be used for display purposes,
+ * NOT for writing to files!
  */
 export function formatCode(code: string, language = "typescript"): string {
 	try {
 		return highlight(code, { language, ignoreIllegals: true });
 	} catch (_error) {
 		// Fallback to plain text if highlighting fails
+		return code;
+	}
+}
+
+/**
+ * Formats TypeScript code using Prettier for file writing
+ * This should be used when writing code to files, NOT for terminal display
+ */
+export async function prettifyCode(
+	code: string,
+	filepath: string,
+): Promise<string> {
+	try {
+		return await prettier.format(code, {
+			filepath,
+			parser: "typescript",
+		});
+	} catch (_error) {
+		// Fallback to original code if formatting fails
 		return code;
 	}
 }
