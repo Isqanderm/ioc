@@ -2,6 +2,7 @@ import * as clack from "@clack/prompts";
 import pc from "picocolors";
 import { GenerateAction } from "../actions/generate.action";
 import type { CommandsHelper } from "../commands.helper";
+import { EnhancedGenerateServiceWizard } from "./wizards/enhanced-generate-service.wizard";
 import { GenerateModuleWizard } from "./wizards/generate-module.wizard";
 import { GenerateServiceWizard } from "./wizards/generate-service.wizard";
 
@@ -11,6 +12,7 @@ export interface MainMenuOptions {
 
 export type MenuAction =
 	| "generate-service"
+	| "generate-service-enhanced"
 	| "generate-module"
 	| "bootstrap"
 	| "visualize"
@@ -37,8 +39,13 @@ export class MainMenu {
 				options: [
 					{
 						value: "generate-service",
-						label: "⚙️  Generate Service",
-						hint: "Create a new service with dependency injection",
+						label: "⚙️  Generate Service (Basic)",
+						hint: "Quick service generation",
+					},
+					{
+						value: "generate-service-enhanced",
+						label: "⚙️  Generate Service (Enhanced)",
+						hint: "Service with DI, scope selection, and more",
 					},
 					{
 						value: "generate-module",
@@ -88,6 +95,10 @@ export class MainMenu {
 				await this.generateService();
 				return false;
 
+			case "generate-service-enhanced":
+				await this.generateServiceEnhanced();
+				return false;
+
 			case "generate-module":
 				await this.generateModule();
 				return false;
@@ -114,12 +125,24 @@ export class MainMenu {
 	}
 
 	/**
-	 * Generate a service
+	 * Generate a service (basic)
 	 */
 	private async generateService(): Promise<void> {
 		try {
 			const generateAction = new GenerateAction();
 			const wizard = new GenerateServiceWizard(generateAction);
+			await wizard.run();
+		} catch (error) {
+			clack.log.error(`Service generation failed: ${error}`);
+		}
+	}
+
+	/**
+	 * Generate a service (enhanced with DI and scope)
+	 */
+	private async generateServiceEnhanced(): Promise<void> {
+		try {
+			const wizard = new EnhancedGenerateServiceWizard();
 			await wizard.run();
 		} catch (error) {
 			clack.log.error(`Service generation failed: ${error}`);
