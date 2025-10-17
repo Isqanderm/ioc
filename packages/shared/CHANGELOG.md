@@ -8,6 +8,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 ### Bug Fixes
 
 - add publishConfig for scoped packages to enable NPM publishing ([839da89](https://github.com/Isqanderm/ioc/commit/839da890ee9e7dce21c4492643acecc0381c64b0))
+- remove provenance from shared package for local publishing compatibility ([974bc57](https://github.com/Isqanderm/ioc/commit/974bc57cdb68146833c3253e986624a48bba77d6))
 
 # [0.6.0](https://github.com/Isqanderm/ioc/compare/@nexus-ioc/shared@0.5.0...@nexus-ioc/shared@0.6.0) (2025-10-17)
 

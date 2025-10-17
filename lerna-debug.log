@@ -1,0 +1,168 @@
+0 silly argv {
+0 silly argv   _: [ 'version' ],
+0 silly argv   yes: true,
+0 silly argv   y: true,
+0 silly argv   push: false,
+0 silly argv   lernaVersion: '9.0.0',
+0 silly argv   '$0': '/Users/alexandermelnik/homespace/ioc/node_modules/.bin/lerna',
+0 silly argv   bump: 'patch'
+0 silly argv }
+1 notice cli v9.0.0
+2 verbose packageConfigs Explicit "packages" configuration found in lerna.json. Resolving packages using the configured glob(s): ["packages/*"]
+3 verbose rootPath /Users/alexandermelnik/homespace/ioc
+4 info versioning independent
+5 silly isAnythingCommitted
+6 verbose isAnythingCommitted 1
+7 silly getCurrentBranch
+8 verbose currentBranch main
+9 silly hasTags
+10 verbose hasTags true
+11 silly git-describe.sync "@nexus-ioc/cli@0.4.0-3-g974bc57" => {"lastTagName":"@nexus-ioc/cli@0.4.0","lastVersion":"0.4.0","refCount":"3","sha":"974bc57","isDirty":false}
+12 info Looking for changed packages since @nexus-ioc/cli@0.4.0
+13 silly checking diff packages/cli
+14 silly found diff in packages/cli/package.json
+15 verbose filtered diff [ 'packages/cli/package.json' ]
+16 silly checking diff packages/graph-visualizer
+17 silly no diff found in nexus-ioc-graph-visualizer
+18 silly checking diff packages/ioc
+19 silly found diff in packages/ioc/package.json
+20 verbose filtered diff [ 'packages/ioc/package.json' ]
+21 silly checking diff packages/shared
+22 silly found diff in packages/shared/package.json
+23 verbose filtered diff [ 'packages/shared/package.json' ]
+24 silly checking diff packages/testing
+25 silly found diff in packages/testing/package.json
+26 verbose filtered diff [ 'packages/testing/package.json' ]
+27 verbose updated @nexus-ioc/cli
+28 verbose updated @nexus-ioc/core
+29 verbose updated @nexus-ioc/shared
+30 verbose updated @nexus-ioc/testing
+31 verbose git-describe undefined => "@nexus-ioc/cli@0.4.0-3-g974bc57"
+32 silly git-describe parsed => {"lastTagName":"@nexus-ioc/cli@0.4.0","lastVersion":"0.4.0","refCount":"3","sha":"974bc57","isDirty":false}
+33 info auto-confirmed
+34 info execute Skipping git push
+35 info execute Skipping releases
+36 silly lifecycle No script for "preversion" in "root", continuing
+37 warn ECYCLE Dependency cycles detected, you should fix these!
+37 warn ECYCLE @nexus-ioc/core -> @nexus-ioc/testing -> @nexus-ioc/core
+38 silly lifecycle No script for "preversion" in "@nexus-ioc/shared", continuing
+39 verbose version @nexus-ioc/shared has no lockfile. Skipping lockfile update.
+40 silly lifecycle No script for "version" in "@nexus-ioc/shared", continuing
+41 silly independent for @nexus-ioc/shared at /Users/alexandermelnik/homespace/ioc/packages/shared
+42 verbose getChangelogConfig using preset "angular"
+43 silly npa Result {
+43 silly npa   type: 'range',
+43 silly npa   registry: true,
+43 silly npa   where: undefined,
+43 silly npa   raw: 'angular',
+43 silly npa   name: 'angular',
+43 silly npa   escapedName: 'angular',
+43 silly npa   scope: undefined,
+43 silly npa   rawSpec: '*',
+43 silly npa   saveSpec: null,
+43 silly npa   fetchSpec: '*',
+43 silly npa   gitRange: undefined,
+43 silly npa   gitCommittish: undefined,
+43 silly npa   gitSubdir: undefined,
+43 silly npa   hosted: undefined
+43 silly npa }
+44 verbose getChangelogConfig Attempting to resolve preset "angular"
+45 verbose getChangelogConfig Cannot find module 'angular'
+45 verbose getChangelogConfig Require stack:
+45 verbose getChangelogConfig - /Users/alexandermelnik/homespace/ioc/node_modules/lerna/dist/index.js
+45 verbose getChangelogConfig - /Users/alexandermelnik/homespace/ioc/node_modules/lerna/dist/cli.js
+46 info getChangelogConfig Auto-prefixing conventional-changelog preset "angular"
+47 verbose getChangelogConfig Attempting to resolve preset "conventional-changelog-angular"
+48 info getChangelogConfig Successfully resolved preset "conventional-changelog-angular"
+49 silly independent writing new entry: "## [0.6.1](https://github.com/Isqanderm/ioc/compare/@nexus-ioc/shared@0.6.0...@nexus-ioc/shared@0.6.1) (2025-10-17)\n\n\n### Bug Fixes\n\n* add publishConfig for scoped packages to enable NPM publishing ([839da89](https://github.com/Isqanderm/ioc/commit/839da890ee9e7dce21c4492643acecc0381c64b0))\n* remove provenance from shared package for local publishing compatibility ([974bc57](https://github.com/Isqanderm/ioc/commit/974bc57cdb68146833c3253e986624a48bba77d6))\n\n\n\n"
+50 verbose independent wrote /Users/alexandermelnik/homespace/ioc/packages/shared/CHANGELOG.md
+51 silly lifecycle No script for "preversion" in "@nexus-ioc/core", continuing
+52 silly lifecycle No script for "preversion" in "@nexus-ioc/testing", continuing
+53 verbose version @nexus-ioc/core has no lockfile. Skipping lockfile update.
+54 verbose version @nexus-ioc/testing has no lockfile. Skipping lockfile update.
+55 silly lifecycle No script for "version" in "@nexus-ioc/core", continuing
+56 silly independent for @nexus-ioc/core at /Users/alexandermelnik/homespace/ioc/packages/ioc
+57 silly lifecycle No script for "version" in "@nexus-ioc/testing", continuing
+58 silly independent for @nexus-ioc/testing at /Users/alexandermelnik/homespace/ioc/packages/testing
+59 silly independent writing new entry: "## [0.6.1](https://github.com/Isqanderm/ioc/compare/@nexus-ioc/core@0.6.0...@nexus-ioc/core@0.6.1) (2025-10-17)\n\n\n### Bug Fixes\n\n* add publishConfig for scoped packages to enable NPM publishing ([839da89](https://github.com/Isqanderm/ioc/commit/839da890ee9e7dce21c4492643acecc0381c64b0))\n\n\n\n"
+60 verbose independent wrote /Users/alexandermelnik/homespace/ioc/packages/ioc/CHANGELOG.md
+61 silly independent writing new entry: "## [0.6.1](https://github.com/Isqanderm/ioc/compare/@nexus-ioc/testing@0.6.0...@nexus-ioc/testing@0.6.1) (2025-10-17)\n\n\n### Bug Fixes\n\n* add publishConfig for scoped packages to enable NPM publishing ([839da89](https://github.com/Isqanderm/ioc/commit/839da890ee9e7dce21c4492643acecc0381c64b0))\n\n\n\n"
+62 verbose independent wrote /Users/alexandermelnik/homespace/ioc/packages/testing/CHANGELOG.md
+63 silly lifecycle No script for "preversion" in "@nexus-ioc/cli", continuing
+64 verbose version @nexus-ioc/cli has no lockfile. Skipping lockfile update.
+65 silly lifecycle No script for "version" in "@nexus-ioc/cli", continuing
+66 silly independent for @nexus-ioc/cli at /Users/alexandermelnik/homespace/ioc/packages/cli
+67 silly independent writing new entry: "## [0.4.1](https://github.com/Isqanderm/ioc/compare/@nexus-ioc/cli@0.4.0...@nexus-ioc/cli@0.4.1) (2025-10-17)\n\n\n### Bug Fixes\n\n* add publishConfig for scoped packages to enable NPM publishing ([839da89](https://github.com/Isqanderm/ioc/commit/839da890ee9e7dce21c4492643acecc0381c64b0))\n\n\n\n"
+68 verbose independent wrote /Users/alexandermelnik/homespace/ioc/packages/cli/CHANGELOG.md
+69 silly lifecycle No script for "version" in "root", continuing
+70 verbose version Updating root package-lock.json
+71 silly version Successfully applied prettier to updated file: packages/shared/package.json
+72 silly version Successfully applied prettier to updated file: packages/shared/CHANGELOG.md
+73 silly version Successfully applied prettier to updated file: packages/ioc/package.json
+74 silly version Successfully applied prettier to updated file: packages/testing/package.json
+75 silly version Successfully applied prettier to updated file: packages/ioc/CHANGELOG.md
+76 silly version Successfully applied prettier to updated file: packages/testing/CHANGELOG.md
+77 silly version Successfully applied prettier to updated file: packages/cli/package.json
+78 silly version Successfully applied prettier to updated file: packages/cli/CHANGELOG.md
+79 silly version Successfully applied prettier to updated file: package-lock.json
+80 silly gitAdd [
+80 silly gitAdd   'packages/shared/package.json',
+80 silly gitAdd   'packages/shared/CHANGELOG.md',
+80 silly gitAdd   'packages/ioc/package.json',
+80 silly gitAdd   'packages/testing/package.json',
+80 silly gitAdd   'packages/ioc/CHANGELOG.md',
+80 silly gitAdd   'packages/testing/CHANGELOG.md',
+80 silly gitAdd   'packages/cli/package.json',
+80 silly gitAdd   'packages/cli/CHANGELOG.md',
+80 silly gitAdd   'package-lock.json'
+80 silly gitAdd ]
+81 silly gitCommit chore(release): publish %s
+81 silly gitCommit
+81 silly gitCommit  - @nexus-ioc/cli@0.4.1
+81 silly gitCommit  - @nexus-ioc/core@0.6.1
+81 silly gitCommit  - @nexus-ioc/shared@0.6.1
+81 silly gitCommit  - @nexus-ioc/testing@0.6.1
+82 verbose git [
+82 verbose git   'commit',
+82 verbose git   '-F',
+82 verbose git   '/private/var/folders/p3/9th3y0sx6sl8x3cznsqyhtc40000gn/T/c1b9f600-1b90-4ed9-a88f-9133b54ea827/lerna-commit.txt'
+82 verbose git ]
+83 error Error: Command failed with exit code 1: git commit -F /private/var/folders/p3/9th3y0sx6sl8x3cznsqyhtc40000gn/T/c1b9f600-1b90-4ed9-a88f-9133b54ea827/lerna-commit.txt
+83 error [STARTED] Backing up original state...
+83 error [COMPLETED] Backed up original state in git stash (662efdf)
+83 error [STARTED] Running tasks for staged files...
+83 error [STARTED] package.json — 9 files
+83 error [STARTED] *.{js,jsx,ts,tsx,json} — 5 files
+83 error [STARTED] npx @biomejs/biome check --write --unsafe
+83 error [FAILED] npx @biomejs/biome check --write --unsafe [FAILED]
+83 error [FAILED] npx @biomejs/biome check --write --unsafe [FAILED]
+83 error [COMPLETED] Running tasks for staged files...
+83 error [STARTED] Applying modifications from tasks...
+83 error [SKIPPED] Skipped because of errors from tasks.
+83 error [STARTED] Reverting to original state because of errors...
+83 error [COMPLETED] Reverting to original state because of errors...
+83 error [STARTED] Cleaning up temporary files...
+83 error [COMPLETED] Cleaning up temporary files...
+83 error
+83 error ✖ npx @biomejs/biome check --write --unsafe:
+83 error Checked 0 files in 5ms. No fixes applied.
+83 error check ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+83 error
+83 error   × No files were processed in the specified paths.
+83 error
+83 error   i Check your biome.json or biome.jsonc to ensure the paths are not ignored by the configuration.
+83 error
+83 error   i These paths were provided but ignored:
+83 error
+83 error   - /Users/alexandermelnik/homespace/ioc/package-lock.json
+83 error   - /Users/alexandermelnik/homespace/ioc/packages/cli/package.json
+83 error   - /Users/alexandermelnik/homespace/ioc/packages/ioc/package.json
+83 error   - /Users/alexandermelnik/homespace/ioc/packages/shared/package.json
+83 error   - /Users/alexandermelnik/homespace/ioc/packages/testing/package.json
+83 error
+83 error
+83 error husky - pre-commit script failed (code 1)
+83 error     at makeError (/Users/alexandermelnik/homespace/ioc/node_modules/execa/lib/error.js:59:11)
+83 error     at handlePromise (/Users/alexandermelnik/homespace/ioc/node_modules/execa/index.js:114:26)
+83 error     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+83 error     at async VersionCommand.gitCommitAndTagVersionForUpdates (/Users/alexandermelnik/homespace/ioc/node_modules/lerna/dist/index.js:10421:11)
