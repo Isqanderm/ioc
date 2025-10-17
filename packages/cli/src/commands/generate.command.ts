@@ -17,7 +17,7 @@ export class GenerateCommand extends AbstractCommand {
 					path: string,
 					_,
 					params: { skipImport: boolean; spec: boolean },
-					command: Command,
+					_command: Command,
 				) => {
 					const options: Input[] = [];
 					options.push({ name: "skipImport", value: params.skipImport });

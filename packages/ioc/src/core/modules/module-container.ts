@@ -51,7 +51,7 @@ export class ModuleContainer implements ModuleContainerInterface {
 				resolved(imports);
 			}
 
-			// @ts-ignore
+			// @ts-expect-error
 			run();
 		});
 	}

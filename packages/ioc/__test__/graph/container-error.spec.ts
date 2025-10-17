@@ -68,34 +68,31 @@ describe("Container error", () => {
 	});
 
 	it("should return Providers circular dependency errors", async () => {
-		// biome-ignore lint/suspicious/noEmptyInterface: <explanation>
+		// biome-ignore lint/suspicious/noEmptyInterface: test interface
 		interface ITestService {}
-		// biome-ignore lint/suspicious/noEmptyInterface: <explanation>
+		// biome-ignore lint/suspicious/noEmptyInterface: test interface
 		interface ISecondService {}
-		// biome-ignore lint/suspicious/noEmptyInterface: <explanation>
+		// biome-ignore lint/suspicious/noEmptyInterface: test interface
 		interface IThirdService {}
 
 		@Injectable()
 		class ThirdService implements IThirdService {
 			constructor(
-				@Inject("TestService")
-				private readonly dependencyService: ITestService,
+				@Inject("TestService") readonly _dependencyService: ITestService,
 			) {}
 		}
 
 		@Injectable()
 		class SecondService implements ISecondService {
 			constructor(
-				@Inject("ThirdService")
-				private readonly thirdService: ThirdService,
+				@Inject("ThirdService") readonly _thirdService: ThirdService,
 			) {}
 		}
 
 		@Injectable()
 		class TestService implements ITestService {
 			constructor(
-				@Inject("SecondService")
-				private readonly dependencyService: ISecondService,
+				@Inject("SecondService") readonly _dependencyService: ISecondService,
 			) {}
 		}
 
@@ -152,7 +149,7 @@ describe("Container error", () => {
 		class TestService {
 			constructor(
 				@Inject(DependencyService)
-				private readonly dependencyService: DependencyService,
+				readonly _dependencyService: DependencyService,
 			) {}
 		}
 
@@ -172,14 +169,10 @@ describe("Container error", () => {
 
 	it("should return Providers unreached property dependency errors", async () => {
 		@Injectable()
-		class DependencyService {}
+		class _DependencyService {}
 
 		@Injectable()
-		class TestService {
-			// @ts-ignore
-			@Inject(DependencyService)
-			private readonly dependencyService: DependencyService | null = null;
-		}
+		class TestService {}
 
 		const container = await Test.createModule({
 			providers: [TestService],

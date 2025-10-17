@@ -48,7 +48,7 @@ export class VisualizeAction extends AbstractAction {
 	}
 
 	private async start(outputDir: string) {
-		exec(`npx ts-node ${outputDir}`, (error, stdout, stderr) => {
+		exec(`npx ts-node ${outputDir}`, (error, _stdout, stderr) => {
 			if (!error || !stderr) {
 				console.log("Graph visualization ready");
 				return;
@@ -62,7 +62,7 @@ export class VisualizeAction extends AbstractAction {
 		return new Promise<void>((resolve, reject) => {
 			exec(
 				"npm install --save-dev nexus-ioc-graph-visualizer",
-				(error, stdout, stderr) => {
+				(error, _stdout, stderr) => {
 					if (error) {
 						console.error(`Install error: ${error.message}`);
 						reject();

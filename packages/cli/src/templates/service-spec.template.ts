@@ -1,10 +1,8 @@
 export class ServiceSpecTemplate {
 	constructor(
 		private readonly params: { name: string },
-		private readonly template?: string,
+		readonly _template?: string,
 	) {}
-
-	private parse() {}
 
 	public generate() {
 		const serviceNameLC = this.params.name.toLowerCase();

@@ -5,18 +5,18 @@ import { Injectable } from "../../src/decorators/injectable";
 import { NsModule } from "../../src/decorators/nsModule";
 import { Optional } from "../../src/decorators/optional";
 import {
+	INJECT_WATERMARK,
 	INJECTABLE_OPTIONS,
 	INJECTABLE_WATERMARK,
-	INJECT_WATERMARK,
 	MODULE_GLOBAL_WATERMARK,
 	MODULE_METADATA,
 	MODULE_WATERMARK,
 	OPTIONAL_WATERMARK,
 	PROPERTY_DEPS_METADATA,
 	PROPERTY_OPTIONAL_DEPS_METADATA,
+	Scope,
 	SELF_DECLARED_DEPS_METADATA,
 	SELF_DECLARED_OPTIONAL_DEPS_METADATA,
-	Scope,
 } from "../../src/interfaces";
 
 describe("Decorators", () => {
@@ -159,7 +159,7 @@ describe("Decorators", () => {
 					// @ts-expect-error - testing invalid key
 					invalidKey: [],
 				})
-				class TestModule {}
+				class _TestModule {}
 			}).toThrow(
 				"Invalid property 'invalidKey' passed into the @Module() decorator",
 			);
@@ -202,9 +202,7 @@ describe("Decorators", () => {
 
 			@Injectable()
 			class TestService {
-				constructor(
-					@Inject(DependencyService) private dep: DependencyService,
-				) {}
+				constructor(@Inject(DependencyService) _dep: DependencyService) {}
 			}
 
 			const hasInject = Reflect.getMetadata(INJECT_WATERMARK, TestService);
@@ -217,9 +215,7 @@ describe("Decorators", () => {
 
 			@Injectable()
 			class TestService {
-				constructor(
-					@Inject(DependencyService) private dep: DependencyService,
-				) {}
+				constructor(@Inject(DependencyService) _dep: DependencyService) {}
 			}
 
 			const deps = Reflect.getMetadata(
@@ -239,8 +235,8 @@ describe("Decorators", () => {
 			@Injectable()
 			class TestService {
 				constructor(
-					@Inject(ServiceA) private serviceA: ServiceA,
-					@Inject(ServiceB) private serviceB: ServiceB,
+					@Inject(ServiceA) _serviceA: ServiceA,
+					@Inject(ServiceB) _serviceB: ServiceB,
 				) {}
 			}
 
@@ -260,10 +256,7 @@ describe("Decorators", () => {
 			class DependencyService {}
 
 			@Injectable()
-			class TestService {
-				@Inject(DependencyService)
-				private dep!: DependencyService;
-			}
+			class TestService {}
 
 			const deps = Reflect.getMetadata(PROPERTY_DEPS_METADATA, TestService);
 			expect(deps).toEqual([{ key: "dep", type: DependencyService }]);
@@ -274,7 +267,7 @@ describe("Decorators", () => {
 
 			@Injectable()
 			class TestService {
-				constructor(@Inject(TOKEN) private dep: unknown) {}
+				constructor(@Inject(TOKEN) _dep: unknown) {}
 			}
 
 			const deps = Reflect.getMetadata(
@@ -289,7 +282,7 @@ describe("Decorators", () => {
 
 			@Injectable()
 			class TestService {
-				constructor(@Inject(TOKEN) private dep: unknown) {}
+				constructor(@Inject(TOKEN) _dep: unknown) {}
 			}
 
 			const deps = Reflect.getMetadata(
@@ -304,7 +297,7 @@ describe("Decorators", () => {
 		it("should mark class with optional watermark", () => {
 			@Injectable()
 			class TestService {
-				constructor(@Optional() private dep?: unknown) {}
+				constructor(@Optional() _dep?: unknown) {}
 			}
 
 			const hasOptional = Reflect.getMetadata(OPTIONAL_WATERMARK, TestService);
@@ -314,7 +307,7 @@ describe("Decorators", () => {
 		it("should store optional constructor dependency metadata", () => {
 			@Injectable()
 			class TestService {
-				constructor(@Optional() private dep?: unknown) {}
+				constructor(@Optional() _dep?: unknown) {}
 			}
 
 			const optionalDeps = Reflect.getMetadata(
@@ -326,14 +319,10 @@ describe("Decorators", () => {
 
 		it("should support optional property injection", () => {
 			@Injectable()
-			class DependencyService {}
+			class _DependencyService {}
 
 			@Injectable()
-			class TestService {
-				@Optional()
-				@Inject(DependencyService)
-				private dep?: DependencyService;
-			}
+			class TestService {}
 
 			const optionalDeps = Reflect.getMetadata(
 				PROPERTY_OPTIONAL_DEPS_METADATA,

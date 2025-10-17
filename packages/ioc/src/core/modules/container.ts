@@ -6,7 +6,6 @@ import type {
 	Module,
 	ModuleContainerInterface,
 	ModuleGraphInterface,
-	NexusApplicationInterface,
 } from "../../interfaces";
 import { ModuleGraph } from "../graph/module-graph";
 import { Resolver } from "../resolver/resolver";

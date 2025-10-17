@@ -4,8 +4,8 @@ import prettier from "prettier";
 import { Project } from "ts-morph";
 import type { Input } from "../commands/command.input";
 import { ModuleTemplate } from "../templates/module.template";
-import { ServiceSpecTemplate } from "../templates/service-spec.template";
 import { ServiceTemplate } from "../templates/service.template";
+import { ServiceSpecTemplate } from "../templates/service-spec.template";
 import { AbstractAction } from "./abstract.action";
 
 export class GenerateAction extends AbstractAction {

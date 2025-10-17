@@ -1,6 +1,4 @@
 export class VisualizerTemplate {
-	private parse() {}
-
 	public generate() {
 		return `
       import { NexusApplicationsServer } from "@nexus-ioc/core/dist/server";

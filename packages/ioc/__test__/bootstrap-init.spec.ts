@@ -6,7 +6,6 @@ import {
 	NexusApplications,
 	NsModule,
 	type OnModuleInit,
-	Scope,
 } from "../src";
 
 describe("Bootstrap Initialization via OnModuleInit", () => {

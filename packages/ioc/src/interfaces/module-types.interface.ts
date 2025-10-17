@@ -51,7 +51,7 @@ export type Module = Type;
  * })
  * ```
  */
-// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+// biome-ignore lint/suspicious/noExplicitAny: provider type interface
 export type Provider<T = any> =
 	| ClassProvider<T>
 	| ValueProvider<T>
@@ -82,7 +82,7 @@ export type Provider<T = any> =
  * })
  * ```
  */
-// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+// biome-ignore lint/suspicious/noExplicitAny: provider interface
 export interface ClassProvider<T = any> {
 	/** The injection token to register this provider under */
 	provide: InjectionToken;
@@ -117,7 +117,7 @@ export interface ClassProvider<T = any> {
  * })
  * ```
  */
-// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+// biome-ignore lint/suspicious/noExplicitAny: provider interface
 export interface ValueProvider<T = any> {
 	/** The injection token to register this provider under */
 	provide: InjectionToken;
@@ -158,12 +158,12 @@ export interface ValueProvider<T = any> {
  * })
  * ```
  */
-// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+// biome-ignore lint/suspicious/noExplicitAny: provider interface
 export interface FactoryProvider<T = any> {
 	/** The injection token to register this provider under */
 	provide: InjectionToken;
 	/** The factory function that creates the value */
-	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+	// biome-ignore lint/suspicious/noExplicitAny: factory function interface
 	useFactory: (...args: any[]) => T | Promise<T>;
 	/** Tokens of dependencies to inject into the factory function */
 	inject?: InjectionToken[];

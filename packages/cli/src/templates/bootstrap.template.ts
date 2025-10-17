@@ -1,6 +1,4 @@
 export class BootstrapTemplate {
-	private parse() {}
-
 	public generate() {
 		return `
       import { NexusApplicationsBrowser } from "@nexus-ioc/core/dist/browser";

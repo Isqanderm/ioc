@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import { Injectable, type Module, NsModule } from "@nexus-ioc/core";
+import { Injectable, NsModule } from "@nexus-ioc/core";
 import { vi } from "vitest";
 import { Test } from "../src/core/testing-container";
 

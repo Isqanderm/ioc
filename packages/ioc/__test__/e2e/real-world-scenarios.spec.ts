@@ -67,9 +67,7 @@ describe("Real-World Scenarios E2E", () => {
 			// Products Module
 			@Injectable()
 			class ProductRepository {
-				constructor(
-					@Inject(DatabaseConnection) private db: DatabaseConnection,
-				) {}
+				constructor(@Inject(DatabaseConnection) _db: DatabaseConnection) {}
 
 				findById(id: string): Product {
 					return { id, name: "Test Product", price: 100 };
@@ -97,9 +95,7 @@ describe("Real-World Scenarios E2E", () => {
 			// Orders Module
 			@Injectable()
 			class OrderRepository {
-				constructor(
-					@Inject(DatabaseConnection) private db: DatabaseConnection,
-				) {}
+				constructor(@Inject(DatabaseConnection) _db: DatabaseConnection) {}
 
 				save(order: Order) {
 					return order;
@@ -311,7 +307,7 @@ describe("Real-World Scenarios E2E", () => {
 			class Database {
 				private callCount = 0;
 
-				query(sql: string) {
+				query(_sql: string) {
 					this.callCount++;
 					return { id: "1", data: "from-db" };
 				}

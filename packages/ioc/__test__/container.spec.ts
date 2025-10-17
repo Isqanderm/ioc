@@ -2,7 +2,7 @@ import "reflect-metadata";
 
 import { Inject, Injectable, NsModule } from "../src";
 import { Container } from "../src/core/modules/container";
-// @ts-ignore
+// @ts-expect-error
 import { hashUtilsMock } from "./hashUtils.mock";
 
 describe("Container", () => {

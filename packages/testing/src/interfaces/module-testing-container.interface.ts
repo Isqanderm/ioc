@@ -5,7 +5,7 @@ import type {
 	ModulePluginInterface,
 } from "@nexus-ioc/core";
 
-export interface ModuleTestingContainerInterface<T extends ModuleMetadata>
+export interface ModuleTestingContainerInterface<_T extends ModuleMetadata>
 	extends ContainerBaseInterface,
 		ModulePluginInterface {
 	setModuleDecorator(

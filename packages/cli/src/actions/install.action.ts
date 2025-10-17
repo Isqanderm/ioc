@@ -5,7 +5,7 @@ export class InstallAction extends AbstractAction {
 	async handler(): Promise<void> {
 		try {
 			// Запускаем команду npm install --save @nexus-ioc/core
-			exec("npm install --save @nexus-ioc/core", (error, stdout, stderr) => {
+			exec("npm install --save @nexus-ioc/core", (error, _stdout, stderr) => {
 				if (error) {
 					console.error(`Install error: ${error.message}`);
 					return;

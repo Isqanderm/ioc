@@ -454,7 +454,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 				const to = cyclePath[cyclePath.length - 1];
 
 				if (from[0] === to[1]) {
-					const edges = this._edges.get(nodeId);
+					const _edges = this._edges.get(nodeId);
 
 					for (const [from, to] of cyclePath) {
 						const edges = this._edges.get(from);

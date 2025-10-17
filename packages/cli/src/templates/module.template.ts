@@ -9,7 +9,7 @@ export class ModuleTemplate {
 
 	constructor(
 		private readonly params: { name: string },
-		private readonly template?: string,
+		readonly template?: string,
 	) {
 		if (template) {
 			this.parse(template);

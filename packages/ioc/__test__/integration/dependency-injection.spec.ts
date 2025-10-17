@@ -80,7 +80,7 @@ describe("Dependency Injection Integration", () => {
 			class RepositoryService {
 				constructor(
 					@Inject(DatabaseService) private db: DatabaseService,
-					@Inject(LoggerService) private logger: LoggerService,
+					@Inject(LoggerService) _logger: LoggerService,
 				) {}
 
 				getData() {
@@ -93,7 +93,7 @@ describe("Dependency Injection Integration", () => {
 				constructor(
 					@Inject(RepositoryService) private repo: RepositoryService,
 					@Inject(CacheService) private cache: CacheService,
-					@Inject(LoggerService) private logger: LoggerService,
+					@Inject(LoggerService) _logger: LoggerService,
 				) {}
 
 				execute() {
@@ -120,12 +120,12 @@ describe("Dependency Injection Integration", () => {
 		it("should detect circular dependencies", async () => {
 			@Injectable()
 			class ServiceA {
-				constructor(@Inject("ServiceB") private serviceB: unknown) {}
+				constructor(@Inject("ServiceB") _serviceB: unknown) {}
 			}
 
 			@Injectable()
 			class ServiceB {
-				constructor(@Inject(ServiceA) private serviceA: ServiceA) {}
+				constructor(@Inject(ServiceA) _serviceA: ServiceA) {}
 			}
 
 			const container = await Test.createModule({
@@ -141,7 +141,7 @@ describe("Dependency Injection Integration", () => {
 		it("should handle circular dependencies with forwardRef", async () => {
 			@Injectable()
 			class ServiceA {
-				constructor(@Inject("ServiceB") private serviceB: unknown) {}
+				constructor(@Inject("ServiceB") _serviceB: unknown) {}
 
 				getValue() {
 					return "A";

@@ -86,7 +86,7 @@ describe("Lifecycle Hooks", () => {
 
 			@Injectable()
 			class ServiceB implements OnModuleInit {
-				constructor(@Inject(ServiceA) private serviceA: ServiceA) {}
+				constructor(@Inject(ServiceA) _serviceA: ServiceA) {}
 
 				onModuleInit() {
 					callOrder.push("B");
@@ -96,8 +96,8 @@ describe("Lifecycle Hooks", () => {
 			@Injectable()
 			class ServiceC implements OnModuleInit {
 				constructor(
-					@Inject(ServiceA) private serviceA: ServiceA,
-					@Inject(ServiceB) private serviceB: ServiceB,
+					@Inject(ServiceA) _serviceA: ServiceA,
+					@Inject(ServiceB) _serviceB: ServiceB,
 				) {}
 
 				onModuleInit() {
@@ -284,9 +284,7 @@ describe("Lifecycle Hooks", () => {
 
 			@Injectable()
 			class DataService implements OnModuleInit {
-				constructor(
-					@Inject(RepositoryService) private repo: RepositoryService,
-				) {}
+				constructor(@Inject(RepositoryService) _repo: RepositoryService) {}
 
 				onModuleInit() {
 					initOrder.push("DataService");
@@ -295,7 +293,7 @@ describe("Lifecycle Hooks", () => {
 
 			@Injectable()
 			class BusinessService implements OnModuleInit {
-				constructor(@Inject(DataService) private data: DataService) {}
+				constructor(@Inject(DataService) _data: DataService) {}
 
 				onModuleInit() {
 					initOrder.push("BusinessService");
@@ -304,9 +302,7 @@ describe("Lifecycle Hooks", () => {
 
 			@Injectable()
 			class ControllerService implements OnModuleInit {
-				constructor(
-					@Inject(BusinessService) private business: BusinessService,
-				) {}
+				constructor(@Inject(BusinessService) _business: BusinessService) {}
 
 				onModuleInit() {
 					initOrder.push("Controller");
@@ -350,7 +346,7 @@ describe("Lifecycle Hooks", () => {
 
 			@Injectable()
 			class FeatureService implements OnModuleInit {
-				constructor(@Inject(SharedService) private shared: SharedService) {}
+				constructor(@Inject(SharedService) _shared: SharedService) {}
 
 				onModuleInit() {
 					initOrder.push("Feature");

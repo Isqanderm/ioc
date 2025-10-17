@@ -1,6 +1,6 @@
 import "reflect-metadata";
-import { INJECTABLE_OPTIONS, INJECTABLE_WATERMARK, Scope } from "../interfaces";
 import type { InjectableOptions } from "../interfaces";
+import { INJECTABLE_OPTIONS, INJECTABLE_WATERMARK, Scope } from "../interfaces";
 
 /**
  * Marks a class as injectable, making it available for dependency injection.

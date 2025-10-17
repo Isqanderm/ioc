@@ -878,7 +878,7 @@ describe("Memory Leak Detection", () => {
 
 			// Do minimal work
 			for (let i = 0; i < 100; i++) {
-				const obj = { value: i };
+				const _obj = { value: i };
 				// Object goes out of scope
 			}
 

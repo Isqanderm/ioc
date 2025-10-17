@@ -10,7 +10,7 @@ import { AbstractAction } from "./abstract.action";
 export class BootstrapAction extends AbstractAction {
 	private readonly project = new Project();
 
-	async handler(inputs: Input[], options: Input[]): Promise<void> {
+	async handler(_inputs: Input[], options: Input[]): Promise<void> {
 		if (options.find((item) => item.name === "skipDeps" && !item.value)) {
 			const installReact = !!options.find(
 				(item) => item.name === "skipDeps" && !item.value,
@@ -74,7 +74,7 @@ export class BootstrapAction extends AbstractAction {
 		return new Promise<void>((resolve, reject) => {
 			exec(
 				`npm install -save ${deps.join(" ")} && npm install --save-dev ${devDeps.join(" ")}`,
-				(error, stdout, stderr) => {
+				(error, _stdout, stderr) => {
 					if (error) {
 						console.error(`Install error: ${error.message}`);
 						reject();

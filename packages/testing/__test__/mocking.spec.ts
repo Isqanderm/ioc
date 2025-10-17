@@ -77,7 +77,7 @@ describe("Mocking and Provider Overriding", () => {
 		it("should override provider with factory", async () => {
 			@Injectable()
 			class EmailService {
-				send(to: string, message: string) {
+				send(to: string, _message: string) {
 					return `sent to ${to}`;
 				}
 			}
@@ -92,7 +92,7 @@ describe("Mocking and Provider Overriding", () => {
 			}
 
 			const mockEmailFactory = () => ({
-				send: (to: string, message: string) => `mock-sent to ${to}`,
+				send: (to: string, _message: string) => `mock-sent to ${to}`,
 			});
 
 			const container = await Test.createModule({
@@ -256,12 +256,6 @@ describe("Mocking and Provider Overriding", () => {
 				}
 			}
 
-			@NsModule({
-				providers: [DatabaseService],
-				exports: [DatabaseService],
-			})
-			class DatabaseModule {}
-
 			@Injectable()
 			class UserRepository {
 				constructor(@Inject(DatabaseService) private db: DatabaseService) {}
@@ -270,12 +264,6 @@ describe("Mocking and Provider Overriding", () => {
 					return this.db.connect();
 				}
 			}
-
-			@NsModule({
-				imports: [DatabaseModule],
-				providers: [UserRepository],
-			})
-			class UserModule {}
 
 			// Create mock database
 			@Injectable()
@@ -384,7 +372,7 @@ describe("Mocking and Provider Overriding", () => {
 					try {
 						await this.db.connect();
 						return "initialized";
-					} catch (error) {
+					} catch {
 						return "failed";
 					}
 				}

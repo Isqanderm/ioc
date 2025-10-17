@@ -1,7 +1,7 @@
 import "reflect-metadata";
 import { Test } from "@nexus-ioc/testing";
 import { vi } from "vitest";
-import { DynamicModule, Scope } from "../../src";
+import { Scope } from "../../src";
 import { ModuleGraph } from "../../src/core/graph/module-graph";
 import { ModuleContainerFactory } from "../../src/core/modules/module-container-factory";
 import { ModuleTokenFactory } from "../../src/core/modules/module-token-factory";

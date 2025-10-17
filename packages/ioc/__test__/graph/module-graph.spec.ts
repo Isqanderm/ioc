@@ -276,7 +276,7 @@ describe("ModuleGraph", () => {
 				await graph.compile();
 
 				const nodes = graph.nodes;
-				const edges = graph.edges;
+				const _edges = graph.edges;
 
 				expect(nodes.size).toBe(3);
 				expect(nodes.has(appModuleContainer.token)).toBeDefined();
@@ -333,7 +333,7 @@ describe("ModuleGraph", () => {
 
 				@Injectable()
 				class ServiceB {
-					constructor(@Inject(ServiceA) private readonly serviceA: ServiceA) {}
+					constructor(@Inject(ServiceA) readonly _serviceA: ServiceA) {}
 				}
 
 				@NsModule({
@@ -376,8 +376,8 @@ describe("ModuleGraph", () => {
 				@Injectable()
 				class ServiceC {
 					constructor(
-						@Inject(ServiceA) private readonly serviceA: ServiceA,
-						@Inject(ServiceB) private readonly serviceB: ServiceB,
+						@Inject(ServiceA) readonly _serviceA: ServiceA,
+						@Inject(ServiceB) readonly _serviceB: ServiceB,
 					) {}
 				}
 
@@ -467,7 +467,7 @@ describe("ModuleGraph", () => {
 
 				@Injectable()
 				class ServiceB {
-					constructor(@Inject(ServiceA) private readonly serviceA: ServiceA) {}
+					constructor(@Inject(ServiceA) readonly _serviceA: ServiceA) {}
 				}
 
 				@NsModule({
@@ -513,7 +513,7 @@ describe("ModuleGraph", () => {
 
 				@Injectable()
 				class ServiceB {
-					constructor(@Inject(ServiceA) private readonly serviceA: ServiceA) {}
+					constructor(@Inject(ServiceA) readonly _serviceA: ServiceA) {}
 				}
 
 				@NsModule({
@@ -588,7 +588,7 @@ describe("ModuleGraph", () => {
 				await graph.compile();
 
 				const nodes = graph.nodes;
-				const edges = graph.edges;
+				const _edges = graph.edges;
 
 				expect(nodes.size).toBe(3);
 				expect(nodes.has(appModuleContainer.token)).toBeDefined();
@@ -654,9 +654,9 @@ describe("ModuleGraph", () => {
 				class AppService {
 					constructor(
 						@Inject("CONFIG_A")
-						private readonly configA: (typeof valueProviderA)["useValue"],
+						readonly _configA: (typeof valueProviderA)["useValue"],
 						@Inject("CONFIG_B")
-						private readonly configB: (typeof valueProviderB)["useValue"],
+						readonly _configB: (typeof valueProviderB)["useValue"],
 					) {}
 				}
 
@@ -749,8 +749,7 @@ describe("ModuleGraph", () => {
 				@Injectable()
 				class AppService {
 					constructor(
-						@Inject("CLASS_PROVIDER")
-						private readonly testProvider: TestProvider,
+						@Inject("CLASS_PROVIDER") readonly _testProvider: TestProvider,
 					) {}
 				}
 
@@ -804,9 +803,7 @@ describe("ModuleGraph", () => {
 			class AppService {
 				constructor(
 					@Inject("FACTORY_PROVIDER")
-					private readonly config: ReturnType<
-						(typeof factoryProvider)["useFactory"]
-					>,
+					readonly _config: ReturnType<(typeof factoryProvider)["useFactory"]>,
 				) {}
 			}
 
@@ -916,9 +913,7 @@ describe("ModuleGraph", () => {
 			class AppService {
 				constructor(
 					@Inject("FACTORY_PROVIDER")
-					private readonly config: ReturnType<
-						(typeof factoryProvider)["useFactory"]
-					>,
+					readonly _config: ReturnType<(typeof factoryProvider)["useFactory"]>,
 				) {}
 			}
 
@@ -977,7 +972,7 @@ describe("ModuleGraph", () => {
 		@Injectable()
 		class ServiceA {
 			constructor(
-				@Inject(GlobalService) private readonly globalService: GlobalService,
+				@Inject(GlobalService) readonly _globalService: GlobalService,
 			) {}
 		}
 

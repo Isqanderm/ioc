@@ -138,19 +138,19 @@ export class Resolver {
 			[[], []],
 		);
 
-		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+		// biome-ignore lint/suspicious/noExplicitAny: dependency resolution
 		let resolvedDependencies: any[] = [];
 
 		for (const depToken of dependencies) {
 			if (isCircularDependencyFn(depToken)) {
-				// @ts-ignore
+				// @ts-expect-error
 				if (isCircularDependency) {
 					resolvedDependencies.push(depToken);
 					continue;
 				}
 
 				const instance = await this.resolveProvider(
-					// @ts-ignore
+					// @ts-expect-error
 					depToken.dependencyName,
 					resolveCache,
 					true,
@@ -175,7 +175,7 @@ export class Resolver {
 			return dependency as InjectionToken;
 		});
 
-		// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+		// biome-ignore lint/suspicious/noExplicitAny: instance creation
 		let instance: any;
 		let saveInCache = true;
 

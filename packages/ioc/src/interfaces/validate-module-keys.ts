@@ -5,7 +5,7 @@ export const MODULE_METADATA = {
 };
 
 export const INVALID_MODULE_CONFIG_MESSAGE = (
-	text: TemplateStringsArray,
+	_text: TemplateStringsArray,
 	property: string,
 ) => `Invalid property '${property}' passed into the @Module() decorator.`;
 

@@ -1,10 +1,8 @@
 export class ServiceTemplate {
 	constructor(
 		private readonly params: { name: string },
-		private readonly template?: string,
+		readonly _template?: string,
 	) {}
-
-	private parse() {}
 
 	public generate() {
 		return `

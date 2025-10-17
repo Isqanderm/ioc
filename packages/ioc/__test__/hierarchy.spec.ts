@@ -36,7 +36,8 @@ describe("Hierarchy of containers", () => {
 	});
 
 	it("should not get provider from third module", async () => {
-		const firstApp = await NexusApplications.create(AppFirstModule).bootstrap();
+		const _firstApp =
+			await NexusApplications.create(AppFirstModule).bootstrap();
 		const secondApp =
 			await NexusApplications.create(AppSecondModule).bootstrap();
 		const thirdApp = await NexusApplications.create(AppThirdModule).bootstrap();

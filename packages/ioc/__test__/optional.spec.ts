@@ -12,7 +12,7 @@ describe("Optional Dependency", () => {
 			constructor(
 				@Inject(DependencyService)
 				@Optional()
-				private readonly dependencyService?: DependencyService,
+				readonly _dependencyService?: DependencyService,
 			) {}
 		}
 
@@ -32,7 +32,7 @@ describe("Optional Dependency", () => {
 			constructor(
 				@Inject(DependencyService)
 				@Optional()
-				private readonly dependencyService?: DependencyService,
+				readonly _dependencyService?: DependencyService,
 			) {}
 		}
 
@@ -56,7 +56,7 @@ describe("Optional Dependency", () => {
 		class TestService {
 			constructor(
 				@Inject(DependencyService)
-				private readonly dependencyService?: DependencyService,
+				readonly _dependencyService?: DependencyService,
 			) {}
 		}
 
@@ -87,7 +87,7 @@ describe("Optional Dependency", () => {
 		class TestService {
 			constructor(
 				@Inject(DependencyService)
-				private readonly dependencyService?: DependencyService,
+				readonly _dependencyService?: DependencyService,
 			) {}
 		}
 

@@ -18,7 +18,7 @@ export class HashTestingUtil implements HashUtilInterface {
 			.join("");
 	}
 
-	async hashObject(value: object): Promise<string> {
+	async hashObject(_value: object): Promise<string> {
 		return "";
 	}
 
