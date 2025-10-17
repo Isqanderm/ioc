@@ -21,6 +21,10 @@
     "container",
     "CLI"
   ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "files": [
     "dist",
     "package.json",

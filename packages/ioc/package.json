@@ -20,6 +20,10 @@
     "framework",
     "container"
   ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "files": [
     "dist",
     "package.json",

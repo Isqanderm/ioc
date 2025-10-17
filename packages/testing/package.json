@@ -15,6 +15,10 @@
     "lib": "src",
     "test": "__test__"
   },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "files": [
     "dist",
     "package.json",
