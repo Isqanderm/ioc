@@ -46,7 +46,7 @@ jobs:
         run: npx lerna run code:check:ci --stream
 
       - name: Build all packages
-        run: npx lerna run build --stream
+        run: npm run build:ci
 
       - name: Run unit tests with coverage
         run: npx lerna run test:coverage --stream
