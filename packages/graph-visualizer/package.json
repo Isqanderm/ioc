@@ -38,7 +38,7 @@
 		"nexus-ioc": "^0.3.0",
 		"reflect-metadata": "^0.2.2",
 		"sinon": "^18.0.0",
-		"ts-jest": "^29.1.4",
+		"ts-jest": "^29.4.5",
 		"ts-node": "^10.9.2",
 		"typescript": "^5.5.3",
 		"tslib": "^2.7.0",
