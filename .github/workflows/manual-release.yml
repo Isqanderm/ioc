@@ -126,7 +126,7 @@ jobs:
             VERSION_ARGS="--conventional-commits"
           else
             echo "Using manual release type: $RELEASE_TYPE"
-            VERSION_ARGS="--$RELEASE_TYPE"
+            VERSION_ARGS="$RELEASE_TYPE"
           fi
           
           echo "VERSION_ARGS=$VERSION_ARGS" >> $GITHUB_ENV
