@@ -58,12 +58,40 @@ jobs:
           test -d packages/shared/dist || (echo "❌ Shared build missing" && exit 1)
           echo "✅ Package structure verified"
 
+      - name: Check if version bump is needed
+        id: check_version
+        run: |
+          echo "🔍 Checking if version bump is needed..."
+
+          # Get the latest tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No tags found. Will create initial version."
+            echo "NEEDS_VERSION=true" >> $GITHUB_ENV
+          else
+            echo "Latest tag: $LATEST_TAG"
+
+            # Check if there are any conventional commits since the last tag
+            COMMITS_SINCE_TAG=$(git log $LATEST_TAG..HEAD --oneline --grep="^feat\|^fix\|^perf\|BREAKING CHANGE" || echo "")
+
+            if [ -z "$COMMITS_SINCE_TAG" ]; then
+              echo "⚠️ No conventional commits found since last tag. Skipping version bump."
+              echo "NEEDS_VERSION=false" >> $GITHUB_ENV
+              echo "SHOULD_PUBLISH=false" >> $GITHUB_ENV
+            else
+              echo "✅ Found conventional commits since last tag:"
+              echo "$COMMITS_SINCE_TAG"
+              echo "NEEDS_VERSION=true" >> $GITHUB_ENV
+            fi
+          fi
+
       - name: Determine version bump and create tags
-        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        if: env.NEEDS_VERSION == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "🔍 Analyzing commits for version bump..."
+          echo "🔍 Running lerna version..."
           npx lerna version --conventional-commits --yes --no-push
 
           echo "📝 Version bump completed. Checking for changes..."
