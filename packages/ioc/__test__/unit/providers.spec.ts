@@ -127,21 +127,37 @@ describe("Providers", () => {
 			expect(booleanValue).toBe(true);
 		});
 
-		// TODO: Fix null value provider support
-		// Currently null values are not properly cached and returned as undefined
-		it.skip("should support null and undefined values", async () => {
+		it("should support null and undefined values", async () => {
 			const container = await Test.createModule({
 				providers: [
 					{ provide: "NULL_VALUE", useValue: null },
 					{ provide: "UNDEFINED_VALUE", useValue: undefined },
+					{ provide: "ZERO_VALUE", useValue: 0 },
+					{ provide: "FALSE_VALUE", useValue: false },
+					{ provide: "EMPTY_STRING", useValue: "" },
 				],
 			}).compile();
 
 			const nullValue = await container.get("NULL_VALUE");
 			const undefinedValue = await container.get("UNDEFINED_VALUE");
+			const zeroValue = await container.get("ZERO_VALUE");
+			const falseValue = await container.get("FALSE_VALUE");
+			const emptyString = await container.get("EMPTY_STRING");
 
 			expect(nullValue).toBeNull();
 			expect(undefinedValue).toBeUndefined();
+			expect(zeroValue).toBe(0);
+			expect(falseValue).toBe(false);
+			expect(emptyString).toBe("");
+
+			// Test that values are cached (same reference)
+			const nullValue2 = await container.get("NULL_VALUE");
+			const undefinedValue2 = await container.get("UNDEFINED_VALUE");
+			const zeroValue2 = await container.get("ZERO_VALUE");
+
+			expect(nullValue2).toBeNull();
+			expect(undefinedValue2).toBeUndefined();
+			expect(zeroValue2).toBe(0);
 		});
 
 		it("should support array values", async () => {
