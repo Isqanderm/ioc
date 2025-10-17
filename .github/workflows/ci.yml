@@ -46,16 +46,7 @@ jobs:
         run: npx lerna run code:check:ci --stream
 
       - name: Build all packages
-        run: npm run build:all
-
-      - name: Verify CLI build
-        run: |
-          if [ ! -f packages/cli/dist/cjs/index.js ]; then
-            echo "⚠️ CLI not built by build:all, building explicitly..."
-            npm run build:cli
-          else
-            echo "✅ CLI already built"
-          fi
+        run: npx lerna run build --stream
 
       - name: Run unit tests with coverage
         run: npx lerna run test:coverage --stream
