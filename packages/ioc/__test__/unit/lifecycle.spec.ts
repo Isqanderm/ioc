@@ -114,7 +114,7 @@ describe("Lifecycle Hooks", () => {
 			expect(callOrder).toEqual(["A", "B", "C"]);
 		});
 
-		it("should work with async onModuleInit", async () => {
+		it("should await async onModuleInit", async () => {
 			let initialized = false;
 
 			@Injectable()
@@ -131,9 +131,8 @@ describe("Lifecycle Hooks", () => {
 
 			await container.get<AsyncService>(AsyncService);
 
-			// Note: Current implementation doesn't await onModuleInit
-			// This test documents current behavior
-			expect(initialized).toBe(false);
+			// onModuleInit should be awaited
+			expect(initialized).toBe(true);
 		});
 
 		it("should work with property injection", async () => {
@@ -183,6 +182,26 @@ describe("Lifecycle Hooks", () => {
 			expect(service?.getValue()).toBe("value");
 		});
 
+		it("should support async onModuleInit", async () => {
+			const initSpy = vi.fn();
+
+			@Injectable()
+			class ServiceWithAsyncInit implements OnModuleInit {
+				async onModuleInit() {
+					await Promise.resolve();
+					initSpy();
+				}
+			}
+
+			const container = await Test.createModule({
+				providers: [ServiceWithAsyncInit],
+			}).compile();
+
+			await container.get<ServiceWithAsyncInit>(ServiceWithAsyncInit);
+
+			expect(initSpy).toHaveBeenCalledTimes(1);
+		});
+
 		it("should work with class providers", async () => {
 			const initSpy = vi.fn();
 
@@ -207,7 +226,7 @@ describe("Lifecycle Hooks", () => {
 			expect(initSpy).toHaveBeenCalledTimes(1);
 		});
 
-		it("should handle errors in onModuleInit gracefully", async () => {
+		it("should handle errors in onModuleInit with context", async () => {
 			@Injectable()
 			class ServiceWithError implements OnModuleInit {
 				onModuleInit() {
@@ -219,11 +238,38 @@ describe("Lifecycle Hooks", () => {
 				providers: [ServiceWithError],
 			}).compile();
 
-			// Current implementation doesn't catch errors in onModuleInit
-			// This test documents current behavior
-			expect(async () => {
+			// Errors in onModuleInit should be wrapped with provider context
+			await expect(async () => {
+				await container.get<ServiceWithError>(ServiceWithError);
+			}).rejects.toThrow('Failed to initialize provider "ServiceWithError"');
+
+			await expect(async () => {
 				await container.get<ServiceWithError>(ServiceWithError);
 			}).rejects.toThrow("Init error");
+		});
+
+		it("should handle async errors in onModuleInit", async () => {
+			@Injectable()
+			class ServiceWithAsyncError implements OnModuleInit {
+				async onModuleInit() {
+					await Promise.resolve();
+					throw new Error("Async init error");
+				}
+			}
+
+			const container = await Test.createModule({
+				providers: [ServiceWithAsyncError],
+			}).compile();
+
+			await expect(async () => {
+				await container.get<ServiceWithAsyncError>(ServiceWithAsyncError);
+			}).rejects.toThrow(
+				'Failed to initialize provider "ServiceWithAsyncError"',
+			);
+
+			await expect(async () => {
+				await container.get<ServiceWithAsyncError>(ServiceWithAsyncError);
+			}).rejects.toThrow("Async init error");
 		});
 
 		it("should work in complex dependency trees", async () => {

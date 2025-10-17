@@ -211,7 +211,26 @@ export class Resolver {
 			saveInCache = scope === Scope.Singleton;
 		}
 
-		instance?.onModuleInit?.();
+		// Call lifecycle hook with error handling
+		if (instance?.onModuleInit) {
+			try {
+				await instance.onModuleInit();
+			} catch (error) {
+				// Re-throw with additional context about which provider failed
+				const providerName =
+					typeof provider === "function"
+						? provider.name
+						: (provider as { provide?: InjectionToken }).provide?.toString() ||
+							"Unknown";
+				const errorMessage = `Failed to initialize provider "${providerName}": ${error instanceof Error ? error.message : String(error)}`;
+				const wrappedError = new Error(errorMessage);
+				// Preserve original error stack if available
+				if (error instanceof Error && error.stack) {
+					wrappedError.stack = `${wrappedError.stack}\nCaused by: ${error.stack}`;
+				}
+				throw wrappedError;
+			}
+		}
 
 		return [instance, saveInCache];
 	}
