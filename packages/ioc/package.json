@@ -54,7 +54,7 @@
 		"sinon": "^21.0.0",
 		"typescript": "^5.9.3",
 		"vite": "^7.0.0",
-		"vitest": "^3.0.0"
+		"vitest": "^3.2.4"
 	},
 	"dependencies": {
 		"@nexus-ioc/shared": "^0.4.2",
