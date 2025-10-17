@@ -5,6 +5,7 @@ export default defineConfig({
 		globals: true,
 		environment: "node",
 		include: ["__test__/**/*.spec.ts"],
+		exclude: ["__test__/memory-leak.spec.ts"], // Memory leak tests run separately with --expose-gc
 		coverage: {
 			provider: "v8",
 			reporter: ["json", "json-summary", "text", "lcov", "clover", "html"],
