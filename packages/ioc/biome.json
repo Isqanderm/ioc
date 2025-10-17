@@ -1,8 +1,7 @@
 {
-	"$schema": "https://biomejs.dev/schemas/1.6.4/schema.json",
-	"organizeImports": {
-		"enabled": true
-	},
+	"root": false,
+	"$schema": "https://biomejs.dev/schemas/2.2.6/schema.json",
+	"assist": { "actions": { "source": { "organizeImports": "on" } } },
 	"linter": {
 		"enabled": true,
 		"rules": {
@@ -15,12 +14,12 @@
 		}
 	},
 	"files": {
-		"include": [
-			"src/**/*.ts",
-			"src/**/*.tsx",
-			"src/**/*.json",
-			"__test__/**/*.ts",
-			"__test__/**/*.tsx"
+		"includes": [
+			"**/src/**/*.ts",
+			"**/src/**/*.tsx",
+			"**/src/**/*.json",
+			"**/__test__/**/*.ts",
+			"**/__test__/**/*.tsx"
 		]
 	}
 }

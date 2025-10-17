@@ -21,7 +21,12 @@
 		"container",
 		"shared"
 	],
-	"files": ["dist", "package.json", "LICENSE", "README.md"],
+	"files": [
+		"dist",
+		"package.json",
+		"LICENSE",
+		"README.md"
+	],
 	"main": "./dist/cjs/index.js",
 	"module": "./dist/esm/index.js",
 	"types": "./dist/types/index.d.ts",
@@ -55,5 +60,9 @@
 		"test": "echo 'No tests for shared package (interfaces only)'",
 		"test:coverage": "echo 'No tests for shared package (interfaces only)'",
 		"test:ready": "echo 0"
+	},
+	"devDependencies": {
+		"sinon": "^21.0.0",
+		"typescript": "^5.9.3"
 	}
 }

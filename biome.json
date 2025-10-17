@@ -1,8 +1,6 @@
 {
-	"$schema": "https://biomejs.dev/schemas/1.6.4/schema.json",
-	"organizeImports": {
-		"enabled": true
-	},
+	"$schema": "https://biomejs.dev/schemas/2.2.6/schema.json",
+	"assist": { "actions": { "source": { "organizeImports": "on" } } },
 	"formatter": {
 		"enabled": true,
 		"formatWithErrors": false,
@@ -17,11 +15,11 @@
 		"rules": {
 			"recommended": true,
 			"style": {
-				"useConst": "error",
-				"noVar": "error"
+				"useConst": "error"
 			},
 			"suspicious": {
-				"noExplicitAny": "warn"
+				"noExplicitAny": "warn",
+				"noVar": "error"
 			}
 		}
 	},
@@ -49,16 +47,18 @@
 		}
 	},
 	"files": {
-		"include": ["*.ts", "*.tsx", "*.json"],
-		"ignore": [
-			"package-lock.json",
-			"dist",
-			"node_modules",
-			"coverage",
-			"*.config.js",
-			"*.config.mjs",
-			"*.config.ts",
-			"*.config.mts"
+		"includes": [
+			"**/*.ts",
+			"**/*.tsx",
+			"**/*.json",
+			"!**/package-lock.json",
+			"!**/dist",
+			"!**/node_modules",
+			"!**/coverage",
+			"!**/*.config.js",
+			"!**/*.config.mjs",
+			"!**/*.config.ts",
+			"!**/*.config.mts"
 		]
 	}
 }
