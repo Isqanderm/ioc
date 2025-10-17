@@ -1,0 +1,51 @@
+# GitHub Sponsors configuration for Nexus IoC
+# This file enables the "Sponsor" button on the repository
+# Documentation: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+
+# GitHub Sponsors username
+# Replace with your GitHub username if you have GitHub Sponsors enabled
+github: [Isqanderm]
+
+# Patreon username
+# Uncomment and add your Patreon username if you have a Patreon page
+# patreon: your-patreon-username
+
+# Open Collective username
+# Uncomment and add your Open Collective username if you have an Open Collective page
+# open_collective: your-opencollective-username
+
+# Ko-fi username
+# Uncomment and add your Ko-fi username if you have a Ko-fi page
+# ko_fi: your-kofi-username
+
+# Tidelift package name
+# Uncomment and add your Tidelift package if you're on Tidelift
+# tidelift: npm/@nexus-ioc/core
+
+# Community Bridge project name
+# Uncomment and add your Community Bridge project if applicable
+# community_bridge: your-project-name
+
+# Liberapay username
+# Uncomment and add your Liberapay username if you have a Liberapay account
+# liberapay: your-liberapay-username
+
+# IssueHunt username
+# Uncomment and add your IssueHunt username if you use IssueHunt
+# issuehunt: your-issuehunt-username
+
+# Otechie username
+# Uncomment and add your Otechie username if you use Otechie
+# otechie: your-otechie-username
+
+# LFX Mentorship project name
+# Uncomment and add your LFX Mentorship project if applicable
+# lfx_crowdfunding: your-project-name
+
+# Custom sponsorship URLs
+# Add up to 4 custom sponsorship URLs
+# Uncomment and customize as needed
+# custom:
+#   - https://www.buymeacoffee.com/your-username
+#   - https://paypal.me/your-username
+

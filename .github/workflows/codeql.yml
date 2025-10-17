@@ -1,10 +1,21 @@
-name: "CodeQL Security Analysis (Scheduled)"
+name: "CodeQL Security Analysis"
 
-# This workflow runs CodeQL analysis on a weekly schedule
-# For push/PR events, CodeQL is integrated into the main CI workflow
+# This workflow runs CodeQL analysis for security scanning
+# Runs on:
+# - Weekly schedule (Monday at midnight UTC)
+# - Push events to main and develop branches
+# - Pull requests targeting main branch
+# - Manual trigger via workflow_dispatch
 on:
   schedule:
     - cron: "0 0 * * 1" # Weekly on Monday at midnight UTC
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
   workflow_dispatch: # Allow manual trigger
 
 jobs:
