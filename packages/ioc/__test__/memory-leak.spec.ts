@@ -580,7 +580,8 @@ describe("Memory Leak Detection", () => {
 	describe("Stress Tests", () => {
 		it("should handle large number of providers without memory leak", async () => {
 			// Create many provider classes
-			const providers: Array<{ provide: string; useClass: any }> = [];
+			type ClassProvider = { provide: string; useClass: new () => unknown };
+			const providers: Array<ClassProvider> = [];
 			for (let i = 0; i < 500; i++) {
 				@Injectable()
 				class DynamicService {
