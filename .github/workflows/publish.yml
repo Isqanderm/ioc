@@ -71,12 +71,19 @@ jobs:
             echo "NEEDS_VERSION=true" >> $GITHUB_ENV
           else
             echo "Latest tag: $LATEST_TAG"
+            echo "Checking commits since $LATEST_TAG..."
+
+            # Show all commits since last tag for debugging
+            echo "All commits since last tag:"
+            git log $LATEST_TAG..HEAD --oneline || echo "No commits found"
 
             # Check if there are any conventional commits since the last tag
             COMMITS_SINCE_TAG=$(git log $LATEST_TAG..HEAD --oneline --grep="^feat\|^fix\|^perf\|BREAKING CHANGE" || echo "")
 
             if [ -z "$COMMITS_SINCE_TAG" ]; then
               echo "⚠️ No conventional commits found since last tag. Skipping version bump."
+              echo "💡 Commits must start with 'feat:', 'fix:', 'perf:' or contain 'BREAKING CHANGE'"
+              echo "💡 Use manual release workflow for force publishing"
               echo "NEEDS_VERSION=false" >> $GITHUB_ENV
               echo "SHOULD_PUBLISH=false" >> $GITHUB_ENV
             else
@@ -147,5 +154,10 @@ jobs:
             echo "   - feat: for new features (minor version bump)"
             echo "   - fix: for bug fixes (patch version bump)"
             echo "   - BREAKING CHANGE: for breaking changes (major version bump)"
+            echo ""
+            echo "🚀 Alternative: Use Manual Release workflow"
+            echo "   - Go to Actions tab → Manual Release"
+            echo "   - Choose release type and enable 'Force release' if needed"
+            echo "   - This allows publishing even without conventional commits"
           fi
 

@@ -1,0 +1,224 @@
+name: Manual Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Type of release'
+        required: true
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
+          - prerelease
+      force_release:
+        description: 'Force release even without conventional commits'
+        required: false
+        default: false
+        type: boolean
+      dry_run:
+        description: 'Dry run (no actual publishing)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  manual-release:
+    name: Manual Release
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linting
+        run: npx lerna run code:check:ci --stream
+
+      - name: Build all packages
+        run: npm run build:all
+
+      - name: Run unit tests with coverage
+        run: npx lerna run test:coverage --stream
+
+      - name: Verify package integrity before release
+        run: |
+          echo "Verifying package structure..."
+          test -d packages/ioc/dist || (echo "❌ IoC build missing" && exit 1)
+          test -d packages/testing/dist || (echo "❌ Testing build missing" && exit 1)
+          test -d packages/cli/dist || (echo "❌ CLI build missing" && exit 1)
+          test -d packages/shared/dist || (echo "❌ Shared build missing" && exit 1)
+          echo "✅ Package structure verified"
+
+      - name: Check release conditions
+        id: check_release
+        run: |
+          echo "🔍 Checking release conditions..."
+          
+          # Get the latest tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          echo "Latest tag: ${LATEST_TAG:-'No tags found'}"
+          
+          # Check for conventional commits since last tag
+          if [ -n "$LATEST_TAG" ]; then
+            COMMITS_SINCE_TAG=$(git log $LATEST_TAG..HEAD --oneline --grep="^feat\|^fix\|^perf\|BREAKING CHANGE" || echo "")
+          else
+            COMMITS_SINCE_TAG="Initial release"
+          fi
+          
+          echo "Conventional commits since last tag:"
+          echo "${COMMITS_SINCE_TAG:-'None found'}"
+          
+          # Determine if we should proceed
+          SHOULD_RELEASE="false"
+          
+          if [ "${{ inputs.force_release }}" = "true" ]; then
+            echo "✅ Force release enabled - proceeding with release"
+            SHOULD_RELEASE="true"
+          elif [ -n "$COMMITS_SINCE_TAG" ]; then
+            echo "✅ Found conventional commits - proceeding with release"
+            SHOULD_RELEASE="true"
+          else
+            echo "⚠️ No conventional commits found and force release not enabled"
+            SHOULD_RELEASE="false"
+          fi
+          
+          echo "SHOULD_RELEASE=$SHOULD_RELEASE" >> $GITHUB_ENV
+          echo "LATEST_TAG=$LATEST_TAG" >> $GITHUB_ENV
+
+      - name: Determine version bump strategy
+        if: env.SHOULD_RELEASE == 'true'
+        id: version_strategy
+        run: |
+          echo "🎯 Determining version bump strategy..."
+          
+          RELEASE_TYPE="${{ inputs.release_type }}"
+          
+          if [ "$RELEASE_TYPE" = "auto" ]; then
+            echo "Using conventional commits for automatic version determination"
+            VERSION_ARGS="--conventional-commits"
+          else
+            echo "Using manual release type: $RELEASE_TYPE"
+            VERSION_ARGS="--$RELEASE_TYPE"
+          fi
+          
+          echo "VERSION_ARGS=$VERSION_ARGS" >> $GITHUB_ENV
+          echo "Release strategy: $VERSION_ARGS"
+
+      - name: Create version bump and tags
+        if: env.SHOULD_RELEASE == 'true'
+        env:
+          HUSKY: 0
+        run: |
+          echo "📝 Creating version bump..."
+          
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "🔍 DRY RUN MODE - No actual changes will be made"
+            npx lerna version $VERSION_ARGS --yes --no-push --no-git-tag-version
+          else
+            npx lerna version $VERSION_ARGS --yes --no-push
+          fi
+          
+          # Check if any changes were made
+          if git diff --quiet HEAD~1 2>/dev/null || [ "${{ inputs.dry_run }}" = "true" ]; then
+            if [ "${{ inputs.force_release }}" = "true" ]; then
+              echo "✅ Force release mode - proceeding even without version changes"
+              echo "VERSION_CHANGED=true" >> $GITHUB_ENV
+            else
+              echo "⚠️ No version changes detected"
+              echo "VERSION_CHANGED=false" >> $GITHUB_ENV
+            fi
+          else
+            echo "✅ Version changes detected"
+            echo "VERSION_CHANGED=true" >> $GITHUB_ENV
+          fi
+
+      - name: Push version changes and tags
+        if: env.SHOULD_RELEASE == 'true' && env.VERSION_CHANGED == 'true' && inputs.dry_run == false
+        run: |
+          echo "📤 Pushing version changes and tags to repository..."
+          git push --follow-tags origin main
+
+      - name: Publish packages to NPM
+        if: env.SHOULD_RELEASE == 'true' && env.VERSION_CHANGED == 'true' && inputs.dry_run == false
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: true
+        run: |
+          echo "📦 Publishing packages to NPM..."
+          npx lerna publish from-git --yes --no-verify-access
+
+      - name: Create GitHub releases
+        if: env.SHOULD_RELEASE == 'true' && env.VERSION_CHANGED == 'true' && inputs.dry_run == false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🏷️ Creating GitHub releases for new tags..."
+          # Get all tags created in this run
+          TAGS=$(git tag --points-at HEAD)
+          for TAG in $TAGS; do
+            echo "Creating release for $TAG..."
+            gh release create "$TAG" --generate-notes --verify-tag || echo "Release for $TAG may already exist"
+          done
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "📋 Manual Release Summary"
+          echo "======================="
+          echo "Release Type: ${{ inputs.release_type }}"
+          echo "Force Release: ${{ inputs.force_release }}"
+          echo "Dry Run: ${{ inputs.dry_run }}"
+          echo "Should Release: ${SHOULD_RELEASE:-'Not determined'}"
+          echo "Version Changed: ${VERSION_CHANGED:-'Not determined'}"
+          echo ""
+          
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "🔍 DRY RUN COMPLETED - No actual changes were made"
+            echo "💡 To perform actual release, run again without dry run mode"
+          elif [ "${SHOULD_RELEASE:-false}" = "true" ] && [ "${VERSION_CHANGED:-false}" = "true" ]; then
+            echo "✅ RELEASE COMPLETED SUCCESSFULLY!"
+            echo "📋 Version changes have been committed and pushed to main branch"
+            echo "🏷️ Git tags have been created and pushed"
+            echo "📦 Packages have been published to NPM"
+            echo "🎉 GitHub releases have been created automatically"
+          elif [ "${SHOULD_RELEASE:-false}" = "false" ]; then
+            echo "⚠️ RELEASE SKIPPED - No conventional commits found"
+            echo "💡 To force release, enable 'Force release' option"
+          else
+            echo "⚠️ RELEASE SKIPPED - No version changes detected"
+            echo "💡 Check if packages already have the latest versions"
+          fi
+          
+          echo ""
+          echo "📚 Next steps:"
+          echo "- Check the published packages on NPM"
+          echo "- Verify GitHub releases were created"
+          echo "- Update documentation if needed"
