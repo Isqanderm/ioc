@@ -1,23 +1,11 @@
-import type { DynamicModule } from "../dynamic-module.interface";
-import type { InjectionToken } from "../injection-token.interface";
+import type { ContainerBaseInterface } from "@nexus-ioc/shared";
 import type { Module } from "../module-types.interface";
-import type { ModuleContainerInterface } from "./module-container.interface";
-import type {
-	GraphError,
-	ModuleGraphInterface,
-} from "./module-graph.interface";
+import type { ModuleGraphInterface } from "./module-graph.interface";
 
-export interface ContainerBaseInterface {
-	addModule(module: Module | DynamicModule): Promise<ModuleContainerInterface>;
-	replaceModule(
-		moduleToReplace: Module,
-		newModule: Module,
-	): Promise<ModuleContainerInterface>;
-	getModule(module: Module): Promise<ModuleContainerInterface | undefined>;
-	get<T>(token: InjectionToken): Promise<T | undefined>;
-	errors: GraphError[];
-}
+// Re-export base interface from shared package
+export type { ContainerBaseInterface } from "@nexus-ioc/shared";
 
+// Extend base interface with strongly-typed graph property
 export interface ContainerInterface extends ContainerBaseInterface {
 	run(rootModule: Module): Promise<void>;
 	graph: ModuleGraphInterface;

@@ -1,6 +1,7 @@
 ![npm](https://img.shields.io/npm/v/@nexus-ioc/testing)
 ![license](https://img.shields.io/npm/l/@nexus-ioc/testing)
-![build](https://img.shields.io/github/actions/workflow/status/Isqanderm/ioc/build.yml)
+![CI](https://github.com/Isqanderm/ioc/actions/workflows/ci.yml/badge.svg)
+[![codecov](https://codecov.io/gh/Isqanderm/ioc/branch/main/graph/badge.svg)](https://codecov.io/gh/Isqanderm/ioc)
 
 Test library for Nexus IoC
 

@@ -1,7 +1,2 @@
-export interface HashUtilInterface {
-	hashString(value: string): Promise<string>;
-
-	hashObject(value: object): Promise<string>;
-
-	incrementString(): string;
-}
+// Re-export from shared package
+export type { HashUtilInterface } from "@nexus-ioc/shared";

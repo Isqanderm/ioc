@@ -3,7 +3,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 describe("CLI Commands", () => {
-	const cliPath = path.resolve(__dirname, "../dist/index.js");
+	const cliPath = path.resolve(__dirname, "../dist/cjs/index.js");
 
 	it("should run generate service with spec", () => {
 		cp.execSync(`node ${cliPath} generate service auth __test__/apps/auth`);

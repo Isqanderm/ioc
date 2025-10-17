@@ -1,3 +1,4 @@
+import type { GraphError } from "@nexus-ioc/shared";
 import type { AnalyzeModule } from "../../core/graph/analyze-module";
 import type { AnalyzeProvider } from "../../core/graph/analyze-provider";
 import type { Token } from "../../core/modules/modules-container";
@@ -6,6 +7,9 @@ import type { InjectionToken } from "../injection-token.interface";
 import type { Module, Provider } from "../module-types.interface";
 import type { Scope } from "../scope.interface";
 import type { ModuleContainerInterface } from "./module-container.interface";
+
+// Re-export GraphError from shared package
+export type { GraphError } from "@nexus-ioc/shared";
 
 export enum NodeTypeEnum {
 	MODULE = "module",
@@ -35,37 +39,9 @@ export type Edge = {
 	};
 };
 
-export type GraphError =
-	| {
-			type: "CD_IMPORTS";
-			path: string[];
-	  }
-	| {
-			type: "CD_PROVIDERS";
-			path: [InjectionToken, InjectionToken][];
-	  }
-	| {
-			type: "UNREACHED_DEP_CONSTRUCTOR";
-			token: string;
-			dependency: string;
-			position: number;
-	  }
-	| {
-			type: "UNREACHED_DEP_PROPERTY";
-			token: string;
-			dependency: string;
-			key: string;
-	  }
-	| {
-			type: "UNREACHED_DEP_FACTORY";
-			token: string;
-			dependency: string;
-			key: number;
-	  };
-
 export interface ModuleGraphInterface {
 	compile(): Promise<void>;
-	getNode(token: InjectionToken): Node;
+	getNode(token: InjectionToken): Node | undefined;
 	getEdge(token: InjectionToken): Edge[];
 	getAllNodes(): Node[];
 	getAllEdges(): Edge[][];

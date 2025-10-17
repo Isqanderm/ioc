@@ -34,6 +34,22 @@ import type { AnalyzeFactoryProvider } from "./providers/analyze-factory-provide
 import type { AnalyzeFunctionProvider } from "./providers/analyze-function-provider";
 import { ProviderFactory } from "./providers/provider-factory";
 
+/**
+ * Helper function to safely convert InjectionToken to string for error messages
+ */
+function tokenToString(token: InjectionToken): string {
+	return typeof token === "function" ? token.name : String(token);
+}
+
+/**
+ * Type guard to check if a node is an AnalyzeProvider
+ */
+function isProviderNode(
+	entry: [InjectionToken, Node],
+): entry is [InjectionToken, AnalyzeProvider] {
+	return entry[1].type === NodeTypeEnum.PROVIDER;
+}
+
 export class ModuleGraph implements ModuleGraphInterface {
 	private _nodes: Map<InjectionToken, Node> = new Map();
 	private _edges: Map<InjectionToken, Edge[]> = new Map();
@@ -62,8 +78,8 @@ export class ModuleGraph implements ModuleGraphInterface {
 		await this.detectCircularImports();
 	}
 
-	public getNode(token: InjectionToken): Node {
-		return this._nodes.get(token) as Node;
+	public getNode(token: InjectionToken): Node | undefined {
+		return this._nodes.get(token);
 	}
 
 	public getEdge(token: InjectionToken) {
@@ -151,9 +167,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 	// providers dependencies
 	private async addDependencies() {
 		const visited = new Set<InjectionToken>();
-		const providerNodes = [...this.nodes].filter(
-			([_, node]) => node.type === NodeTypeEnum.PROVIDER,
-		) as [InjectionToken, AnalyzeProvider][];
+		const providerNodes = [...this.nodes].filter(isProviderNode);
 
 		for (const [token, node] of providerNodes) {
 			if (visited.has(token)) {
@@ -193,10 +207,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 				this.errors.push({
 					type: "UNREACHED_DEP_CONSTRUCTOR",
 					token: node.label,
-					dependency:
-						typeof dependencyToken === "function"
-							? dependencyToken.name
-							: (dependencyToken as string),
+					dependency: tokenToString(dependencyToken),
 					position: dependency.index,
 				});
 			}
@@ -233,10 +244,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 				this.errors.push({
 					type: "UNREACHED_DEP_PROPERTY",
 					token: node.label,
-					dependency:
-						typeof dependencyToken === "function"
-							? dependencyToken.name
-							: (dependencyToken as string),
+					dependency: tokenToString(dependencyToken),
 					key: dependency.key,
 				});
 			}
@@ -275,10 +283,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 				this.errors.push({
 					type: "UNREACHED_DEP_CONSTRUCTOR",
 					token: node.label,
-					dependency:
-						typeof dependencyToken === "function"
-							? dependencyToken.name
-							: (dependencyToken as string),
+					dependency: tokenToString(dependencyToken),
 					position: dependency.index,
 				});
 			}
@@ -311,10 +316,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 				this.errors.push({
 					type: "UNREACHED_DEP_PROPERTY",
 					token: node.label,
-					dependency:
-						typeof dependencyToken === "function"
-							? dependencyToken.name
-							: (dependencyToken as string),
+					dependency: tokenToString(dependencyToken),
 					key: dependency.key,
 				});
 			}
@@ -350,10 +352,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 				this.errors.push({
 					type: "UNREACHED_DEP_FACTORY",
 					token: node.label,
-					dependency:
-						typeof dependency === "function"
-							? dependency.name
-							: (dependency as string),
+					dependency: tokenToString(dependency),
 					key: index,
 				});
 			}
@@ -423,11 +422,13 @@ export class ModuleGraph implements ModuleGraphInterface {
 				const token = Reflect.getMetadata(
 					MODULE_TOKEN_WATERMARK,
 					currentExportToken,
-				) as string;
-				const moduleContainer = this.getNode(token) as AnalyzeModule;
+				);
+				if (typeof token === "string") {
+					const moduleContainer = this.getNode(token);
 
-				if (moduleContainer) {
-					queue.push(...moduleContainer.exports);
+					if (moduleContainer && moduleContainer.type === NodeTypeEnum.MODULE) {
+						queue.push(...(moduleContainer as AnalyzeModule).exports);
+					}
 				}
 			}
 
@@ -521,7 +522,10 @@ export class ModuleGraph implements ModuleGraphInterface {
 						if (edge && edge.type === EdgeTypeEnum.IMPORT) {
 							this.errors.push({
 								type: "CD_IMPORTS",
-								path: cyclePath.map((token) => this.getNode(token).label),
+								path: cyclePath
+									.map((token) => this.getNode(token))
+									.filter((node): node is Node => node !== undefined)
+									.map((node) => node.label),
 							});
 							edge.metadata.isCircular = true;
 						}

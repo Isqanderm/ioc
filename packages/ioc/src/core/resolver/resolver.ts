@@ -34,16 +34,31 @@ export class Resolver {
 		resolveCache: ProvidersContainer = new ProvidersContainer(),
 		isCircularDependency = false,
 	): Promise<T | undefined> {
-		if (this.providersContainer.has(token)) {
-			return this.providersContainer.get(token);
-		}
-
 		const node = this.graph.getNode(token);
 
 		if (!node) {
 			return undefined;
 		}
 
+		// Get the scope of the provider
+		const scope = (node as AnalyzeProvider).scope;
+
+		// For Transient scope, always create a new instance (no caching at all)
+		if (scope === Scope.Transient) {
+			const [instance] = await this.createInstance(
+				node,
+				resolveCache,
+				isCircularDependency,
+			);
+			return instance as T;
+		}
+
+		// For Singleton scope, check global cache first
+		if (scope === Scope.Singleton && this.providersContainer.has(token)) {
+			return this.providersContainer.get(token);
+		}
+
+		// For Request and Singleton scopes, check resolve cache (within current resolution tree)
 		if (resolveCache.has(token)) {
 			return resolveCache.get(token);
 		}
@@ -54,8 +69,13 @@ export class Resolver {
 			isCircularDependency,
 		);
 
-		resolveCache.set(token, instance);
+		// Add to resolve cache for current resolution context (for Request and Singleton)
+		// This ensures same instance is used within a single dependency resolution tree
+		if (scope === Scope.Singleton || scope === Scope.Request) {
+			resolveCache.set(token, instance);
+		}
 
+		// Only save to global cache for Singleton scope
 		if (saveInCache) {
 			this.providersContainer.set(token, instance);
 		}
@@ -142,8 +162,6 @@ export class Resolver {
 
 			const instance = await this.resolveProvider(depToken, resolveCache);
 
-			this.providersContainer.set(depToken, instance);
-
 			resolvedDependencies.push(instance);
 		}
 
@@ -170,20 +188,49 @@ export class Resolver {
 
 			await this.injectPropertyDependencies(instance, node, resolveCache);
 
-			if ((node as AnalyzeProvider).scope === Scope.Request) {
-				saveInCache = false;
-			}
+			// Determine caching strategy based on scope
+			const scope = (node as AnalyzeProvider).scope;
+			saveInCache = scope === Scope.Singleton;
 		} else if (isValueProvider(provider)) {
 			instance = provider.useValue;
+			// Value providers are always singleton
+			saveInCache = true;
 		} else if (isFactoryProvider(provider)) {
 			instance = await provider.useFactory(...deps);
+
+			// Check scope for factory providers
+			const scope = (node as AnalyzeProvider).scope;
+			saveInCache = scope === Scope.Singleton;
 		} else {
 			instance = new (provider as Type)(...deps);
 
 			await this.injectPropertyDependencies(instance, node, resolveCache);
+
+			// Check scope for function providers
+			const scope = (node as AnalyzeProvider).scope;
+			saveInCache = scope === Scope.Singleton;
 		}
 
-		instance?.onModuleInit?.();
+		// Call lifecycle hook with error handling
+		if (instance?.onModuleInit) {
+			try {
+				await instance.onModuleInit();
+			} catch (error) {
+				// Re-throw with additional context about which provider failed
+				const providerName =
+					typeof provider === "function"
+						? provider.name
+						: (provider as { provide?: InjectionToken }).provide?.toString() ||
+							"Unknown";
+				const errorMessage = `Failed to initialize provider "${providerName}": ${error instanceof Error ? error.message : String(error)}`;
+				const wrappedError = new Error(errorMessage);
+				// Preserve original error stack if available
+				if (error instanceof Error && error.stack) {
+					wrappedError.stack = `${wrappedError.stack}\nCaused by: ${error.stack}`;
+				}
+				throw wrappedError;
+			}
+		}
 
 		return [instance, saveInCache];
 	}

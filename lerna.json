@@ -5,7 +5,12 @@
 	"command": {
 		"version": {
 			"conventionalCommits": true,
-			"changelogPreset": "angular"
+			"changelogPreset": "angular",
+			"message": "chore(release): publish %s",
+			"createRelease": "github"
+		},
+		"publish": {
+			"message": "chore(release): publish %s"
 		}
 	}
 }

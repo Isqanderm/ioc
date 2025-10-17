@@ -1,0 +1,109 @@
+name: Publish to NPM
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (leave empty for current version)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish Packages to NPM
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build all packages
+        run: npm run build:all
+
+      - name: Run unit tests
+        run: npm run test
+
+      - name: Verify package integrity before release
+        run: |
+          echo "Verifying package structure..."
+          test -d packages/ioc/dist || (echo "❌ IoC build missing" && exit 1)
+          test -d packages/testing/dist || (echo "❌ Testing build missing" && exit 1)
+          test -d packages/cli/dist || (echo "❌ CLI build missing" && exit 1)
+          test -d packages/shared/dist || (echo "❌ Shared build missing" && exit 1)
+          echo "✅ Package structure verified"
+
+      - name: Determine version bump and create tags
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🔍 Analyzing commits for version bump..."
+          npx lerna version --conventional-commits --yes --no-push --create-release github
+
+          echo "📝 Version bump completed. Checking for changes..."
+          if git diff --quiet HEAD; then
+            echo "⚠️ No version changes detected. Skipping publish."
+            echo "SHOULD_PUBLISH=false" >> $GITHUB_ENV
+          else
+            echo "✅ Version changes detected. Will proceed with publish."
+            echo "SHOULD_PUBLISH=true" >> $GITHUB_ENV
+          fi
+
+      - name: Push version changes and tags
+        if: env.SHOULD_PUBLISH == 'true'
+        run: |
+          echo "📤 Pushing version changes and tags to repository..."
+          git push --follow-tags origin main
+
+      - name: Publish packages to NPM
+        if: env.SHOULD_PUBLISH == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: true
+        run: |
+          echo "📦 Publishing packages to NPM..."
+          npx lerna publish from-git --yes --no-verify-access
+
+      - name: Summary
+        if: always()
+        run: |
+          if [ "$SHOULD_PUBLISH" = "true" ]; then
+            echo "✅ Packages versioned and published successfully!"
+            echo "📋 Version changes have been committed and pushed to main branch"
+            echo "🏷️ Git tags have been created and pushed"
+            echo "📦 Packages have been published to NPM"
+            echo "🎉 GitHub releases have been created automatically"
+          else
+            echo "ℹ️ No publishable changes detected"
+            echo "💡 Make sure your commits follow conventional commit format:"
+            echo "   - feat: for new features (minor version bump)"
+            echo "   - fix: for bug fixes (patch version bump)"
+            echo "   - BREAKING CHANGE: for breaking changes (major version bump)"
+          fi
+

@@ -1,0 +1,254 @@
+# Dependabot configuration for automated dependency updates
+# This file configures Dependabot to automatically check for and create PRs
+# for dependency updates across all packages in the monorepo.
+#
+# Documentation: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+
+updates:
+  # ============================================================================
+  # Root package.json - Development dependencies and monorepo tools
+  # ============================================================================
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "00:00"
+      timezone: "UTC"
+    # Group all dev dependencies together to reduce PR noise
+    groups:
+      dev-dependencies:
+        patterns:
+          - "@biomejs/*"
+          - "@commitlint/*"
+          - "@vitest/*"
+          - "commitizen"
+          - "conventional-changelog*"
+          - "cz-conventional-changelog"
+          - "husky"
+          - "lerna*"
+          - "lint-staged"
+          - "vite"
+          - "vitest"
+        update-types:
+          - "minor"
+          - "patch"
+    # Open PRs for security updates immediately
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "npm"
+      - "root"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    # Automatically rebase PRs when base branch is updated
+    rebase-strategy: "auto"
+    # Allow Dependabot to update lockfiles
+    versioning-strategy: "increase"
+
+  # ============================================================================
+  # @nexus-ioc/core - Main IoC container package
+  # ============================================================================
+  - package-ecosystem: "npm"
+    directory: "/packages/ioc"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "01:00"
+      timezone: "UTC"
+    # Group dependencies by type
+    groups:
+      # Production dependencies - critical updates
+      production-dependencies:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "@types/*"
+          - "@vitest/*"
+          - "typescript"
+          - "vitest"
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+      # Development dependencies - testing and build tools
+      dev-dependencies:
+        patterns:
+          - "@types/*"
+          - "@vitest/*"
+          - "typescript"
+          - "vitest"
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "npm"
+      - "@nexus-ioc/core"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    rebase-strategy: "auto"
+    versioning-strategy: "increase"
+
+  # ============================================================================
+  # @nexus-ioc/shared - Shared interfaces and utilities
+  # ============================================================================
+  - package-ecosystem: "npm"
+    directory: "/packages/shared"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "02:00"
+      timezone: "UTC"
+    groups:
+      production-dependencies:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "@types/*"
+          - "typescript"
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+      dev-dependencies:
+        patterns:
+          - "@types/*"
+          - "typescript"
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "npm"
+      - "@nexus-ioc/shared"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    rebase-strategy: "auto"
+    versioning-strategy: "increase"
+
+  # ============================================================================
+  # @nexus-ioc/testing - Testing utilities package
+  # ============================================================================
+  - package-ecosystem: "npm"
+    directory: "/packages/testing"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "03:00"
+      timezone: "UTC"
+    groups:
+      production-dependencies:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "@types/*"
+          - "@vitest/*"
+          - "typescript"
+          - "vitest"
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+      dev-dependencies:
+        patterns:
+          - "@types/*"
+          - "@vitest/*"
+          - "typescript"
+          - "vitest"
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "npm"
+      - "@nexus-ioc/testing"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    rebase-strategy: "auto"
+    versioning-strategy: "increase"
+
+  # ============================================================================
+  # @nexus-ioc/cli - CLI package
+  # ============================================================================
+  - package-ecosystem: "npm"
+    directory: "/packages/cli"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "04:00"
+      timezone: "UTC"
+    groups:
+      production-dependencies:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "@types/*"
+          - "@vitest/*"
+          - "typescript"
+          - "vitest"
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+      dev-dependencies:
+        patterns:
+          - "@types/*"
+          - "@vitest/*"
+          - "typescript"
+          - "vitest"
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "npm"
+      - "@nexus-ioc/cli"
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+    rebase-strategy: "auto"
+    versioning-strategy: "increase"
+
+  # ============================================================================
+  # GitHub Actions - Keep workflow dependencies up to date
+  # ============================================================================
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "05:00"
+      timezone: "UTC"
+    # Group all GitHub Actions updates together
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "ci"
+    commit-message:
+      prefix: "ci(deps)"
+      include: "scope"
+    rebase-strategy: "auto"
+
