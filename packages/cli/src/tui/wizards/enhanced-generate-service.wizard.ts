@@ -5,6 +5,7 @@ import type {
 	ServiceDependency,
 } from "../../templates/enhanced-service.template";
 import { EnhancedServiceTemplate } from "../../templates/enhanced-service.template";
+import { ServiceSpecTemplate } from "../../templates/service-spec.template";
 import { CodePreview } from "../components/code-preview";
 import type { DependencyOption } from "../utils/dependency-resolver";
 import { DependencyResolver } from "../utils/dependency-resolver";
@@ -315,35 +316,9 @@ export class EnhancedGenerateServiceWizard {
 
 	private generateTestContent(
 		serviceName: string,
-		dependencies: ServiceDependency[],
+		_dependencies: ServiceDependency[],
 	): string {
-		const mockSetup = dependencies
-			.map(
-				(dep) =>
-					`const mock${dep.className} = {} as jest.Mocked<${dep.className}>;`,
-			)
-			.join("\n  ");
-
-		const constructorArgs = dependencies
-			.map((dep) => `mock${dep.className}`)
-			.join(", ");
-
-		return `
-import { ${serviceName}Service } from './${serviceName.toLowerCase()}.service';
-${dependencies.map((dep) => `import { ${dep.className} } from '${dep.importPath}';`).join("\n")}
-
-describe('${serviceName}Service', () => {
-  let service: ${serviceName}Service;
-  ${mockSetup}
-
-  beforeEach(() => {
-    service = new ${serviceName}Service(${constructorArgs});
-  });
-
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
-});
-    `.trim();
+		const testTemplate = new ServiceSpecTemplate({ name: serviceName });
+		return testTemplate.generate();
 	}
 }
