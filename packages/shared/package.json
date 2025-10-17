@@ -67,5 +67,6 @@
   "devDependencies": {
     "sinon": "^21.0.0",
     "typescript": "^5.9.3"
-  }
+  },
+  "gitHead": "1246f1b9b3ba543f6618a6165adc68630ce26928"
 }

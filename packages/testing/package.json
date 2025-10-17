@@ -16,8 +16,7 @@
     "test": "__test__"
   },
   "publishConfig": {
-    "access": "public",
-    "provenance": true
+    "access": "public"
   },
   "files": [
     "dist",
@@ -75,5 +74,6 @@
     "code:check:ci": "npx @biomejs/biome ci",
     "code:check:apply": "npx @biomejs/biome check --write",
     "test:ready": "npm run build"
-  }
+  },
+  "gitHead": "1246f1b9b3ba543f6618a6165adc68630ce26928"
 }
