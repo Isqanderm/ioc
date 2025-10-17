@@ -142,7 +142,8 @@ export class MainMenu {
 	 */
 	private async generateServiceEnhanced(): Promise<void> {
 		try {
-			const wizard = new EnhancedGenerateServiceWizard();
+			const generateAction = new GenerateAction();
+			const wizard = new EnhancedGenerateServiceWizard(generateAction);
 			await wizard.run();
 		} catch (error) {
 			clack.log.error(`Service generation failed: ${error}`);

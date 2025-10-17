@@ -1,5 +1,8 @@
+import * as fs from "node:fs";
 import * as path from "node:path";
 import * as clack from "@clack/prompts";
+import pc from "picocolors";
+import type { GenerateAction } from "../../actions/generate.action";
 import type {
 	EnhancedServiceParams,
 	ServiceDependency,
@@ -17,7 +20,7 @@ export class EnhancedGenerateServiceWizard {
 	private scanner: ProjectScanner;
 	private resolver: DependencyResolver;
 
-	constructor() {
+	constructor(private readonly generateAction: GenerateAction) {
 		this.scanner = new ProjectScanner(process.cwd());
 		this.resolver = new DependencyResolver(process.cwd());
 	}
@@ -93,14 +96,14 @@ export class EnhancedGenerateServiceWizard {
 			}
 
 			// Step 9: Generate files
-			const spinner = clack.spinner();
-			spinner.start("Generating service...");
-
-			// TODO: Integrate with actual file generation
-			// For now, we'll show a success message
-			await new Promise((resolve) => setTimeout(resolve, 500));
-
-			spinner.stop("Service generated successfully! ✨");
+			await this.generateFiles({
+				serviceName: serviceName as string,
+				outputPath: outputPath as string,
+				scope: scope as "Singleton" | "Transient" | "Request" | undefined,
+				dependencies: dependencies as ServiceDependency[],
+				moduleChoice: moduleChoice as string,
+				generateTests: generateTests as boolean,
+			});
 
 			clack.outro(`Service ${serviceName}Service created at ${outputPath}`);
 		} catch (error) {
@@ -320,5 +323,85 @@ export class EnhancedGenerateServiceWizard {
 	): string {
 		const testTemplate = new ServiceSpecTemplate({ name: serviceName });
 		return testTemplate.generate();
+	}
+
+	/**
+	 * Generate the actual files
+	 */
+	private async generateFiles(params: {
+		serviceName: string;
+		outputPath: string;
+		scope?: "Singleton" | "Transient" | "Request";
+		dependencies: ServiceDependency[];
+		moduleChoice: string;
+		generateTests: boolean;
+	}): Promise<void> {
+		const s = clack.spinner();
+		s.start("Generating service files...");
+
+		try {
+			// Ensure output directory exists
+			const resolvedPath = path.resolve(process.cwd(), params.outputPath);
+			if (!fs.existsSync(resolvedPath)) {
+				fs.mkdirSync(resolvedPath, { recursive: true });
+			}
+
+			// Generate service file
+			const serviceFilePath = path.join(
+				resolvedPath,
+				`${params.serviceName.toLowerCase()}.service.ts`,
+			);
+
+			const serviceParams: EnhancedServiceParams = {
+				name: params.serviceName,
+				dependencies: params.dependencies,
+				scope: params.scope,
+			};
+
+			const serviceTemplate = new EnhancedServiceTemplate(serviceParams);
+			const serviceContent = await formatCode(serviceTemplate.generate());
+
+			fs.writeFileSync(serviceFilePath, serviceContent, "utf-8");
+
+			// Generate test file if requested
+			if (params.generateTests) {
+				const testFilePath = path.join(
+					resolvedPath,
+					`${params.serviceName.toLowerCase()}.service.spec.ts`,
+				);
+
+				const testContent = this.generateTestContent(
+					params.serviceName,
+					params.dependencies,
+				);
+				const formattedTestContent = await formatCode(testContent);
+
+				fs.writeFileSync(testFilePath, formattedTestContent, "utf-8");
+			}
+
+			// Handle module registration if needed
+			if (params.moduleChoice !== "skip") {
+				// TODO: Implement module registration
+				// For now, we'll use the generateAction for module operations
+				const inputs = [
+					{ name: "type", value: "service" },
+					{ name: "name", value: params.serviceName.toLowerCase() },
+					{ name: "path", value: params.outputPath },
+				];
+
+				const options = [
+					{ name: "skipImport", value: false },
+					{ name: "spec", value: false }, // We already created the spec file
+				];
+
+				// This will handle module registration
+				await this.generateAction.handler(inputs, options);
+			}
+
+			s.stop(pc.green("✓ Files generated successfully"));
+		} catch (error) {
+			s.stop(pc.red(`✗ Generation failed: ${error}`));
+			throw error;
+		}
 	}
 }
