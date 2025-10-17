@@ -63,7 +63,10 @@
     "vitest": "^3.0.0"
   },
   "dependencies": {
+    "@clack/prompts": "^0.11.0",
+    "cli-highlight": "^2.1.11",
     "commander": "^14.0.1",
+    "picocolors": "^1.1.1",
     "prettier": "^3.6.2",
     "ts-morph": "^27.0.2",
     "tslib": "^2.6.3"
