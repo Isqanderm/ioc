@@ -153,13 +153,13 @@ export class EnhancedGenerateServiceWizard {
 			options: [
 				{
 					value: "default",
-					label: "Default (Transient)",
-					hint: "New instance for each injection",
+					label: "Default (Singleton)",
+					hint: "Single instance shared across the app",
 				},
 				{
-					value: "singleton",
-					label: "Singleton",
-					hint: "Single instance shared across the app",
+					value: "transient",
+					label: "Transient",
+					hint: "New instance for each injection",
 				},
 				{
 					value: "request",
@@ -171,9 +171,9 @@ export class EnhancedGenerateServiceWizard {
 
 		if (clack.isCancel(choice)) return choice;
 
-		if (choice === "singleton") return "Singleton";
+		if (choice === "transient") return "Transient";
 		if (choice === "request") return "Request";
-		return undefined;
+		return undefined; // Default is Singleton (no scope specified in decorator)
 	}
 
 	private async promptDependencies(
