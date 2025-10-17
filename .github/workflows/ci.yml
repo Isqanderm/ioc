@@ -314,7 +314,7 @@ jobs:
 
       - name: Comment PR with coverage comparison
         if: always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           COVERAGE_FAILED: ${{ env.COVERAGE_FAILED }}
           MAIN_BRANCH_HAS_IOC_COVERAGE: ${{ env.MAIN_BRANCH_HAS_IOC_COVERAGE }}
@@ -569,7 +569,7 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - name: Comment PR with validation results
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const testResult = '${{ needs.test.result }}';
