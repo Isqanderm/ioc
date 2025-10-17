@@ -9,7 +9,7 @@ import {
 	type ScannerGraphInterface,
 	type ScannerPluginInterface,
 	Scope,
-} from "../../dist";
+} from "../../src";
 
 interface ModuleExtensionSpec extends ModuleMetadata {
 	controllers: Provider[];

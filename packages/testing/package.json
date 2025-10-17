@@ -16,9 +16,22 @@
 		"test": "__test__"
 	},
 	"files": ["dist", "package.json", "LICENSE", "README.md"],
-	"main": "./dist/index.js",
-	"module": "./dist/index.js",
-	"types": "./dist/index.d.ts",
+	"main": "./dist/cjs/index.js",
+	"module": "./dist/esm/index.js",
+	"types": "./dist/types/index.d.ts",
+	"exports": {
+		".": {
+			"import": {
+				"types": "./dist/types/index.d.ts",
+				"default": "./dist/esm/index.js"
+			},
+			"require": {
+				"types": "./dist/types/index.d.ts",
+				"default": "./dist/cjs/index.js"
+			}
+		}
+	},
+	"sideEffects": false,
 	"license": "MIT",
 	"peerDependencies": {
 		"reflect-metadata": "^0.1.12 || ^0.2.0",
@@ -39,9 +52,11 @@
 		"tslib": "^2.7.0"
 	},
 	"scripts": {
-		"build": "tsc",
+		"build": "npm run build:cjs && npm run build:esm",
+		"build:cjs": "tsc -p tsconfig.cjs.json",
+		"build:esm": "tsc -p tsconfig.esm.json && node ../../scripts/fix-esm-imports.js dist/esm && echo '{\"type\":\"module\"}' > dist/esm/package.json",
 		"test": "vitest run",
-		"clean": "rm -rf ./dist && rm tsconfig.tsbuildinfo",
+		"clean": "rm -rf ./dist && rm -f tsconfig*.tsbuildinfo",
 		"test:watch": "vitest",
 		"test:ui": "vitest --ui",
 		"test:coverage": "vitest run --coverage",
