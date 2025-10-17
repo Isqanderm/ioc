@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [0.6.0](https://github.com/Isqanderm/ioc/compare/@nexus-ioc/testing@0.5.0...@nexus-ioc/testing@0.6.0) (2025-10-17)
+
+### Features
+
+- add .npmignore files to exclude unnecessary files from NPM packages ([d136e8c](https://github.com/Isqanderm/ioc/commit/d136e8cae32d5dd76eecc691a95b5e9265449d4c))
+
 # 0.5.0 (2025-10-17)
 
 ### Bug Fixes
