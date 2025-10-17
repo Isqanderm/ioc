@@ -38,7 +38,7 @@
 		"reflect-metadata": "^0.1.12 || ^0.2.0"
 	},
 	"devDependencies": {
-		"@types/node": "^22.5.4",
+		"@types/node": "^24.8.1",
 		"nexus-ioc": "^0.3.0",
 		"prettier": "^3.6.2",
 		"reflect-metadata": "^0.2.2",
