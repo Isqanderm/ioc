@@ -311,7 +311,7 @@ describe("ParseEntryFile", () => {
 		});
 
 		it("should handle empty file", () => {
-			const code = ``;
+			const code = "";
 			const sourceFile = createSourceFile(code);
 			const currentFilePath = "/project/src/entry.ts";
 

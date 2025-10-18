@@ -82,7 +82,7 @@ function parseArgs(args: string[]): CliOptions {
 				options.output = args[++i];
 				break;
 			case "-f":
-			case "--format":
+			case "--format": {
 				const format = args[++i];
 				if (format !== "json" && format !== "png" && format !== "both") {
 					throw new Error(
@@ -91,6 +91,7 @@ function parseArgs(args: string[]): CliOptions {
 				}
 				options.format = format;
 				break;
+			}
 			default:
 				if (!arg.startsWith("-")) {
 					options.entryFile = arg;

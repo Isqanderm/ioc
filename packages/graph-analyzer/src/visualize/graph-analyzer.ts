@@ -65,7 +65,7 @@ export class GraphAnalyzer {
 	 * const output = analyzer.parse(); // Returns GraphOutput and creates PNG
 	 * ```
 	 */
-	parse(): GraphOutput | void {
+	parse(): GraphOutput | undefined {
 		const format = this.options.outputFormat || "both";
 
 		if (format === "json") {
@@ -105,7 +105,7 @@ export class GraphAnalyzer {
 
 		// Write to file if path is specified
 		if (this.options.jsonOutputPath || this.options.outputPath) {
-			const fs = require("fs");
+			const fs = require("node:fs");
 			const path =
 				this.options.jsonOutputPath ||
 				this.options.outputPath ||

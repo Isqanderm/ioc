@@ -1,7 +1,7 @@
 import * as ts from "typescript";
 import { JsonFormatter } from "../json-formatter";
-import { ParseEntryFile } from "../../parser/parse-entry-file";
-import { ParseNsModule } from "../../parser/parse-ns-module";
+import type { ParseEntryFile } from "../../parser/parse-entry-file";
+import type { ParseNsModule } from "../../parser/parse-ns-module";
 import { ParseTsConfig } from "../../parser/parse-ts-config";
 
 describe("JsonFormatter", () => {

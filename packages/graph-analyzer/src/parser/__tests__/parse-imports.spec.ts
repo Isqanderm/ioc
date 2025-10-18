@@ -310,6 +310,62 @@ describe("ParseImports", () => {
 
 			expect(imports).toHaveLength(1);
 		});
+
+		describe("Error Handling", () => {
+			it("should throw error when module import not found", () => {
+				// Create a source file without the expected import
+				const code = `
+					import { OtherModule } from './other/other.module';
+				`;
+				const sourceFile = createSourceFile(code);
+				const currentFilePath = "/project/src/app.module.ts";
+
+				const parser = new ParseImports(sourceFile, currentFilePath, mockTsConfig);
+
+				// This should throw because UserModule is not imported
+				expect(() => {
+					parser.findAllNsModuleImports(["UserModule"]);
+				}).toThrow('module import not found');
+			});
+
+			it("should return import path when no .ts or .tsx file exists", () => {
+				const code = `
+					import { UserModule } from './user/user.module';
+				`;
+				const sourceFile = createSourceFile(code);
+				const currentFilePath = "/project/src/app.module.ts";
+
+				// Mock fs.existsSync to return false for all paths
+				vi.mocked(fs.existsSync).mockReturnValue(false);
+
+				const parser = new ParseImports(sourceFile, currentFilePath, mockTsConfig);
+				const imports = parser.findAllNsModuleImports(["UserModule"]);
+
+				// Should still return the import path even if file doesn't exist
+				expect(imports).toHaveLength(1);
+			});
+
+			it("should handle import without index file", () => {
+				const code = `
+					import { UserModule } from './user';
+				`;
+				const sourceFile = createSourceFile(code);
+				const currentFilePath = "/project/src/app.module.ts";
+
+				// Mock fs.existsSync to return false for index files
+				vi.mocked(fs.existsSync).mockImplementation((filePath) => {
+					const pathStr = filePath.toString();
+					// Return false for index files, true for direct files
+					return !pathStr.includes("index");
+				});
+
+				const parser = new ParseImports(sourceFile, currentFilePath, mockTsConfig);
+				const imports = parser.findAllNsModuleImports(["UserModule"]);
+
+				// Should return the import path without index
+				expect(imports).toHaveLength(1);
+			});
+		});
 	});
 });
 

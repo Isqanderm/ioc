@@ -138,7 +138,7 @@ export class ClassParser implements ProvidersInterface {
 		}
 
 		const dir = path.dirname(this.currentFilePath);
-		let resolved = path.resolve(dir, importPath);
+		const resolved = path.resolve(dir, importPath);
 
 		// Try different extensions
 		const extensions = [".ts", ".tsx", "/index.ts", "/index.tsx"];

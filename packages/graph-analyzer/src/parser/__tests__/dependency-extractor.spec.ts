@@ -568,5 +568,101 @@ describe("DependencyExtractor", () => {
 			});
 		});
 	});
+
+	describe("Edge Cases and Error Handling", () => {
+		it("should handle class without modifiers on static dependencies property", () => {
+			const code = `
+        import { Injectable } from 'nexus-ioc';
+
+        @Injectable()
+        class UserService {
+          dependencies = []; // Instance property, not static
+
+          constructor(db: any) {}
+        }
+      `;
+
+			const sourceFile = createSourceFile(code);
+			const classDecl = findClassDeclaration(sourceFile, "UserService");
+
+			expect(classDecl).toBeDefined();
+			const dependencies = extractor.extractDependencies(
+				classDecl!,
+				sourceFile,
+			);
+
+			// Should not extract dependencies since dependencies is not static and no decorators
+			expect(dependencies).toHaveLength(0);
+		});
+
+		it("should infer token type as symbol for Symbol.for() tokens", () => {
+			const code = `
+        import { Inject, Injectable } from 'nexus-ioc';
+
+        @Injectable()
+        class UserService {
+          constructor(@Inject(Symbol.for('DATABASE')) private db: any) {}
+        }
+      `;
+
+			const sourceFile = createSourceFile(code);
+			const classDecl = findClassDeclaration(sourceFile, "UserService");
+
+			expect(classDecl).toBeDefined();
+			const dependencies = extractor.extractDependencies(
+				classDecl!,
+				sourceFile,
+			);
+
+			expect(dependencies).toHaveLength(1);
+			expect(dependencies[0].tokenType).toBe("symbol");
+		});
+
+		it("should infer token type as class for uppercase tokens", () => {
+			const code = `
+        import { Inject, Injectable } from 'nexus-ioc';
+
+        @Injectable()
+        class UserService {
+          constructor(@Inject(DatabaseService) private db: any) {}
+        }
+      `;
+
+			const sourceFile = createSourceFile(code);
+			const classDecl = findClassDeclaration(sourceFile, "UserService");
+
+			expect(classDecl).toBeDefined();
+			const dependencies = extractor.extractDependencies(
+				classDecl!,
+				sourceFile,
+			);
+
+			expect(dependencies).toHaveLength(1);
+			expect(dependencies[0].tokenType).toBe("class");
+		});
+
+		it("should infer token type as string for lowercase tokens", () => {
+			const code = `
+        import { Inject, Injectable } from 'nexus-ioc';
+
+        @Injectable()
+        class UserService {
+          constructor(@Inject('database') private db: any) {}
+        }
+      `;
+
+			const sourceFile = createSourceFile(code);
+			const classDecl = findClassDeclaration(sourceFile, "UserService");
+
+			expect(classDecl).toBeDefined();
+			const dependencies = extractor.extractDependencies(
+				classDecl!,
+				sourceFile,
+			);
+
+			expect(dependencies).toHaveLength(1);
+			expect(dependencies[0].tokenType).toBe("string");
+		});
+	});
 });
 

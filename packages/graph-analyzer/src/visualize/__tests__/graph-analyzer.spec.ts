@@ -131,15 +131,33 @@ describe("GraphAnalyzer", () => {
 		});
 
 		it("should write to file when jsonOutputPath is specified", async () => {
-			// Skip this test - it requires actual file system access
-			// The functionality is tested in integration tests
-			expect(true).toBe(true);
+			const analyzer = new GraphAnalyzer(
+				mockGraph,
+				"/project/src/entry.ts",
+				{},
+				{ jsonOutputPath: "./output/custom.json" },
+			);
+
+			const result = analyzer.generateJson();
+
+			// Should return valid output
+			expect(result).toBeDefined();
+			expect(result.modules).toBeDefined();
 		});
 
 		it("should write to file when outputPath is specified", () => {
-			// Skip this test - it requires actual file system access
-			// The functionality is tested in integration tests
-			expect(true).toBe(true);
+			const analyzer = new GraphAnalyzer(
+				mockGraph,
+				"/project/src/entry.ts",
+				{},
+				{ outputPath: "./output/graph.json" },
+			);
+
+			const result = analyzer.generateJson();
+
+			// Should return valid output
+			expect(result).toBeDefined();
+			expect(result.modules).toBeDefined();
 		});
 
 		it("should not write to file when no path is specified", () => {
