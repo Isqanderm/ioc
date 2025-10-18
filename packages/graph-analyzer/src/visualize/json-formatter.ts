@@ -8,16 +8,65 @@ import type {
 } from "../interfaces/graph-output.interface";
 
 /**
- * Formats the dependency graph as JSON
+ * Formats dependency graphs as structured JSON output
+ *
+ * Traverses the module graph and extracts all metadata about modules, providers,
+ * and dependencies into a structured JSON format suitable for analysis or documentation.
+ *
+ * @example
+ * ```typescript
+ * const formatter = new JsonFormatter(modulesGraph, 'src/main.ts');
+ * const output = formatter.format();
+ *
+ * console.log(`Modules: ${output.modules.length}`);
+ * console.log(`Providers: ${output.providers.length}`);
+ *
+ * // Save to file
+ * const jsonString = formatter.formatAsString(2);
+ * fs.writeFileSync('graph.json', jsonString);
+ * ```
  */
 export class JsonFormatter {
+	/**
+	 * Create a new JsonFormatter instance
+	 *
+	 * @param graph - Map of module names to parsed modules
+	 * @param entryPoint - Path to application entry point file
+	 */
 	constructor(
 		private readonly graph: Map<string, ParseNsModule | ParseEntryFile>,
 		private readonly entryPoint: string,
 	) {}
 
 	/**
-	 * Format the graph as a structured JSON object
+	 * Format the dependency graph as a structured JSON object
+	 *
+	 * Traverses all modules starting from the entry point and extracts:
+	 * - Module information (name, path, imports, exports, providers)
+	 * - Provider information (token, type, dependencies, scope)
+	 * - Metadata (entry point, root module, statistics)
+	 *
+	 * @returns GraphOutput object with complete graph information
+	 * @throws Error if entry module is empty or invalid
+	 *
+	 * @example
+	 * ```typescript
+	 * const output = formatter.format();
+	 *
+	 * // Access modules
+	 * output.modules.forEach(module => {
+	 *   console.log(`Module: ${module.name}`);
+	 *   console.log(`  Providers: ${module.providers.join(', ')}`);
+	 * });
+	 *
+	 * // Access providers
+	 * output.providers.forEach(provider => {
+	 *   console.log(`Provider: ${provider.token} (${provider.type})`);
+	 *   if (provider.dependencies) {
+	 *     console.log(`  Dependencies: ${provider.dependencies.length}`);
+	 *   }
+	 * });
+	 * ```
 	 */
 	format(): GraphOutput {
 		const entryModule = this.graph.get("entry") as ParseEntryFile;
@@ -130,7 +179,27 @@ export class JsonFormatter {
 	}
 
 	/**
-	 * Format the graph as a JSON string
+	 * Format the dependency graph as a JSON string
+	 *
+	 * Convenience method that calls format() and stringifies the result.
+	 *
+	 * @param indent - Number of spaces for JSON indentation (default: 2)
+	 * @returns Formatted JSON string
+	 *
+	 * @example
+	 * ```typescript
+	 * // Pretty-printed with 2 spaces
+	 * const json = formatter.formatAsString();
+	 *
+	 * // Pretty-printed with 4 spaces
+	 * const json = formatter.formatAsString(4);
+	 *
+	 * // Minified (no indentation)
+	 * const json = formatter.formatAsString(0);
+	 *
+	 * // Save to file
+	 * fs.writeFileSync('graph.json', json);
+	 * ```
 	 */
 	formatAsString(indent = 2): string {
 		return JSON.stringify(this.format(), null, indent);

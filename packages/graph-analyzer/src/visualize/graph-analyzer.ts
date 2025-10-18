@@ -4,14 +4,44 @@ import type { GraphOutput } from "../interfaces/graph-output.interface";
 import { GraphGenerator } from "./generator";
 import { JsonFormatter } from "./json-formatter";
 
+/**
+ * Options for configuring GraphAnalyzer output
+ */
 export interface GraphAnalyzerOptions {
+	/** Output format: 'json', 'png', or 'both' (default: 'both') */
 	outputFormat?: "json" | "png" | "both";
+	/** Output file path (used when format is not 'both') */
 	outputPath?: string;
+	/** JSON output file path (default: './graph.json') */
 	jsonOutputPath?: string;
+	/** PNG output file path (default: './graph.png') */
 	pngOutputPath?: string;
 }
 
+/**
+ * Main analyzer class for dependency injection graphs
+ *
+ * Analyzes Nexus IoC dependency graphs and generates JSON and/or PNG outputs.
+ *
+ * @example
+ * ```typescript
+ * const analyzer = new GraphAnalyzer(modulesGraph, 'src/main.ts', {
+ *   outputFormat: 'json',
+ *   jsonOutputPath: './output/graph.json'
+ * });
+ *
+ * const output = analyzer.parse();
+ * console.log(`Found ${output.metadata.totalProviders} providers`);
+ * ```
+ */
 export class GraphAnalyzer {
+	/**
+	 * Create a new GraphAnalyzer instance
+	 *
+	 * @param graph - Map of module names to parsed modules
+	 * @param entryPoint - Path to application entry point file
+	 * @param options - Configuration options for output generation
+	 */
 	constructor(
 		private readonly graph: Map<string, ParseNsModule | ParseEntryFile>,
 		private readonly entryPoint: string,
@@ -19,7 +49,21 @@ export class GraphAnalyzer {
 	) {}
 
 	/**
-	 * Parse and generate output based on options
+	 * Parse the dependency graph and generate output based on configured format
+	 *
+	 * @returns GraphOutput object if format is 'json' or 'both', void if format is 'png'
+	 *
+	 * @example
+	 * ```typescript
+	 * // Generate JSON only
+	 * const output = analyzer.parse();
+	 *
+	 * // Generate PNG only
+	 * analyzer.parse(); // Returns void
+	 *
+	 * // Generate both
+	 * const output = analyzer.parse(); // Returns GraphOutput and creates PNG
+	 * ```
 	 */
 	parse(): GraphOutput | void {
 		const format = this.options.outputFormat || "both";
@@ -41,7 +85,19 @@ export class GraphAnalyzer {
 	}
 
 	/**
-	 * Generate JSON output
+	 * Generate JSON output of the dependency graph
+	 *
+	 * Creates a structured JSON representation of all modules, providers, and dependencies.
+	 * Optionally writes the output to a file if jsonOutputPath or outputPath is configured.
+	 *
+	 * @returns GraphOutput object containing modules, providers, and metadata
+	 *
+	 * @example
+	 * ```typescript
+	 * const output = analyzer.generateJson();
+	 * console.log(`Total modules: ${output.metadata.totalModules}`);
+	 * console.log(`Total providers: ${output.metadata.totalProviders}`);
+	 * ```
 	 */
 	generateJson(): GraphOutput {
 		const formatter = new JsonFormatter(this.graph, this.entryPoint);
@@ -62,7 +118,18 @@ export class GraphAnalyzer {
 	}
 
 	/**
-	 * Generate PNG visualization
+	 * Generate PNG visualization of the dependency graph using Graphviz
+	 *
+	 * Creates a visual graph representation showing modules as nodes and dependencies as edges.
+	 * Requires Graphviz to be installed on the system.
+	 *
+	 * @throws Error if Graphviz is not installed or graph generation fails
+	 *
+	 * @example
+	 * ```typescript
+	 * analyzer.generatePng();
+	 * // Creates graph.png in the configured output path
+	 * ```
 	 */
 	generatePng(): void {
 		const entryModule = this.graph.get("entry") as ParseEntryFile;
