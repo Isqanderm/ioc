@@ -83,5 +83,7 @@ const basePath = path.resolve("./example");
 parseEntryPoint(entryPath, tsConfig, basePath).then((graph) => {
 	// console.log("Граф зависимостей:", graph);
 
-	new GraphAnalyzer(modulesGraph).parse();
+	new GraphAnalyzer(modulesGraph, entryPath, {
+		outputFormat: "both",
+	}).parse();
 });

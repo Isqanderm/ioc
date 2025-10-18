@@ -7,6 +7,9 @@
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "graph-analyzer": "./dist/cli.js"
+  },
   "license": "MIT",
   "directories": {
     "lib": "src",

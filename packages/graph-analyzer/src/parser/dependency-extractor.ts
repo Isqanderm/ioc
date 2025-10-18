@@ -72,13 +72,13 @@ export class DependencyExtractor {
 		sourceFile: ts.SourceFile,
 	): Dependency[] {
 		const dependencies: Dependency[] = [];
-		const constructor = this.findConstructor(classDeclaration);
+		const constructorNode = this.findConstructor(classDeclaration);
 
-		if (!constructor || !constructor.parameters) {
+		if (!constructorNode || !constructorNode.parameters) {
 			return dependencies;
 		}
 
-		constructor.parameters.forEach((param, index) => {
+		constructorNode.parameters.forEach((param, index) => {
 			const injectDecorator = this.findInjectDecorator(param);
 
 			if (injectDecorator) {
