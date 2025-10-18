@@ -178,6 +178,131 @@ describe("JsonFormatter", () => {
 
 			expect(() => formatter.format()).toThrow("Empty entry module");
 		});
+
+		it("should format UseFactory providers correctly", () => {
+			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const entryFile = {
+				name: "AppModule",
+				imports: ["AppModule"],
+				exports: [],
+				deps: [],
+				filePath: "/test/entry.ts",
+			} as unknown as ParseEntryFile;
+
+			const mockModule = {
+				name: "AppModule",
+				imports: [],
+				exports: [],
+				providers: [
+					{
+						token: "LOGGER",
+						type: "UseFactory",
+						inject: ["ConfigService"],
+						dependencies: [],
+					},
+				],
+				deps: [],
+				isGlobal: false,
+				filePath: "/test/app.module.ts",
+			} as unknown as ParseNsModule;
+
+			graph.set("entry", entryFile);
+			graph.set("AppModule", mockModule);
+
+			const formatter = new JsonFormatter(graph, "/test/entry.ts");
+			const output = formatter.format();
+
+			const logger = output.providers.find((p) => p.token === "LOGGER");
+			expect(logger).toMatchObject({
+				token: "LOGGER",
+				type: "UseFactory",
+				module: "AppModule",
+				factory: ["ConfigService"],
+			});
+		});
+
+		it("should format UseClass providers correctly", () => {
+			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const entryFile = {
+				name: "AppModule",
+				imports: ["AppModule"],
+				exports: [],
+				deps: [],
+				filePath: "/test/entry.ts",
+			} as unknown as ParseEntryFile;
+
+			const mockModule = {
+				name: "AppModule",
+				imports: [],
+				exports: [],
+				providers: [
+					{
+						token: "UserService",
+						type: "UseClass",
+						inject: ["UserServiceImpl"],
+						dependencies: [],
+					},
+				],
+				deps: [],
+				isGlobal: false,
+				filePath: "/test/app.module.ts",
+			} as unknown as ParseNsModule;
+
+			graph.set("entry", entryFile);
+			graph.set("AppModule", mockModule);
+
+			const formatter = new JsonFormatter(graph, "/test/entry.ts");
+			const output = formatter.format();
+
+			const userService = output.providers.find((p) => p.token === "UserService");
+			expect(userService).toMatchObject({
+				token: "UserService",
+				type: "UseClass",
+				module: "AppModule",
+				useClass: ["UserServiceImpl"],
+			});
+		});
+
+		it("should handle circular module dependencies", () => {
+			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const entryFile = {
+				name: "AppModule",
+				imports: ["AppModule"],
+				exports: [],
+				deps: [],
+				filePath: "/test/entry.ts",
+			} as unknown as ParseEntryFile;
+
+			const appModule = {
+				name: "AppModule",
+				imports: ["UserModule"],
+				exports: [],
+				providers: [],
+				deps: [],
+				isGlobal: false,
+				filePath: "/test/app.module.ts",
+			} as unknown as ParseNsModule;
+
+			const userModule = {
+				name: "UserModule",
+				imports: ["AppModule"], // Circular dependency
+				exports: [],
+				providers: [],
+				deps: [],
+				isGlobal: false,
+				filePath: "/test/user.module.ts",
+			} as unknown as ParseNsModule;
+
+			graph.set("entry", entryFile);
+			graph.set("AppModule", appModule);
+			graph.set("UserModule", userModule);
+
+			const formatter = new JsonFormatter(graph, "/test/entry.ts");
+			const output = formatter.format();
+
+			// Should handle circular dependencies without infinite loop
+			expect(output.modules).toHaveLength(2);
+		});
 	});
 
 	describe("formatAsString", () => {

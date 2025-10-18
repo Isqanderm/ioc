@@ -200,7 +200,7 @@ graph-analyzer --help
 **Files to Create:**
 - `__tests__/` directories in each module
 - `fixtures/` directory with test cases
-- `jest.config.js` - Test configuration
+- `vitest.config.ts` - Test configuration
 
 **Deliverables:**
 - Comprehensive test suite

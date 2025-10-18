@@ -22,6 +22,6 @@
 		"allowJs": false,
 		"strict": true,
 		"strictNullChecks": true,
-		"types": ["node", "jest"]
+		"types": ["node", "vitest/globals"]
 	}
 }
