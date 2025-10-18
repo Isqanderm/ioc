@@ -4,6 +4,13 @@ The Graph Analyzer now supports generating interactive HTML visualizations of yo
 
 ## Features
 
+### Visual Grouping
+- **Compound Nodes**: Providers are visually grouped inside their parent modules using Cytoscape.js compound nodes
+- **Clear Module Boundaries**: Each module is displayed as a container with a semi-transparent background and border
+- **Hierarchical Layout**: The COSE layout algorithm respects parent-child relationships, keeping providers close to their modules
+- **Easy Identification**: At a glance, you can see which providers belong to which module
+- **Global Module Highlighting**: Global modules are displayed with a purple background to distinguish them from regular modules
+
 ### Interactive Graph
 - **Zoom and Pan**: Navigate large dependency graphs with ease
 - **Click to Explore**: Click on any node to see detailed information
@@ -198,20 +205,34 @@ const analyzer = new GraphAnalyzer(modulesGraph, 'src/main.ts', {
 
 ## Graph Visualization Details
 
-### Node Types
+### Visual Grouping with Compound Nodes
 
-#### Module Nodes
-- **Shape**: Rounded rectangle
-- **Color**: Light blue (#90caf9)
-- **Global Modules**: Purple (#ce93d8) with thicker border
+The visualization uses **Cytoscape.js compound nodes** to create a clear hierarchical structure:
 
-#### Provider Nodes
+#### Module Containers (Parent Nodes)
+- **Appearance**: Semi-transparent rounded rectangles with borders
+- **Background**: Light blue (#90caf9) at 15% opacity
+- **Border**: 3px solid border (#42a5f5) at 80% opacity
+- **Padding**: 20px around child nodes
+- **Label Position**: Top center, above the container
+- **Global Modules**: Purple background (#ce93d8) with 4px border (#ab47bc)
+
+#### Provider Nodes (Child Nodes)
 - **Shape**: Ellipse
-- **Colors**:
-  - Class: Light blue (#90caf9)
+- **Size**: 80px × 80px
+- **Position**: Inside their parent module container
+- **Colors by Type**:
+  - Class: Light green (#a5d6a7)
   - UseValue: Light green (#a5d6a7)
   - UseFactory: Light coral (#ffab91)
   - UseClass: Light yellow (#fff59d)
+
+#### Benefits of Compound Nodes
+1. **Clear Ownership**: Immediately see which providers belong to which module
+2. **Reduced Visual Clutter**: No need for "provides" edges since containment shows the relationship
+3. **Better Layout**: The COSE algorithm keeps related nodes together
+4. **Scalability**: Works well with large graphs (25+ modules, 60+ providers)
+5. **Contextual Filtering**: View modes preserve module containers for context
 
 ### Edge Types
 
@@ -219,23 +240,22 @@ const analyzer = new GraphAnalyzer(modulesGraph, 'src/main.ts', {
 - **Color**: Gray (#666)
 - **Style**: Solid line
 - **Direction**: From importing module to imported module
-
-#### Provides Edges
-- **Color**: Green (#4caf50)
-- **Style**: Dashed line
-- **Direction**: From module to provider
+- **Purpose**: Shows module-to-module dependencies
 
 #### Dependency Edges
 - **Color**: Orange (#ff9800)
 - **Style**: Solid line (dotted for optional dependencies)
 - **Direction**: From provider to its dependencies
+- **Purpose**: Shows provider-to-provider dependencies
 
 ## Interactive Controls
 
 ### View Modes
-- **All**: Shows both modules and providers with all connections
-- **Modules Only**: Shows only module nodes and import edges
-- **Providers Only**: Shows only provider nodes and dependency edges
+- **All**: Shows both modules (with their provider children) and all connections
+- **Modules Only**: Shows module containers and import edges, hides provider nodes and dependency edges
+- **Providers Only**: Shows module containers (for context) with provider nodes and dependency edges, hides import edges
+
+Note: Module containers are always visible in "Providers Only" mode to maintain visual context and grouping.
 
 ### Search
 Type in the search box to highlight matching nodes. The graph will automatically zoom to fit the highlighted nodes.

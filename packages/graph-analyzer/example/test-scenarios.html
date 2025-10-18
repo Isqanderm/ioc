@@ -1,0 +1,1740 @@
+<!DOCTYPE html>
+<!--
+================================================================================
+Graph Analyzer - Interactive Test Scenarios
+================================================================================
+
+This HTML file provides comprehensive test scenarios for the Graph Analyzer's
+interactive HTML visualization feature. It demonstrates all capabilities of
+the visualization system with realistic, hand-crafted test data.
+
+PURPOSE:
+--------
+- Test and demonstrate all interactive features of the graph visualization
+- Provide examples of different application architectures and patterns
+- Validate performance with graphs of varying sizes and complexity
+- Serve as a visual reference for understanding the visualization capabilities
+
+TEST SCENARIOS:
+---------------
+
+1. SIMPLE APPLICATION (7 modules, 15 providers)
+   - Demonstrates basic module structure with imports
+   - Shows all provider types: Class, UseValue, UseFactory, UseClass
+   - Includes different scopes: Singleton, Request, Transient
+   - Features optional dependencies
+   - Demonstrates global modules (ConfigModule, LoggerModule)
+   - Shows exported providers for sharing between modules
+   - Perfect for learning the basics of the visualization
+
+2. CIRCULAR DEPENDENCIES (8 modules, 11 providers)
+   - Demonstrates circular module dependencies (A → B → C → A)
+   - Shows circular provider dependencies
+   - Tests how the graph layout handles cycles
+   - Helps identify potential design issues in dependency structure
+   - Validates that cycles are visually identifiable
+   - All relationships remain clickable and navigable
+
+3. LARGE COMPLEX APPLICATION (25 modules, 62 providers)
+   - Realistic large-scale microservices architecture
+   - Organized in layers: API, Business, Data, Infrastructure
+   - Multiple feature modules: Users, Products, Orders, Payments, Notifications
+   - Shared infrastructure: Database, Cache, Queue, Logger, Config
+   - Complex dependency chains across layers
+   - Tests graph performance and layout with large datasets
+   - Validates that all interactive features work at scale
+
+INTERACTIVE FEATURES TESTED:
+----------------------------
+✓ Clickable module imports - Navigate to imported modules
+✓ Clickable providers - Navigate to provider definitions
+✓ Clickable exports - Navigate to exported providers
+✓ Clickable dependencies - Navigate to provider dependencies
+✓ Smooth pan and zoom animations (500ms, ease-in-out-cubic)
+✓ Visual highlighting of target nodes and edges
+✓ Search functionality across all nodes
+✓ View mode filtering (All, Modules Only, Providers Only)
+✓ Zoom controls (In, Out, Fit)
+✓ Info panel with detailed node information
+✓ Tab switching between scenarios
+✓ Responsive layout and styling
+
+VISUAL LEGEND:
+--------------
+Modules:
+  - Blue rounded rectangles: Regular modules
+  - Purple rounded rectangles: Global modules (available everywhere)
+
+Providers:
+  - Green ellipses: Class providers
+  - Light green ellipses: UseValue providers
+  - Orange ellipses: UseFactory providers
+  - Yellow ellipses: UseClass providers
+
+Edges:
+  - Gray solid arrows: Module imports
+  - Green dashed arrows: Module provides provider
+  - Orange solid arrows: Provider dependencies
+  - Orange dotted arrows: Optional dependencies
+  - Yellow highlight: Selected/navigated elements
+
+USAGE:
+------
+1. Open this file in a web browser
+2. Click on the scenario tabs to switch between test cases
+3. Click on any node to see its details in the info panel
+4. Click on any relationship link in the info panel to navigate
+5. Use the search box to find specific modules or providers
+6. Use view mode buttons to filter the graph
+7. Use zoom controls to adjust the view
+
+TESTING CHECKLIST:
+------------------
+□ All three scenarios load correctly
+□ Scenario descriptions display properly
+□ Graph renders with correct layout
+□ Nodes are colored correctly by type
+□ Edges are styled correctly by relationship type
+□ Clicking nodes shows details in info panel
+□ Clicking links in info panel navigates to target nodes
+□ Navigation includes smooth animation
+□ Target nodes are highlighted correctly
+□ Search filters nodes correctly
+□ View modes filter correctly
+□ Zoom controls work properly
+□ Tab switching resets state correctly
+□ Large scenario performs well (no lag)
+□ Circular dependencies are visible and navigable
+
+TECHNICAL DETAILS:
+------------------
+- Uses Cytoscape.js v3.28.1 for graph rendering
+- Layout algorithm: COSE (Compound Spring Embedder)
+- Animation easing: ease-in-out-cubic
+- Animation duration: 500ms
+- No external dependencies except Cytoscape.js
+- Pure vanilla JavaScript (no frameworks)
+- Fully self-contained (works offline)
+
+MAINTENANCE:
+------------
+When updating the HtmlGenerator class, test changes against all three scenarios
+to ensure backward compatibility and proper functionality at different scales.
+
+================================================================================
+-->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graph Analyzer - Test Scenarios</title>
+    <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #ffffff;
+            color: #333333;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e0e0e0;
+            background: #f5f5f5;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .scenario-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .scenario-tab {
+            padding: 0.5rem 1rem;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #666;
+            transition: all 0.2s;
+            margin-bottom: -2px;
+        }
+
+        .scenario-tab:hover {
+            color: #333;
+            background: #f0f0f0;
+        }
+
+        .scenario-tab.active {
+            color: #007acc;
+            border-bottom-color: #007acc;
+        }
+
+        .scenario-description {
+            padding: 1rem;
+            background: #fffbea;
+            border-left: 4px solid #ffc107;
+            margin: 1rem;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+
+        .scenario-description h3 {
+            margin-bottom: 0.5rem;
+            color: #333;
+        }
+
+        .scenario-description ul {
+            margin-left: 1.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .scenario-description li {
+            margin-bottom: 0.25rem;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        #cy {
+            flex: 1;
+            background: #fafafa;
+        }
+
+        .sidebar {
+            width: 350px;
+            border-left: 1px solid #e0e0e0;
+            background: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .controls {
+            padding: 1rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .control-group {
+            margin-bottom: 1rem;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-group label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .control-group input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+
+        .control-group button {
+            padding: 0.5rem 1rem;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+            border: 1px solid #e0e0e0;
+            background: #ffffff;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .control-group button:hover {
+            background: #f0f0f0;
+            border-color: #007acc;
+        }
+
+        .control-group button.active {
+            background: #007acc;
+            color: white;
+            border-color: #007acc;
+        }
+
+        #info-panel {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+
+        .placeholder {
+            text-align: center;
+            color: #999;
+            padding: 2rem 1rem;
+        }
+
+        .placeholder svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 1rem;
+            opacity: 0.3;
+        }
+
+        #node-details {
+            display: none;
+        }
+
+        .info-item {
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .info-item:last-child {
+            border-bottom: none;
+        }
+
+        .info-item label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .info-item .value {
+            font-size: 0.875rem;
+        }
+
+        .info-item a {
+            color: #007acc;
+            text-decoration: none;
+        }
+
+        .info-item a:hover {
+            text-decoration: underline;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-right: 0.5rem;
+        }
+
+        .badge.module { background: #90caf9; color: #000; }
+        .badge.provider { background: #a5d6a7; color: #000; }
+        .badge.class { background: #90caf9; color: #000; }
+        .badge.usevalue { background: #a5d6a7; color: #000; }
+        .badge.usefactory { background: #ffab91; color: #000; }
+        .badge.useclass { background: #fff59d; color: #000; }
+        .badge.global { background: #ce93d8; color: #000; }
+
+        .dependency-list {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .dependency-list li {
+            padding: 0.25rem 0;
+            font-size: 0.875rem;
+        }
+
+        .dependency-list li::before {
+            content: "→ ";
+            color: #666;
+        }
+
+        .node-link {
+            color: #007acc;
+            text-decoration: none;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+
+        .node-link:hover {
+            color: #005a9e;
+            text-decoration: underline;
+        }
+
+        .node-link code {
+            color: inherit;
+        }
+
+        code {
+            background: #e8e8e8;
+            padding: 0.125rem 0.375rem;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+        }
+
+        .stats {
+            display: flex;
+            gap: 1rem;
+            margin-top: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .stat-value {
+            font-weight: 600;
+            color: #007acc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Graph Analyzer - Interactive Test Scenarios</h1>
+            <div class="scenario-tabs">
+                <button class="scenario-tab active" data-scenario="simple">Simple Application</button>
+                <button class="scenario-tab" data-scenario="circular">Circular Dependencies</button>
+                <button class="scenario-tab" data-scenario="large">Large Complex App</button>
+            </div>
+        </header>
+
+        <div class="scenario-description" id="scenario-description">
+            <!-- Description will be inserted here -->
+        </div>
+
+        <div class="main-content">
+            <div id="cy"></div>
+            <div class="sidebar">
+                <div class="controls">
+                    <div class="control-group">
+                        <label>Search</label>
+                        <input type="text" id="search" placeholder="Search modules or providers...">
+                    </div>
+                    <div class="control-group">
+                        <label>View Mode</label>
+                        <button id="view-all" class="active">All</button>
+                        <button id="view-modules">Modules Only</button>
+                        <button id="view-providers">Providers Only</button>
+                    </div>
+                    <div class="control-group">
+                        <label>Zoom</label>
+                        <button id="reset-zoom">Reset View</button>
+                        <button id="fit-graph">Fit to Screen</button>
+                    </div>
+                </div>
+                <div id="info-panel">
+                    <div class="placeholder">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                        </svg>
+                        <p>Click on a node to view details</p>
+                    </div>
+                    <div id="node-details"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================================
+        // SCENARIO 1: Simple Application
+        // ============================================================================
+        // Demonstrates:
+        // - Basic module structure with imports
+        // - All provider types (Class, UseValue, UseFactory, UseClass)
+        // - Different scopes (Singleton, Request, Transient)
+        // - Optional dependencies
+        // - Global modules
+        // - Exported providers
+        const simpleScenario = {
+            description: {
+                title: "Simple Application",
+                text: "A realistic small application demonstrating all basic features:",
+                features: [
+                    "7 modules with clear hierarchical structure",
+                    "15 providers of all types (Class, UseValue, UseFactory, UseClass)",
+                    "Different scopes: Singleton, Request, Transient",
+                    "Optional dependencies marked with (optional)",
+                    "Global modules (ConfigModule, LoggerModule) shown in purple",
+                    "Exported providers for sharing between modules",
+                    "Clickable imports, providers, exports, and dependencies"
+                ]
+            },
+            nodes: [
+                // Modules
+                { data: { id: 'module-AppModule', label: 'AppModule', type: 'module', isGlobal: false,
+                    path: '/src/app.module.ts', imports: ['UserModule', 'ProductModule', 'ConfigModule', 'LoggerModule'],
+                    providers: ['AppService'], exports: [] } },
+                { data: { id: 'module-UserModule', label: 'UserModule', type: 'module', isGlobal: false,
+                    path: '/src/user/user.module.ts', imports: ['DatabaseModule', 'LoggerModule'],
+                    providers: ['UserService', 'UserRepository'], exports: ['UserService'] } },
+                { data: { id: 'module-ProductModule', label: 'ProductModule', type: 'module', isGlobal: false,
+                    path: '/src/product/product.module.ts', imports: ['DatabaseModule', 'LoggerModule'],
+                    providers: ['ProductService', 'ProductRepository'], exports: ['ProductService'] } },
+                { data: { id: 'module-DatabaseModule', label: 'DatabaseModule', type: 'module', isGlobal: false,
+                    path: '/src/database/database.module.ts', imports: ['ConfigModule'],
+                    providers: ['DatabaseConnection', 'QueryBuilder'], exports: ['DatabaseConnection'] } },
+                { data: { id: 'module-ConfigModule', label: 'ConfigModule', type: 'module', isGlobal: true,
+                    path: '/src/config/config.module.ts', imports: [],
+                    providers: ['CONFIG', 'ConfigService'], exports: ['CONFIG', 'ConfigService'] } },
+                { data: { id: 'module-LoggerModule', label: 'LoggerModule', type: 'module', isGlobal: true,
+                    path: '/src/logger/logger.module.ts', imports: ['ConfigModule'],
+                    providers: ['LoggerService', 'LOG_LEVEL'], exports: ['LoggerService'] } },
+                { data: { id: 'module-AuthModule', label: 'AuthModule', type: 'module', isGlobal: false,
+                    path: '/src/auth/auth.module.ts', imports: ['UserModule', 'ConfigModule'],
+                    providers: ['AuthService', 'JwtService', 'TokenFactory'], exports: ['AuthService'] } },
+
+                // Providers - Class type
+                { data: { id: 'provider-AppService', label: 'AppService', type: 'provider', providerType: 'Class',
+                    module: 'AppModule', scope: 'Singleton',
+                    dependencies: [
+                        { token: 'UserService', optional: false },
+                        { token: 'ProductService', optional: false },
+                        { token: 'LoggerService', optional: false }
+                    ] } },
+                { data: { id: 'provider-UserService', label: 'UserService', type: 'provider', providerType: 'Class',
+                    module: 'UserModule', scope: 'Singleton',
+                    dependencies: [
+                        { token: 'UserRepository', optional: false },
+                        { token: 'LoggerService', optional: false }
+                    ] } },
+                { data: { id: 'provider-UserRepository', label: 'UserRepository', type: 'provider', providerType: 'Class',
+                    module: 'UserModule', scope: 'Request',
+                    dependencies: [
+                        { token: 'DatabaseConnection', optional: false }
+                    ] } },
+                { data: { id: 'provider-ProductService', label: 'ProductService', type: 'provider', providerType: 'Class',
+                    module: 'ProductModule', scope: 'Singleton',
+                    dependencies: [
+                        { token: 'ProductRepository', optional: false },
+                        { token: 'LoggerService', optional: false }
+                    ] } },
+                { data: { id: 'provider-ProductRepository', label: 'ProductRepository', type: 'provider', providerType: 'Class',
+                    module: 'ProductModule', scope: 'Request',
+                    dependencies: [
+                        { token: 'DatabaseConnection', optional: false },
+                        { token: 'QueryBuilder', optional: true }
+                    ] } },
+                { data: { id: 'provider-DatabaseConnection', label: 'DatabaseConnection', type: 'provider', providerType: 'Class',
+                    module: 'DatabaseModule', scope: 'Singleton',
+                    dependencies: [
+                        { token: 'CONFIG', optional: false }
+                    ] } },
+                { data: { id: 'provider-QueryBuilder', label: 'QueryBuilder', type: 'provider', providerType: 'Class',
+                    module: 'DatabaseModule', scope: 'Transient',
+                    dependencies: [] } },
+                { data: { id: 'provider-ConfigService', label: 'ConfigService', type: 'provider', providerType: 'Class',
+                    module: 'ConfigModule', scope: 'Singleton',
+                    dependencies: [
+                        { token: 'CONFIG', optional: false }
+                    ] } },
+                { data: { id: 'provider-LoggerService', label: 'LoggerService', type: 'provider', providerType: 'Class',
+                    module: 'LoggerModule', scope: 'Singleton',
+                    dependencies: [
+                        { token: 'LOG_LEVEL', optional: true },
+                        { token: 'ConfigService', optional: true }
+                    ] } },
+                { data: { id: 'provider-AuthService', label: 'AuthService', type: 'provider', providerType: 'Class',
+                    module: 'AuthModule', scope: 'Singleton',
+                    dependencies: [
+                        { token: 'UserService', optional: false },
+                        { token: 'JwtService', optional: false }
+                    ] } },
+                { data: { id: 'provider-JwtService', label: 'JwtService', type: 'provider', providerType: 'Class',
+                    module: 'AuthModule', scope: 'Singleton',
+                    dependencies: [
+                        { token: 'CONFIG', optional: false }
+                    ] } },
+
+                // Providers - UseValue type
+                { data: { id: 'provider-CONFIG', label: 'CONFIG', type: 'provider', providerType: 'UseValue',
+                    module: 'ConfigModule', value: '{ database: "postgres", port: 5432 }',
+                    dependencies: [] } },
+                { data: { id: 'provider-LOG_LEVEL', label: 'LOG_LEVEL', type: 'provider', providerType: 'UseValue',
+                    module: 'LoggerModule', value: '"debug"',
+                    dependencies: [] } },
+
+                // Providers - UseFactory type
+                { data: { id: 'provider-TokenFactory', label: 'TokenFactory', type: 'provider', providerType: 'UseFactory',
+                    module: 'AuthModule', factory: '(config) => new TokenGenerator(config)',
+                    dependencies: [
+                        { token: 'CONFIG', optional: false }
+                    ] } }
+            ],
+            edges: []
+        };
+
+        // Generate edges for simple scenario and set parent relationships
+        simpleScenario.nodes.forEach(node => {
+            if (node.data.type === 'module' && node.data.imports) {
+                node.data.imports.forEach(imp => {
+                    simpleScenario.edges.push({
+                        data: {
+                            source: node.data.id,
+                            target: 'module-' + imp,
+                            type: 'import'
+                        },
+                        classes: 'import'
+                    });
+                });
+            }
+            if (node.data.type === 'provider') {
+                // Set parent for compound node structure
+                node.data.parent = 'module-' + node.data.module;
+
+                // No longer need "provides" edges since providers are children of modules
+
+                if (node.data.dependencies) {
+                    node.data.dependencies.forEach(dep => {
+                        simpleScenario.edges.push({
+                            data: {
+                                source: node.data.id,
+                                target: 'provider-' + dep.token,
+                                type: 'dependency',
+                                optional: dep.optional
+                            },
+                            classes: dep.optional ? 'dependency optional' : 'dependency'
+                        });
+                    });
+                }
+            }
+        });
+
+        // ============================================================================
+        // SCENARIO 2: Circular Dependencies
+        // ============================================================================
+        // Demonstrates:
+        // - Circular module dependencies (A -> B -> C -> A)
+        // - Circular provider dependencies
+        // - How the visualization handles cycles
+        // - Complex dependency chains
+        const circularScenario = {
+            description: {
+                title: "Circular Dependencies",
+                text: "Demonstrates how the graph handles circular dependencies:",
+                features: [
+                    "Module A imports Module B, which imports Module C, which imports Module A",
+                    "Provider circular dependencies (Service A depends on Service B, which depends on Service A)",
+                    "Tests graph layout algorithms with cycles",
+                    "Shows potential design issues in dependency structure",
+                    "Demonstrates that cycles are visually identifiable",
+                    "All relationships are still clickable and navigable"
+                ]
+            },
+            nodes: [
+                // Circular module dependencies: A -> B -> C -> A
+                { data: { id: 'module-ModuleA', label: 'ModuleA', type: 'module', isGlobal: false,
+                    path: '/src/a/module-a.ts', imports: ['ModuleB'],
+                    providers: ['ServiceA'], exports: ['ServiceA'] } },
+                { data: { id: 'module-ModuleB', label: 'ModuleB', type: 'module', isGlobal: false,
+                    path: '/src/b/module-b.ts', imports: ['ModuleC'],
+                    providers: ['ServiceB'], exports: ['ServiceB'] } },
+                { data: { id: 'module-ModuleC', label: 'ModuleC', type: 'module', isGlobal: false,
+                    path: '/src/c/module-c.ts', imports: ['ModuleA'],
+                    providers: ['ServiceC'], exports: ['ServiceC'] } },
+
+                // Another circular chain: D -> E -> F -> D
+                { data: { id: 'module-ModuleD', label: 'ModuleD', type: 'module', isGlobal: false,
+                    path: '/src/d/module-d.ts', imports: ['ModuleE'],
+                    providers: ['ServiceD'], exports: ['ServiceD'] } },
+                { data: { id: 'module-ModuleE', label: 'ModuleE', type: 'module', isGlobal: false,
+                    path: '/src/e/module-e.ts', imports: ['ModuleF'],
+                    providers: ['ServiceE'], exports: ['ServiceE'] } },
+                { data: { id: 'module-ModuleF', label: 'ModuleF', type: 'module', isGlobal: false,
+                    path: '/src/f/module-f.ts', imports: ['ModuleD'],
+                    providers: ['ServiceF'], exports: ['ServiceF'] } },
+
+                // Root module that imports both circular chains
+                { data: { id: 'module-RootModule', label: 'RootModule', type: 'module', isGlobal: false,
+                    path: '/src/root.module.ts', imports: ['ModuleA', 'ModuleD', 'SharedModule'],
+                    providers: ['RootService'], exports: [] } },
+
+                // Shared module used by multiple modules
+                { data: { id: 'module-SharedModule', label: 'SharedModule', type: 'module', isGlobal: true,
+                    path: '/src/shared/shared.module.ts', imports: [],
+                    providers: ['UtilityService', 'SHARED_CONFIG'], exports: ['UtilityService', 'SHARED_CONFIG'] } },
+
+                // Providers with circular dependencies
+                { data: { id: 'provider-ServiceA', label: 'ServiceA', type: 'provider', providerType: 'Class',
+                    module: 'ModuleA', scope: 'Singleton',
+                    dependencies: [
+                        { token: 'ServiceB', optional: false },
+                        { token: 'UtilityService', optional: false }
+                    ] } },
+                { data: { id: 'provider-ServiceB', label: 'ServiceB', type: 'provider', providerType: 'Class',
+                    module: 'ModuleB', scope: 'Singleton',
+                    dependencies: [
+                        { token: 'ServiceC', optional: false }
+                    ] } },
+                { data: { id: 'provider-ServiceC', label: 'ServiceC', type: 'provider', providerType: 'Class',
+                    module: 'ModuleC', scope: 'Singleton',
+                    dependencies: [
+                        { token: 'ServiceA', optional: false }
+                    ] } },
+                { data: { id: 'provider-ServiceD', label: 'ServiceD', type: 'provider', providerType: 'Class',
+                    module: 'ModuleD', scope: 'Singleton',
+                    dependencies: [
+                        { token: 'ServiceE', optional: false }
+                    ] } },
+                { data: { id: 'provider-ServiceE', label: 'ServiceE', type: 'provider', providerType: 'Class',
+                    module: 'ModuleE', scope: 'Singleton',
+                    dependencies: [
+                        { token: 'ServiceF', optional: false }
+                    ] } },
+                { data: { id: 'provider-ServiceF', label: 'ServiceF', type: 'provider', providerType: 'Class',
+                    module: 'ModuleF', scope: 'Singleton',
+                    dependencies: [
+                        { token: 'ServiceD', optional: false }
+                    ] } },
+                { data: { id: 'provider-RootService', label: 'RootService', type: 'provider', providerType: 'Class',
+                    module: 'RootModule', scope: 'Singleton',
+                    dependencies: [
+                        { token: 'ServiceA', optional: false },
+                        { token: 'ServiceD', optional: false },
+                        { token: 'UtilityService', optional: false }
+                    ] } },
+                { data: { id: 'provider-UtilityService', label: 'UtilityService', type: 'provider', providerType: 'Class',
+                    module: 'SharedModule', scope: 'Singleton',
+                    dependencies: [
+                        { token: 'SHARED_CONFIG', optional: false }
+                    ] } },
+                { data: { id: 'provider-SHARED_CONFIG', label: 'SHARED_CONFIG', type: 'provider', providerType: 'UseValue',
+                    module: 'SharedModule', value: '{ version: "1.0.0" }',
+                    dependencies: [] } }
+            ],
+            edges: []
+        };
+
+        // Generate edges for circular scenario
+        circularScenario.nodes.forEach(node => {
+            if (node.data.type === 'module' && node.data.imports) {
+                node.data.imports.forEach(imp => {
+                    circularScenario.edges.push({
+                        data: {
+                            source: node.data.id,
+                            target: 'module-' + imp,
+                            type: 'import'
+                        },
+                        classes: 'import'
+                    });
+                });
+            }
+            if (node.data.type === 'provider') {
+                // Set parent for compound node structure
+                node.data.parent = 'module-' + node.data.module;
+
+                // No longer need "provides" edges since providers are children of modules
+
+                if (node.data.dependencies) {
+                    node.data.dependencies.forEach(dep => {
+                        circularScenario.edges.push({
+                            data: {
+                                source: node.data.id,
+                                target: 'provider-' + dep.token,
+                                type: 'dependency',
+                                optional: dep.optional
+                            },
+                            classes: dep.optional ? 'dependency optional' : 'dependency'
+                        });
+                    });
+                }
+            }
+        });
+
+        // ============================================================================
+        // SCENARIO 3: Large Complex Application
+        // ============================================================================
+        // Demonstrates:
+        // - Large-scale application with 25+ modules
+        // - 60+ providers of all types
+        // - Realistic layered architecture (Controllers, Services, Repositories, Utils)
+        // - Multiple feature modules
+        // - Global shared modules
+        // - Complex dependency chains
+        // - Performance testing with large graphs
+        const largeScenario = {
+            description: {
+                title: "Large Complex Application",
+                text: "A realistic large-scale application demonstrating:",
+                features: [
+                    "25+ modules organized in layers (API, Business, Data, Infrastructure)",
+                    "60+ providers including all types",
+                    "Realistic microservices architecture",
+                    "Multiple feature modules (Users, Products, Orders, Payments, Notifications)",
+                    "Shared infrastructure (Database, Cache, Queue, Logger, Config)",
+                    "Complex dependency chains across layers",
+                    "Tests graph performance and layout with large datasets",
+                    "All interactive features work with large graphs"
+                ]
+            },
+            nodes: [
+                // ===== CORE/INFRASTRUCTURE MODULES (Global) =====
+                { data: { id: 'module-CoreModule', label: 'CoreModule', type: 'module', isGlobal: true,
+                    path: '/src/core/core.module.ts', imports: [],
+                    providers: ['APP_CONFIG', 'ENV_CONFIG'], exports: ['APP_CONFIG', 'ENV_CONFIG'] } },
+                { data: { id: 'module-DatabaseModule', label: 'DatabaseModule', type: 'module', isGlobal: true,
+                    path: '/src/database/database.module.ts', imports: ['CoreModule'],
+                    providers: ['DatabaseConnection', 'TransactionManager', 'MigrationService'],
+                    exports: ['DatabaseConnection', 'TransactionManager'] } },
+                { data: { id: 'module-CacheModule', label: 'CacheModule', type: 'module', isGlobal: true,
+                    path: '/src/cache/cache.module.ts', imports: ['CoreModule'],
+                    providers: ['RedisClient', 'CacheService'], exports: ['CacheService'] } },
+                { data: { id: 'module-QueueModule', label: 'QueueModule', type: 'module', isGlobal: true,
+                    path: '/src/queue/queue.module.ts', imports: ['CoreModule'],
+                    providers: ['QueueService', 'JobProcessor'], exports: ['QueueService'] } },
+                { data: { id: 'module-LoggerModule', label: 'LoggerModule', type: 'module', isGlobal: true,
+                    path: '/src/logger/logger.module.ts', imports: ['CoreModule'],
+                    providers: ['LoggerService', 'LOG_LEVEL'], exports: ['LoggerService'] } },
+                { data: { id: 'module-EventModule', label: 'EventModule', type: 'module', isGlobal: true,
+                    path: '/src/event/event.module.ts', imports: [],
+                    providers: ['EventBus', 'EventEmitter'], exports: ['EventBus'] } },
+
+                // ===== SHARED/COMMON MODULES =====
+                { data: { id: 'module-AuthModule', label: 'AuthModule', type: 'module', isGlobal: false,
+                    path: '/src/auth/auth.module.ts', imports: ['CoreModule', 'CacheModule'],
+                    providers: ['AuthService', 'JwtService', 'PasswordHasher', 'TokenFactory'],
+                    exports: ['AuthService', 'JwtService'] } },
+                { data: { id: 'module-ValidationModule', label: 'ValidationModule', type: 'module', isGlobal: false,
+                    path: '/src/validation/validation.module.ts', imports: [],
+                    providers: ['ValidationService', 'SchemaValidator'], exports: ['ValidationService'] } },
+                { data: { id: 'module-EmailModule', label: 'EmailModule', type: 'module', isGlobal: false,
+                    path: '/src/email/email.module.ts', imports: ['CoreModule', 'QueueModule'],
+                    providers: ['EmailService', 'EmailTemplateEngine'], exports: ['EmailService'] } },
+                { data: { id: 'module-StorageModule', label: 'StorageModule', type: 'module', isGlobal: false,
+                    path: '/src/storage/storage.module.ts', imports: ['CoreModule'],
+                    providers: ['S3Service', 'FileUploadService'], exports: ['FileUploadService'] } },
+
+                // ===== FEATURE MODULES - Users =====
+                { data: { id: 'module-UserModule', label: 'UserModule', type: 'module', isGlobal: false,
+                    path: '/src/user/user.module.ts',
+                    imports: ['DatabaseModule', 'CacheModule', 'LoggerModule', 'EventModule', 'ValidationModule'],
+                    providers: ['UserController', 'UserService', 'UserRepository', 'UserFactory'],
+                    exports: ['UserService'] } },
+                { data: { id: 'module-UserProfileModule', label: 'UserProfileModule', type: 'module', isGlobal: false,
+                    path: '/src/user/profile/profile.module.ts',
+                    imports: ['UserModule', 'StorageModule'],
+                    providers: ['ProfileController', 'ProfileService', 'ProfileRepository'],
+                    exports: ['ProfileService'] } },
+
+                // ===== FEATURE MODULES - Products =====
+                { data: { id: 'module-ProductModule', label: 'ProductModule', type: 'module', isGlobal: false,
+                    path: '/src/product/product.module.ts',
+                    imports: ['DatabaseModule', 'CacheModule', 'LoggerModule', 'ValidationModule', 'StorageModule'],
+                    providers: ['ProductController', 'ProductService', 'ProductRepository', 'ProductFactory'],
+                    exports: ['ProductService'] } },
+                { data: { id: 'module-CategoryModule', label: 'CategoryModule', type: 'module', isGlobal: false,
+                    path: '/src/product/category/category.module.ts',
+                    imports: ['DatabaseModule', 'ProductModule'],
+                    providers: ['CategoryController', 'CategoryService', 'CategoryRepository'],
+                    exports: ['CategoryService'] } },
+                { data: { id: 'module-InventoryModule', label: 'InventoryModule', type: 'module', isGlobal: false,
+                    path: '/src/product/inventory/inventory.module.ts',
+                    imports: ['DatabaseModule', 'ProductModule', 'EventModule'],
+                    providers: ['InventoryController', 'InventoryService', 'InventoryRepository', 'StockManager'],
+                    exports: ['InventoryService'] } },
+
+                // ===== FEATURE MODULES - Orders =====
+                { data: { id: 'module-OrderModule', label: 'OrderModule', type: 'module', isGlobal: false,
+                    path: '/src/order/order.module.ts',
+                    imports: ['DatabaseModule', 'UserModule', 'ProductModule', 'EventModule', 'LoggerModule'],
+                    providers: ['OrderController', 'OrderService', 'OrderRepository', 'OrderFactory', 'OrderValidator'],
+                    exports: ['OrderService'] } },
+                { data: { id: 'module-CartModule', label: 'CartModule', type: 'module', isGlobal: false,
+                    path: '/src/order/cart/cart.module.ts',
+                    imports: ['CacheModule', 'ProductModule', 'UserModule'],
+                    providers: ['CartController', 'CartService'],
+                    exports: ['CartService'] } },
+
+                // ===== FEATURE MODULES - Payments =====
+                { data: { id: 'module-PaymentModule', label: 'PaymentModule', type: 'module', isGlobal: false,
+                    path: '/src/payment/payment.module.ts',
+                    imports: ['DatabaseModule', 'OrderModule', 'EventModule', 'LoggerModule'],
+                    providers: ['PaymentController', 'PaymentService', 'PaymentRepository', 'PaymentGateway'],
+                    exports: ['PaymentService'] } },
+                { data: { id: 'module-StripeModule', label: 'StripeModule', type: 'module', isGlobal: false,
+                    path: '/src/payment/stripe/stripe.module.ts',
+                    imports: ['CoreModule'],
+                    providers: ['StripeService', 'STRIPE_CONFIG'],
+                    exports: ['StripeService'] } },
+
+                // ===== FEATURE MODULES - Notifications =====
+                { data: { id: 'module-NotificationModule', label: 'NotificationModule', type: 'module', isGlobal: false,
+                    path: '/src/notification/notification.module.ts',
+                    imports: ['DatabaseModule', 'QueueModule', 'EmailModule', 'EventModule'],
+                    providers: ['NotificationController', 'NotificationService', 'NotificationRepository'],
+                    exports: ['NotificationService'] } },
+                { data: { id: 'module-PushNotificationModule', label: 'PushNotificationModule', type: 'module', isGlobal: false,
+                    path: '/src/notification/push/push.module.ts',
+                    imports: ['NotificationModule', 'CoreModule'],
+                    providers: ['PushService', 'FCMService'],
+                    exports: ['PushService'] } },
+
+                // ===== FEATURE MODULES - Analytics =====
+                { data: { id: 'module-AnalyticsModule', label: 'AnalyticsModule', type: 'module', isGlobal: false,
+                    path: '/src/analytics/analytics.module.ts',
+                    imports: ['DatabaseModule', 'EventModule', 'QueueModule'],
+                    providers: ['AnalyticsService', 'MetricsCollector', 'ReportGenerator'],
+                    exports: ['AnalyticsService'] } },
+
+                // ===== FEATURE MODULES - Search =====
+                { data: { id: 'module-SearchModule', label: 'SearchModule', type: 'module', isGlobal: false,
+                    path: '/src/search/search.module.ts',
+                    imports: ['ProductModule', 'CoreModule'],
+                    providers: ['SearchController', 'SearchService', 'ElasticsearchClient', 'IndexManager'],
+                    exports: ['SearchService'] } },
+
+                // ===== ROOT MODULE =====
+                { data: { id: 'module-AppModule', label: 'AppModule', type: 'module', isGlobal: false,
+                    path: '/src/app.module.ts',
+                    imports: ['CoreModule', 'AuthModule', 'UserModule', 'ProductModule', 'OrderModule',
+                              'PaymentModule', 'NotificationModule', 'AnalyticsModule', 'SearchModule'],
+                    providers: ['AppService', 'HealthCheckService'],
+                    exports: [] } }
+            ],
+            edges: []
+        };
+
+        // Add providers for large scenario - Part 1: Core/Infrastructure
+        const largeProviders1 = [
+            // Core Module
+            { data: { id: 'provider-APP_CONFIG', label: 'APP_CONFIG', type: 'provider', providerType: 'UseValue',
+                module: 'CoreModule', value: '{ name: "MyApp", version: "2.0.0" }', dependencies: [] } },
+            { data: { id: 'provider-ENV_CONFIG', label: 'ENV_CONFIG', type: 'provider', providerType: 'UseValue',
+                module: 'CoreModule', value: '{ env: "production", debug: false }', dependencies: [] } },
+
+            // Database Module
+            { data: { id: 'provider-DatabaseConnection', label: 'DatabaseConnection', type: 'provider', providerType: 'Class',
+                module: 'DatabaseModule', scope: 'Singleton',
+                dependencies: [{ token: 'APP_CONFIG', optional: false }] } },
+            { data: { id: 'provider-TransactionManager', label: 'TransactionManager', type: 'provider', providerType: 'Class',
+                module: 'DatabaseModule', scope: 'Singleton',
+                dependencies: [{ token: 'DatabaseConnection', optional: false }] } },
+            { data: { id: 'provider-MigrationService', label: 'MigrationService', type: 'provider', providerType: 'Class',
+                module: 'DatabaseModule', scope: 'Singleton',
+                dependencies: [{ token: 'DatabaseConnection', optional: false }] } },
+
+            // Cache Module
+            { data: { id: 'provider-RedisClient', label: 'RedisClient', type: 'provider', providerType: 'Class',
+                module: 'CacheModule', scope: 'Singleton',
+                dependencies: [{ token: 'APP_CONFIG', optional: false }] } },
+            { data: { id: 'provider-CacheService', label: 'CacheService', type: 'provider', providerType: 'Class',
+                module: 'CacheModule', scope: 'Singleton',
+                dependencies: [{ token: 'RedisClient', optional: false }] } },
+
+            // Queue Module
+            { data: { id: 'provider-QueueService', label: 'QueueService', type: 'provider', providerType: 'Class',
+                module: 'QueueModule', scope: 'Singleton',
+                dependencies: [{ token: 'APP_CONFIG', optional: false }] } },
+            { data: { id: 'provider-JobProcessor', label: 'JobProcessor', type: 'provider', providerType: 'Class',
+                module: 'QueueModule', scope: 'Singleton',
+                dependencies: [{ token: 'QueueService', optional: false }] } },
+
+            // Logger Module
+            { data: { id: 'provider-LoggerService', label: 'LoggerService', type: 'provider', providerType: 'Class',
+                module: 'LoggerModule', scope: 'Singleton',
+                dependencies: [{ token: 'LOG_LEVEL', optional: true }, { token: 'APP_CONFIG', optional: false }] } },
+            { data: { id: 'provider-LOG_LEVEL', label: 'LOG_LEVEL', type: 'provider', providerType: 'UseValue',
+                module: 'LoggerModule', value: '"info"', dependencies: [] } },
+
+            // Event Module
+            { data: { id: 'provider-EventBus', label: 'EventBus', type: 'provider', providerType: 'Class',
+                module: 'EventModule', scope: 'Singleton', dependencies: [] } },
+            { data: { id: 'provider-EventEmitter', label: 'EventEmitter', type: 'provider', providerType: 'Class',
+                module: 'EventModule', scope: 'Singleton',
+                dependencies: [{ token: 'EventBus', optional: false }] } },
+
+            // Auth Module
+            { data: { id: 'provider-AuthService', label: 'AuthService', type: 'provider', providerType: 'Class',
+                module: 'AuthModule', scope: 'Singleton',
+                dependencies: [{ token: 'JwtService', optional: false }, { token: 'PasswordHasher', optional: false },
+                              { token: 'CacheService', optional: false }] } },
+            { data: { id: 'provider-JwtService', label: 'JwtService', type: 'provider', providerType: 'Class',
+                module: 'AuthModule', scope: 'Singleton',
+                dependencies: [{ token: 'APP_CONFIG', optional: false }] } },
+            { data: { id: 'provider-PasswordHasher', label: 'PasswordHasher', type: 'provider', providerType: 'Class',
+                module: 'AuthModule', scope: 'Singleton', dependencies: [] } },
+            { data: { id: 'provider-TokenFactory', label: 'TokenFactory', type: 'provider', providerType: 'UseFactory',
+                module: 'AuthModule', factory: '(jwt) => new TokenGenerator(jwt)',
+                dependencies: [{ token: 'JwtService', optional: false }] } },
+
+            // Validation Module
+            { data: { id: 'provider-ValidationService', label: 'ValidationService', type: 'provider', providerType: 'Class',
+                module: 'ValidationModule', scope: 'Singleton',
+                dependencies: [{ token: 'SchemaValidator', optional: false }] } },
+            { data: { id: 'provider-SchemaValidator', label: 'SchemaValidator', type: 'provider', providerType: 'Class',
+                module: 'ValidationModule', scope: 'Singleton', dependencies: [] } },
+
+            // Email Module
+            { data: { id: 'provider-EmailService', label: 'EmailService', type: 'provider', providerType: 'Class',
+                module: 'EmailModule', scope: 'Singleton',
+                dependencies: [{ token: 'EmailTemplateEngine', optional: false }, { token: 'QueueService', optional: false }] } },
+            { data: { id: 'provider-EmailTemplateEngine', label: 'EmailTemplateEngine', type: 'provider', providerType: 'Class',
+                module: 'EmailModule', scope: 'Singleton', dependencies: [] } },
+
+            // Storage Module
+            { data: { id: 'provider-S3Service', label: 'S3Service', type: 'provider', providerType: 'Class',
+                module: 'StorageModule', scope: 'Singleton',
+                dependencies: [{ token: 'APP_CONFIG', optional: false }] } },
+            { data: { id: 'provider-FileUploadService', label: 'FileUploadService', type: 'provider', providerType: 'Class',
+                module: 'StorageModule', scope: 'Singleton',
+                dependencies: [{ token: 'S3Service', optional: false }] } }
+        ];
+
+        largeScenario.nodes.push(...largeProviders1);
+
+        // Add providers for large scenario - Part 2: Feature Modules
+        const largeProviders2 = [
+            // User Module
+            { data: { id: 'provider-UserController', label: 'UserController', type: 'provider', providerType: 'Class',
+                module: 'UserModule', scope: 'Singleton',
+                dependencies: [{ token: 'UserService', optional: false }, { token: 'ValidationService', optional: false }] } },
+            { data: { id: 'provider-UserService', label: 'UserService', type: 'provider', providerType: 'Class',
+                module: 'UserModule', scope: 'Singleton',
+                dependencies: [{ token: 'UserRepository', optional: false }, { token: 'CacheService', optional: false },
+                              { token: 'EventBus', optional: false }, { token: 'LoggerService', optional: false }] } },
+            { data: { id: 'provider-UserRepository', label: 'UserRepository', type: 'provider', providerType: 'Class',
+                module: 'UserModule', scope: 'Request',
+                dependencies: [{ token: 'DatabaseConnection', optional: false }, { token: 'TransactionManager', optional: true }] } },
+            { data: { id: 'provider-UserFactory', label: 'UserFactory', type: 'provider', providerType: 'UseFactory',
+                module: 'UserModule', factory: '() => new UserBuilder()',
+                dependencies: [] } },
+
+            // User Profile Module
+            { data: { id: 'provider-ProfileController', label: 'ProfileController', type: 'provider', providerType: 'Class',
+                module: 'UserProfileModule', scope: 'Singleton',
+                dependencies: [{ token: 'ProfileService', optional: false }] } },
+            { data: { id: 'provider-ProfileService', label: 'ProfileService', type: 'provider', providerType: 'Class',
+                module: 'UserProfileModule', scope: 'Singleton',
+                dependencies: [{ token: 'ProfileRepository', optional: false }, { token: 'UserService', optional: false },
+                              { token: 'FileUploadService', optional: false }] } },
+            { data: { id: 'provider-ProfileRepository', label: 'ProfileRepository', type: 'provider', providerType: 'Class',
+                module: 'UserProfileModule', scope: 'Request',
+                dependencies: [{ token: 'DatabaseConnection', optional: false }] } },
+
+            // Product Module
+            { data: { id: 'provider-ProductController', label: 'ProductController', type: 'provider', providerType: 'Class',
+                module: 'ProductModule', scope: 'Singleton',
+                dependencies: [{ token: 'ProductService', optional: false }, { token: 'ValidationService', optional: false }] } },
+            { data: { id: 'provider-ProductService', label: 'ProductService', type: 'provider', providerType: 'Class',
+                module: 'ProductModule', scope: 'Singleton',
+                dependencies: [{ token: 'ProductRepository', optional: false }, { token: 'CacheService', optional: false },
+                              { token: 'LoggerService', optional: false }] } },
+            { data: { id: 'provider-ProductRepository', label: 'ProductRepository', type: 'provider', providerType: 'Class',
+                module: 'ProductModule', scope: 'Request',
+                dependencies: [{ token: 'DatabaseConnection', optional: false }] } },
+            { data: { id: 'provider-ProductFactory', label: 'ProductFactory', type: 'provider', providerType: 'UseFactory',
+                module: 'ProductModule', factory: '() => new ProductBuilder()',
+                dependencies: [] } },
+
+            // Category Module
+            { data: { id: 'provider-CategoryController', label: 'CategoryController', type: 'provider', providerType: 'Class',
+                module: 'CategoryModule', scope: 'Singleton',
+                dependencies: [{ token: 'CategoryService', optional: false }] } },
+            { data: { id: 'provider-CategoryService', label: 'CategoryService', type: 'provider', providerType: 'Class',
+                module: 'CategoryModule', scope: 'Singleton',
+                dependencies: [{ token: 'CategoryRepository', optional: false }, { token: 'ProductService', optional: false }] } },
+            { data: { id: 'provider-CategoryRepository', label: 'CategoryRepository', type: 'provider', providerType: 'Class',
+                module: 'CategoryModule', scope: 'Request',
+                dependencies: [{ token: 'DatabaseConnection', optional: false }] } },
+
+            // Inventory Module
+            { data: { id: 'provider-InventoryController', label: 'InventoryController', type: 'provider', providerType: 'Class',
+                module: 'InventoryModule', scope: 'Singleton',
+                dependencies: [{ token: 'InventoryService', optional: false }] } },
+            { data: { id: 'provider-InventoryService', label: 'InventoryService', type: 'provider', providerType: 'Class',
+                module: 'InventoryModule', scope: 'Singleton',
+                dependencies: [{ token: 'InventoryRepository', optional: false }, { token: 'ProductService', optional: false },
+                              { token: 'EventBus', optional: false }] } },
+            { data: { id: 'provider-InventoryRepository', label: 'InventoryRepository', type: 'provider', providerType: 'Class',
+                module: 'InventoryModule', scope: 'Request',
+                dependencies: [{ token: 'DatabaseConnection', optional: false }] } },
+            { data: { id: 'provider-StockManager', label: 'StockManager', type: 'provider', providerType: 'Class',
+                module: 'InventoryModule', scope: 'Singleton',
+                dependencies: [{ token: 'InventoryRepository', optional: false }] } },
+
+            // Order Module
+            { data: { id: 'provider-OrderController', label: 'OrderController', type: 'provider', providerType: 'Class',
+                module: 'OrderModule', scope: 'Singleton',
+                dependencies: [{ token: 'OrderService', optional: false }] } },
+            { data: { id: 'provider-OrderService', label: 'OrderService', type: 'provider', providerType: 'Class',
+                module: 'OrderModule', scope: 'Singleton',
+                dependencies: [{ token: 'OrderRepository', optional: false }, { token: 'UserService', optional: false },
+                              { token: 'ProductService', optional: false }, { token: 'EventBus', optional: false },
+                              { token: 'LoggerService', optional: false }] } },
+            { data: { id: 'provider-OrderRepository', label: 'OrderRepository', type: 'provider', providerType: 'Class',
+                module: 'OrderModule', scope: 'Request',
+                dependencies: [{ token: 'DatabaseConnection', optional: false }, { token: 'TransactionManager', optional: false }] } },
+            { data: { id: 'provider-OrderFactory', label: 'OrderFactory', type: 'provider', providerType: 'UseFactory',
+                module: 'OrderModule', factory: '() => new OrderBuilder()',
+                dependencies: [] } },
+            { data: { id: 'provider-OrderValidator', label: 'OrderValidator', type: 'provider', providerType: 'Class',
+                module: 'OrderModule', scope: 'Singleton',
+                dependencies: [{ token: 'ValidationService', optional: false }] } },
+
+            // Cart Module
+            { data: { id: 'provider-CartController', label: 'CartController', type: 'provider', providerType: 'Class',
+                module: 'CartModule', scope: 'Singleton',
+                dependencies: [{ token: 'CartService', optional: false }] } },
+            { data: { id: 'provider-CartService', label: 'CartService', type: 'provider', providerType: 'Class',
+                module: 'CartModule', scope: 'Singleton',
+                dependencies: [{ token: 'CacheService', optional: false }, { token: 'ProductService', optional: false },
+                              { token: 'UserService', optional: false }] } }
+        ];
+
+        largeScenario.nodes.push(...largeProviders2);
+
+        // Add providers for large scenario - Part 3: Remaining Feature Modules
+        const largeProviders3 = [
+            // Payment Module
+            { data: { id: 'provider-PaymentController', label: 'PaymentController', type: 'provider', providerType: 'Class',
+                module: 'PaymentModule', scope: 'Singleton',
+                dependencies: [{ token: 'PaymentService', optional: false }] } },
+            { data: { id: 'provider-PaymentService', label: 'PaymentService', type: 'provider', providerType: 'Class',
+                module: 'PaymentModule', scope: 'Singleton',
+                dependencies: [{ token: 'PaymentRepository', optional: false }, { token: 'PaymentGateway', optional: false },
+                              { token: 'OrderService', optional: false }, { token: 'EventBus', optional: false },
+                              { token: 'LoggerService', optional: false }] } },
+            { data: { id: 'provider-PaymentRepository', label: 'PaymentRepository', type: 'provider', providerType: 'Class',
+                module: 'PaymentModule', scope: 'Request',
+                dependencies: [{ token: 'DatabaseConnection', optional: false }] } },
+            { data: { id: 'provider-PaymentGateway', label: 'PaymentGateway', type: 'provider', providerType: 'Class',
+                module: 'PaymentModule', scope: 'Singleton',
+                dependencies: [{ token: 'StripeService', optional: true }] } },
+
+            // Stripe Module
+            { data: { id: 'provider-StripeService', label: 'StripeService', type: 'provider', providerType: 'Class',
+                module: 'StripeModule', scope: 'Singleton',
+                dependencies: [{ token: 'STRIPE_CONFIG', optional: false }] } },
+            { data: { id: 'provider-STRIPE_CONFIG', label: 'STRIPE_CONFIG', type: 'provider', providerType: 'UseValue',
+                module: 'StripeModule', value: '{ apiKey: "sk_test_..." }',
+                dependencies: [] } },
+
+            // Notification Module
+            { data: { id: 'provider-NotificationController', label: 'NotificationController', type: 'provider', providerType: 'Class',
+                module: 'NotificationModule', scope: 'Singleton',
+                dependencies: [{ token: 'NotificationService', optional: false }] } },
+            { data: { id: 'provider-NotificationService', label: 'NotificationService', type: 'provider', providerType: 'Class',
+                module: 'NotificationModule', scope: 'Singleton',
+                dependencies: [{ token: 'NotificationRepository', optional: false }, { token: 'QueueService', optional: false },
+                              { token: 'EmailService', optional: false }, { token: 'EventBus', optional: false }] } },
+            { data: { id: 'provider-NotificationRepository', label: 'NotificationRepository', type: 'provider', providerType: 'Class',
+                module: 'NotificationModule', scope: 'Request',
+                dependencies: [{ token: 'DatabaseConnection', optional: false }] } },
+
+            // Push Notification Module
+            { data: { id: 'provider-PushService', label: 'PushService', type: 'provider', providerType: 'Class',
+                module: 'PushNotificationModule', scope: 'Singleton',
+                dependencies: [{ token: 'FCMService', optional: false }, { token: 'NotificationService', optional: false }] } },
+            { data: { id: 'provider-FCMService', label: 'FCMService', type: 'provider', providerType: 'Class',
+                module: 'PushNotificationModule', scope: 'Singleton',
+                dependencies: [{ token: 'APP_CONFIG', optional: false }] } },
+
+            // Analytics Module
+            { data: { id: 'provider-AnalyticsService', label: 'AnalyticsService', type: 'provider', providerType: 'Class',
+                module: 'AnalyticsModule', scope: 'Singleton',
+                dependencies: [{ token: 'MetricsCollector', optional: false }, { token: 'ReportGenerator', optional: false },
+                              { token: 'EventBus', optional: false }] } },
+            { data: { id: 'provider-MetricsCollector', label: 'MetricsCollector', type: 'provider', providerType: 'Class',
+                module: 'AnalyticsModule', scope: 'Singleton',
+                dependencies: [{ token: 'DatabaseConnection', optional: false }, { token: 'QueueService', optional: false }] } },
+            { data: { id: 'provider-ReportGenerator', label: 'ReportGenerator', type: 'provider', providerType: 'Class',
+                module: 'AnalyticsModule', scope: 'Singleton',
+                dependencies: [{ token: 'DatabaseConnection', optional: false }] } },
+
+            // Search Module
+            { data: { id: 'provider-SearchController', label: 'SearchController', type: 'provider', providerType: 'Class',
+                module: 'SearchModule', scope: 'Singleton',
+                dependencies: [{ token: 'SearchService', optional: false }] } },
+            { data: { id: 'provider-SearchService', label: 'SearchService', type: 'provider', providerType: 'Class',
+                module: 'SearchModule', scope: 'Singleton',
+                dependencies: [{ token: 'ElasticsearchClient', optional: false }, { token: 'IndexManager', optional: false },
+                              { token: 'ProductService', optional: false }] } },
+            { data: { id: 'provider-ElasticsearchClient', label: 'ElasticsearchClient', type: 'provider', providerType: 'Class',
+                module: 'SearchModule', scope: 'Singleton',
+                dependencies: [{ token: 'APP_CONFIG', optional: false }] } },
+            { data: { id: 'provider-IndexManager', label: 'IndexManager', type: 'provider', providerType: 'Class',
+                module: 'SearchModule', scope: 'Singleton',
+                dependencies: [{ token: 'ElasticsearchClient', optional: false }] } },
+
+            // App Module
+            { data: { id: 'provider-AppService', label: 'AppService', type: 'provider', providerType: 'Class',
+                module: 'AppModule', scope: 'Singleton',
+                dependencies: [{ token: 'UserService', optional: false }, { token: 'ProductService', optional: false },
+                              { token: 'OrderService', optional: false }, { token: 'LoggerService', optional: false }] } },
+            { data: { id: 'provider-HealthCheckService', label: 'HealthCheckService', type: 'provider', providerType: 'Class',
+                module: 'AppModule', scope: 'Singleton',
+                dependencies: [{ token: 'DatabaseConnection', optional: false }, { token: 'CacheService', optional: false }] } }
+        ];
+
+        largeScenario.nodes.push(...largeProviders3);
+
+        // Generate edges for large scenario
+        largeScenario.nodes.forEach(node => {
+            if (node.data.type === 'module' && node.data.imports) {
+                node.data.imports.forEach(imp => {
+                    largeScenario.edges.push({
+                        data: {
+                            source: node.data.id,
+                            target: 'module-' + imp,
+                            type: 'import'
+                        },
+                        classes: 'import'
+                    });
+                });
+            }
+            if (node.data.type === 'provider') {
+                // Set parent for compound node structure
+                node.data.parent = 'module-' + node.data.module;
+
+                // No longer need "provides" edges since providers are children of modules
+
+                if (node.data.dependencies) {
+                    node.data.dependencies.forEach(dep => {
+                        largeScenario.edges.push({
+                            data: {
+                                source: node.data.id,
+                                target: 'provider-' + dep.token,
+                                type: 'dependency',
+                                optional: dep.optional
+                            },
+                            classes: dep.optional ? 'dependency optional' : 'dependency'
+                        });
+                    });
+                }
+            }
+        });
+
+        // ============================================================================
+        // Scenario Management
+        // ============================================================================
+        const scenarios = {
+            simple: simpleScenario,
+            circular: circularScenario,
+            large: largeScenario
+        };
+
+        let currentScenario = 'simple';
+        let cy = null;
+
+        // Update scenario description
+        function updateDescription(scenario) {
+            const desc = scenarios[scenario].description;
+            const html = `
+                <h3>${desc.title}</h3>
+                <p>${desc.text}</p>
+                <ul>
+                    ${desc.features.map(f => `<li>${f}</li>`).join('')}
+                </ul>
+            `;
+            document.getElementById('scenario-description').innerHTML = html;
+        }
+
+        // Initialize Cytoscape with scenario data
+        function initializeGraph(scenario) {
+            const data = scenarios[scenario];
+            const elements = {
+                nodes: data.nodes,
+                edges: data.edges
+            };
+
+            if (cy) {
+                cy.destroy();
+            }
+
+            cy = cytoscape({
+                container: document.getElementById('cy'),
+                elements: elements,
+                style: [
+                    {
+                        selector: 'node',
+                        style: {
+                            'label': 'data(label)',
+                            'text-valign': 'center',
+                            'text-halign': 'center',
+                            'font-size': '12px',
+                            'font-weight': '600',
+                            'color': '#333',
+                            'text-outline-width': 2,
+                            'text-outline-color': '#fff',
+                            'width': 'label',
+                            'height': 'label',
+                            'padding': '12px',
+                            'shape': 'roundrectangle',
+                            'background-color': '#90caf9',
+                            'border-width': 2,
+                            'border-color': '#42a5f5'
+                        }
+                    },
+                    {
+                        // Parent/compound nodes (modules containing providers)
+                        selector: ':parent',
+                        style: {
+                            'text-valign': 'top',
+                            'text-halign': 'center',
+                            'text-margin-y': -10,
+                            'background-opacity': 0.15,
+                            'background-color': '#90caf9',
+                            'border-width': 3,
+                            'border-color': '#42a5f5',
+                            'border-opacity': 0.8,
+                            'padding': '20px',
+                            'shape': 'roundrectangle',
+                            'font-size': '14px',
+                            'font-weight': 'bold'
+                        }
+                    },
+                    {
+                        selector: ':parent[isGlobal]',
+                        style: {
+                            'background-color': '#ce93d8',
+                            'border-color': '#ab47bc',
+                            'border-width': 4
+                        }
+                    },
+                    {
+                        selector: 'node[type="module"]',
+                        style: {
+                            'background-color': '#90caf9',
+                            'border-color': '#42a5f5'
+                        }
+                    },
+                    {
+                        selector: 'node[type="module"][isGlobal]',
+                        style: {
+                            'background-color': '#ce93d8',
+                            'border-color': '#ab47bc',
+                            'border-width': 3
+                        }
+                    },
+                    {
+                        selector: 'node[type="provider"]',
+                        style: {
+                            'shape': 'ellipse',
+                            'background-color': '#a5d6a7',
+                            'border-color': '#66bb6a',
+                            'width': '80px',
+                            'height': '80px',
+                            'font-size': '10px'
+                        }
+                    },
+                    {
+                        selector: 'node[providerType="UseValue"]',
+                        style: {
+                            'background-color': '#a5d6a7',
+                            'border-color': '#66bb6a'
+                        }
+                    },
+                    {
+                        selector: 'node[providerType="UseFactory"]',
+                        style: {
+                            'background-color': '#ffab91',
+                            'border-color': '#ff7043'
+                        }
+                    },
+                    {
+                        selector: 'node[providerType="UseClass"]',
+                        style: {
+                            'background-color': '#fff59d',
+                            'border-color': '#ffee58'
+                        }
+                    },
+                    {
+                        selector: 'edge',
+                        style: {
+                            'width': 2,
+                            'line-color': '#666',
+                            'target-arrow-color': '#666',
+                            'target-arrow-shape': 'triangle',
+                            'curve-style': 'bezier',
+                            'arrow-scale': 1.5
+                        }
+                    },
+                    {
+                        selector: 'edge.import',
+                        style: {
+                            'line-color': '#666',
+                            'target-arrow-color': '#666'
+                        }
+                    },
+                    {
+                        selector: 'edge.provides',
+                        style: {
+                            'line-color': '#4caf50',
+                            'target-arrow-color': '#4caf50',
+                            'line-style': 'dashed'
+                        }
+                    },
+                    {
+                        selector: 'edge.dependency',
+                        style: {
+                            'line-color': '#ff9800',
+                            'target-arrow-color': '#ff9800'
+                        }
+                    },
+                    {
+                        selector: 'edge.optional',
+                        style: {
+                            'line-style': 'dotted'
+                        }
+                    },
+                    {
+                        selector: 'node.highlighted',
+                        style: {
+                            'background-color': '#ffd54f',
+                            'border-color': '#ffc107',
+                            'border-width': 4
+                        }
+                    },
+                    {
+                        selector: ':parent.highlighted',
+                        style: {
+                            'border-width': 5,
+                            'border-color': '#ffc107',
+                            'background-opacity': 0.3
+                        }
+                    },
+                    {
+                        selector: 'edge.highlighted',
+                        style: {
+                            'width': 4,
+                            'line-color': '#ffd54f',
+                            'target-arrow-color': '#ffd54f'
+                        }
+                    }
+                ],
+                layout: {
+                    name: 'cose',
+                    animate: true,
+                    animationDuration: 500,
+                    nodeRepulsion: 8000,
+                    idealEdgeLength: 100,
+                    edgeElasticity: 100,
+                    nestingFactor: 1.2,
+                    gravity: 1,
+                    numIter: 1000,
+                    initialTemp: 200,
+                    coolingFactor: 0.95,
+                    minTemp: 1.0,
+                    // Compound node specific options
+                    componentSpacing: 100,
+                    nodeOverlap: 20,
+                    padding: 30
+                }
+            });
+
+            setupEventHandlers();
+        }
+
+        // Navigate to a specific node
+        function navigateToNode(nodeId) {
+            const node = cy.getElementById(nodeId);
+            if (node.length > 0) {
+                // Remove previous highlights
+                cy.elements().removeClass('highlighted');
+
+                // Highlight the target node and its edges
+                node.addClass('highlighted');
+                node.connectedEdges().addClass('highlighted');
+
+                // Animate pan and zoom to the node
+                cy.animate({
+                    center: { eles: node },
+                    zoom: 1.5,
+                    duration: 500,
+                    easing: 'ease-in-out-cubic'
+                });
+
+                // Show node details
+                showNodeDetails(node.data());
+            }
+        }
+
+        // Show node details in info panel
+        function showNodeDetails(data) {
+            const placeholder = document.querySelector('.placeholder');
+            const detailsDiv = document.getElementById('node-details');
+
+            placeholder.style.display = 'none';
+            detailsDiv.style.display = 'block';
+
+            let html = '';
+
+            if (data.type === 'module') {
+                html = `
+                    <div class="info-item">
+                        <label>Type</label>
+                        <div class="value">
+                            <span class="badge module">Module</span>
+                            ${data.isGlobal ? '<span class="badge global">Global</span>' : ''}
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <label>Name</label>
+                        <div class="value"><code>${data.label}</code></div>
+                    </div>
+                    <div class="info-item">
+                        <label>File Path</label>
+                        <div class="value">
+                            <code>${data.path}</code>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <label>Imports (${data.imports.length})</label>
+                        <ul class="dependency-list">
+                            ${data.imports.map(imp => {
+                                const nodeId = 'module-' + imp;
+                                const exists = cy.getElementById(nodeId).length > 0;
+                                return exists
+                                    ? '<li><a href="#" class="node-link" data-node-id="' + nodeId + '">' + imp + '</a></li>'
+                                    : '<li>' + imp + '</li>';
+                            }).join('')}
+                        </ul>
+                    </div>
+                    <div class="info-item">
+                        <label>Providers (${data.providers.length})</label>
+                        <ul class="dependency-list">
+                            ${data.providers.map(prov => {
+                                const nodeId = 'provider-' + prov;
+                                const exists = cy.getElementById(nodeId).length > 0;
+                                return exists
+                                    ? '<li><a href="#" class="node-link" data-node-id="' + nodeId + '">' + prov + '</a></li>'
+                                    : '<li>' + prov + '</li>';
+                            }).join('')}
+                        </ul>
+                    </div>
+                    ${data.exports.length > 0 ? `
+                        <div class="info-item">
+                            <label>Exports (${data.exports.length})</label>
+                            <ul class="dependency-list">
+                                ${data.exports.map(exp => {
+                                    const nodeId = 'provider-' + exp;
+                                    const exists = cy.getElementById(nodeId).length > 0;
+                                    return exists
+                                        ? '<li><a href="#" class="node-link" data-node-id="' + nodeId + '">' + exp + '</a></li>'
+                                        : '<li>' + exp + '</li>';
+                                }).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+                `;
+            } else if (data.type === 'provider') {
+                html = `
+                    <div class="info-item">
+                        <label>Type</label>
+                        <div class="value">
+                            <span class="badge provider">Provider</span>
+                            <span class="badge ${data.providerType.toLowerCase()}">${data.providerType}</span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <label>Token</label>
+                        <div class="value"><code>${data.label}</code></div>
+                    </div>
+                    <div class="info-item">
+                        <label>Module</label>
+                        <div class="value">
+                            ${(() => {
+                                const nodeId = 'module-' + data.module;
+                                const exists = cy.getElementById(nodeId).length > 0;
+                                return exists
+                                    ? '<a href="#" class="node-link" data-node-id="' + nodeId + '"><code>' + data.module + '</code></a>'
+                                    : '<code>' + data.module + '</code>';
+                            })()}
+                        </div>
+                    </div>
+                    ${data.scope ? `
+                        <div class="info-item">
+                            <label>Scope</label>
+                            <div class="value">${data.scope}</div>
+                        </div>
+                    ` : ''}
+                    ${data.value !== undefined ? `
+                        <div class="info-item">
+                            <label>Value</label>
+                            <div class="value"><code>${data.value}</code></div>
+                        </div>
+                    ` : ''}
+                    ${data.factory ? `
+                        <div class="info-item">
+                            <label>Factory</label>
+                            <div class="value"><code>${data.factory}</code></div>
+                        </div>
+                    ` : ''}
+                    ${data.useClass ? `
+                        <div class="info-item">
+                            <label>Use Class</label>
+                            <div class="value"><code>${data.useClass}</code></div>
+                        </div>
+                    ` : ''}
+                    ${data.dependencies && data.dependencies.length > 0 ? `
+                        <div class="info-item">
+                            <label>Dependencies (${data.dependencies.length})</label>
+                            <ul class="dependency-list">
+                                ${data.dependencies.map(dep => {
+                                    const token = dep.token || 'Unknown';
+                                    const nodeId = 'provider-' + token;
+                                    const exists = cy.getElementById(nodeId).length > 0;
+                                    const link = exists
+                                        ? '<a href="#" class="node-link" data-node-id="' + nodeId + '">' + token + '</a>'
+                                        : token;
+                                    return '<li>' + link + (dep.optional ? ' <em>(optional)</em>' : '') + '</li>';
+                                }).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+                `;
+            }
+
+            detailsDiv.innerHTML = html;
+
+            // Attach click handlers to node links
+            detailsDiv.querySelectorAll('.node-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const nodeId = this.getAttribute('data-node-id');
+                    navigateToNode(nodeId);
+                });
+            });
+        }
+
+        // Setup event handlers for Cytoscape
+        function setupEventHandlers() {
+            // Node click handler
+            cy.on('tap', 'node', function(evt) {
+                const node = evt.target;
+                showNodeDetails(node.data());
+            });
+
+            // Search functionality
+            const searchInput = document.getElementById('search');
+            searchInput.addEventListener('input', function() {
+                const query = this.value.toLowerCase();
+
+                if (query === '') {
+                    cy.elements().removeClass('highlighted');
+                    cy.fit();
+                    return;
+                }
+
+                cy.elements().removeClass('highlighted');
+
+                const matches = cy.nodes().filter(node => {
+                    const label = node.data('label').toLowerCase();
+                    return label.includes(query);
+                });
+
+                if (matches.length > 0) {
+                    matches.addClass('highlighted');
+                    matches.connectedEdges().addClass('highlighted');
+                    cy.fit(matches, 50);
+                }
+            });
+
+            // View mode controls
+            document.querySelectorAll('.view-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+
+                    const view = this.getAttribute('data-view');
+
+                    if (view === 'all') {
+                        cy.elements().style('display', 'element');
+                    } else if (view === 'modules') {
+                        // Hide provider nodes (children) but keep parent modules visible
+                        cy.nodes('[type="provider"]').style('display', 'none');
+                        cy.edges('.dependency').style('display', 'none');
+                        // Show parent modules and import edges
+                        cy.nodes(':parent').style('display', 'element');
+                        cy.nodes('[type="module"]').style('display', 'element');
+                        cy.edges('.import').style('display', 'element');
+                    } else if (view === 'providers') {
+                        // Show parent modules (to see grouping) and provider nodes
+                        cy.nodes(':parent').style('display', 'element');
+                        cy.nodes('[type="provider"]').style('display', 'element');
+                        cy.edges('.dependency').style('display', 'element');
+                        // Hide import edges but keep module containers visible for context
+                        cy.edges('.import').style('display', 'none');
+                    }
+
+                    cy.fit();
+                });
+            });
+
+            // Zoom controls
+            document.getElementById('zoom-in').addEventListener('click', function() {
+                cy.zoom(cy.zoom() * 1.2);
+            });
+
+            document.getElementById('zoom-out').addEventListener('click', function() {
+                cy.zoom(cy.zoom() * 0.8);
+            });
+
+            document.getElementById('zoom-fit').addEventListener('click', function() {
+                cy.fit();
+            });
+        }
+
+        // Scenario tab switching
+        document.querySelectorAll('.scenario-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                // Update active tab
+                document.querySelectorAll('.scenario-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+
+                // Load new scenario
+                currentScenario = this.getAttribute('data-scenario');
+                updateDescription(currentScenario);
+                initializeGraph(currentScenario);
+
+                // Reset search
+                document.getElementById('search').value = '';
+
+                // Reset view mode
+                document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+                document.querySelector('.view-btn[data-view="all"]').classList.add('active');
+
+                // Hide details panel
+                document.querySelector('.placeholder').style.display = 'block';
+                document.getElementById('node-details').style.display = 'none';
+            });
+        });
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateDescription(currentScenario);
+            initializeGraph(currentScenario);
+        });
+    </script>
+</body>
+</html>
+

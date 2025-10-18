@@ -60,7 +60,7 @@ export class HtmlGenerator {
 	}
 
 	/**
-	 * Convert GraphOutput to Cytoscape.js format
+	 * Convert GraphOutput to Cytoscape.js format with compound nodes
 	 */
 	private convertToCytoscapeFormat(graphData: GraphOutput): {
 		nodes: unknown[];
@@ -69,7 +69,7 @@ export class HtmlGenerator {
 		const nodes: unknown[] = [];
 		const edges: unknown[] = [];
 
-		// Add module nodes
+		// Add module nodes (these will be parent/compound nodes)
 		for (const module of graphData.modules) {
 			nodes.push({
 				data: {
@@ -99,7 +99,7 @@ export class HtmlGenerator {
 			}
 		}
 
-		// Add provider nodes
+		// Add provider nodes as children of their parent modules
 		for (const provider of graphData.providers) {
 			const nodeId = `provider-${provider.module}-${provider.token}`;
 			nodes.push({
@@ -114,20 +114,13 @@ export class HtmlGenerator {
 					value: provider.value,
 					factory: provider.factory,
 					useClass: provider.useClass,
+					// Set parent to create compound node structure
+					parent: `module-${provider.module}`,
 				},
 				classes: ["provider", provider.type.toLowerCase()],
 			});
 
-			// Add edge from module to provider
-			edges.push({
-				data: {
-					id: `edge-${provider.module}-${nodeId}`,
-					source: `module-${provider.module}`,
-					target: nodeId,
-					type: "provides",
-				},
-				classes: ["provides"],
-			});
+			// Note: We no longer need "provides" edges since providers are children of modules
 
 			// Add edges for provider dependencies
 			if (provider.dependencies && provider.dependencies.length > 0) {
@@ -485,6 +478,10 @@ export class HtmlGenerator {
                         'text-valign': 'center',
                         'text-halign': 'center',
                         'font-size': '12px',
+                        'font-weight': '600',
+                        'color': '#333',
+                        'text-outline-width': 2,
+                        'text-outline-color': '#fff',
                         'width': '80px',
                         'height': '80px',
                         'border-width': 2,
@@ -492,6 +489,33 @@ export class HtmlGenerator {
                     }
                 },
                 {
+                    // Parent/compound nodes (modules containing providers)
+                    selector: ':parent',
+                    style: {
+                        'text-valign': 'top',
+                        'text-halign': 'center',
+                        'text-margin-y': -10,
+                        'background-opacity': 0.15,
+                        'background-color': '#90caf9',
+                        'border-width': 3,
+                        'border-color': '#42a5f5',
+                        'border-opacity': 0.8,
+                        'padding': '20px',
+                        'shape': 'roundrectangle',
+                        'font-size': '14px',
+                        'font-weight': 'bold'
+                    }
+                },
+                {
+                    selector: ':parent.global',
+                    style: {
+                        'background-color': '#ce93d8',
+                        'border-color': '#ab47bc',
+                        'border-width': 4
+                    }
+                },
+                {
+                    // Module nodes without children (standalone modules)
                     selector: 'node.module',
                     style: {
                         'background-color': '#90caf9',
@@ -512,32 +536,37 @@ export class HtmlGenerator {
                     selector: 'node.provider',
                     style: {
                         'shape': 'ellipse',
-                        'width': '100px',
-                        'height': '100px'
+                        'width': '80px',
+                        'height': '80px',
+                        'font-size': '10px'
                     }
                 },
                 {
                     selector: 'node.provider.class',
                     style: {
-                        'background-color': '#90caf9'
+                        'background-color': '#a5d6a7',
+                        'border-color': '#66bb6a'
                     }
                 },
                 {
                     selector: 'node.provider.usevalue',
                     style: {
-                        'background-color': '#a5d6a7'
+                        'background-color': '#a5d6a7',
+                        'border-color': '#66bb6a'
                     }
                 },
                 {
                     selector: 'node.provider.usefactory',
                     style: {
-                        'background-color': '#ffab91'
+                        'background-color': '#ffab91',
+                        'border-color': '#ff7043'
                     }
                 },
                 {
                     selector: 'node.provider.useclass',
                     style: {
-                        'background-color': '#fff59d'
+                        'background-color': '#fff59d',
+                        'border-color': '#ffee58'
                     }
                 },
                 {
@@ -581,22 +610,43 @@ export class HtmlGenerator {
                     selector: 'node.highlighted',
                     style: {
                         'border-width': 4,
-                        'border-color': '#f44336'
+                        'border-color': '#ffd54f',
+                        'background-color': '#ffd54f'
+                    }
+                },
+                {
+                    selector: ':parent.highlighted',
+                    style: {
+                        'border-width': 5,
+                        'border-color': '#ffc107',
+                        'background-opacity': 0.3
                     }
                 },
                 {
                     selector: 'edge.highlighted',
                     style: {
                         'width': 4,
-                        'line-color': '#f44336',
-                        'target-arrow-color': '#f44336'
+                        'line-color': '#ffd54f',
+                        'target-arrow-color': '#ffd54f'
                     }
                 }
             ],
             layout: {
-                name: 'breadthfirst',
-                directed: true,
-                spacingFactor: 1.5,
+                name: 'cose',
+                animate: true,
+                animationDuration: 500,
+                nodeRepulsion: 8000,
+                idealEdgeLength: 100,
+                edgeElasticity: 100,
+                nestingFactor: 1.2,
+                gravity: 1,
+                numIter: 1000,
+                initialTemp: 200,
+                coolingFactor: 0.95,
+                minTemp: 1.0,
+                // Compound node specific options
+                componentSpacing: 100,
+                nodeOverlap: 20,
                 padding: 30
             }
         });
@@ -634,8 +684,11 @@ export class HtmlGenerator {
 
         document.getElementById('view-modules').addEventListener('click', function() {
             setActiveButton(this);
+            // Hide provider nodes (children) but keep parent modules visible
             cy.nodes('[type="provider"]').hide();
-            cy.edges('.provides, .dependency').hide();
+            cy.edges('.dependency').hide();
+            // Show parent modules and import edges
+            cy.nodes(':parent').show();
             cy.nodes('[type="module"]').show();
             cy.edges('.import').show();
             cy.fit();
@@ -643,10 +696,12 @@ export class HtmlGenerator {
 
         document.getElementById('view-providers').addEventListener('click', function() {
             setActiveButton(this);
-            cy.nodes('[type="module"]').hide();
-            cy.edges('.import').hide();
+            // Show parent modules (to see grouping) and provider nodes
+            cy.nodes(':parent').show();
             cy.nodes('[type="provider"]').show();
-            cy.edges('.provides, .dependency').show();
+            cy.edges('.dependency').show();
+            // Hide import edges but keep module containers visible for context
+            cy.edges('.import').hide();
             cy.fit();
         });
 
