@@ -518,10 +518,13 @@ export class HtmlGenerator {
                         'border-width': 3,
                         'border-color': '#42a5f5',
                         'border-opacity': 0.8,
-                        'padding': '20px',
+                        'padding': '10px',
                         'shape': 'roundrectangle',
                         'font-size': '14px',
-                        'font-weight': 'bold'
+                        'font-weight': 'bold',
+                        'compound-sizing-wrt-labels': 'include',
+                        'min-width': '80px',
+                        'min-height': '60px'
                     }
                 },
                 {
@@ -656,7 +659,7 @@ export class HtmlGenerator {
                 nodeRepulsion: 8000,
                 idealEdgeLength: 100,
                 edgeElasticity: 100,
-                nestingFactor: 1.2,
+                nestingFactor: 1.5,
                 gravity: 1,
                 numIter: 1000,
                 initialTemp: 200,
@@ -664,10 +667,16 @@ export class HtmlGenerator {
                 minTemp: 1.0,
                 // Compound node specific options
                 componentSpacing: 100,
-                nodeOverlap: 20,
-                padding: 30
+                nodeOverlap: 10,
+                padding: 20
             }
         });
+
+        // Hide dependency edges by default (show only module structure)
+        cy.edges('.dependency').hide();
+
+        // Track currently selected provider node for dependency visibility
+        let selectedProviderNode = null;
 
         // Node click handler
         cy.on('tap', 'node', function(evt) {
@@ -677,10 +686,28 @@ export class HtmlGenerator {
             // Clear previous highlights
             cy.elements().removeClass('highlighted');
 
+            // Handle dependency edge visibility for provider nodes
+            if (data.type === 'provider') {
+                // Hide previously selected provider's dependencies
+                if (selectedProviderNode && selectedProviderNode !== node) {
+                    selectedProviderNode.connectedEdges('.dependency').hide();
+                }
+
+                // Show this provider's dependencies
+                node.connectedEdges('.dependency').show();
+                selectedProviderNode = node;
+            } else {
+                // If clicking a module, hide all dependency edges
+                if (selectedProviderNode) {
+                    selectedProviderNode.connectedEdges('.dependency').hide();
+                    selectedProviderNode = null;
+                }
+            }
+
             // Highlight clicked node
             node.addClass('highlighted');
 
-            // Highlight connected edges
+            // Highlight connected edges (only visible ones will show highlight)
             node.connectedEdges().addClass('highlighted');
 
             // Show node details
@@ -696,12 +723,20 @@ export class HtmlGenerator {
         // View mode controls
         document.getElementById('view-all').addEventListener('click', function() {
             setActiveButton(this);
-            cy.elements().show();
+            // Reset selected provider
+            selectedProviderNode = null;
+            // Show all nodes
+            cy.nodes().show();
+            // Show import edges, hide dependency edges (default view)
+            cy.edges('.import').show();
+            cy.edges('.dependency').hide();
             cy.fit();
         });
 
         document.getElementById('view-modules').addEventListener('click', function() {
             setActiveButton(this);
+            // Reset selected provider
+            selectedProviderNode = null;
             // Hide provider nodes (children) but keep parent modules visible
             cy.nodes('[type="provider"]').hide();
             cy.edges('.dependency').hide();
@@ -714,9 +749,12 @@ export class HtmlGenerator {
 
         document.getElementById('view-providers').addEventListener('click', function() {
             setActiveButton(this);
+            // Reset selected provider
+            selectedProviderNode = null;
             // Show parent modules (to see grouping) and provider nodes
             cy.nodes(':parent').show();
             cy.nodes('[type="provider"]').show();
+            // Show all dependency edges in this view
             cy.edges('.dependency').show();
             // Hide import edges but keep module containers visible for context
             cy.edges('.import').hide();
@@ -739,7 +777,11 @@ export class HtmlGenerator {
             const searchTerm = e.target.value.toLowerCase();
 
             if (!searchTerm) {
-                cy.elements().show();
+                // Reset to default view
+                selectedProviderNode = null;
+                cy.nodes().show();
+                cy.edges('.import').show();
+                cy.edges('.dependency').hide();
                 cy.elements().removeClass('highlighted');
                 return;
             }
@@ -767,8 +809,28 @@ export class HtmlGenerator {
         function navigateToNode(nodeId) {
             const node = cy.getElementById(nodeId);
             if (node.length > 0) {
+                const data = node.data();
+
                 // Remove previous highlights
                 cy.elements().removeClass('highlighted');
+
+                // Handle dependency edge visibility for provider nodes
+                if (data.type === 'provider') {
+                    // Hide previously selected provider's dependencies
+                    if (selectedProviderNode && selectedProviderNode !== node) {
+                        selectedProviderNode.connectedEdges('.dependency').hide();
+                    }
+
+                    // Show this provider's dependencies
+                    node.connectedEdges('.dependency').show();
+                    selectedProviderNode = node;
+                } else {
+                    // If navigating to a module, hide all dependency edges
+                    if (selectedProviderNode) {
+                        selectedProviderNode.connectedEdges('.dependency').hide();
+                        selectedProviderNode = null;
+                    }
+                }
 
                 // Highlight the target node and its edges
                 node.addClass('highlighted');
@@ -783,7 +845,7 @@ export class HtmlGenerator {
                 });
 
                 // Show node details
-                showNodeDetails(node.data());
+                showNodeDetails(data);
             }
         }
 

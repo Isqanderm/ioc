@@ -52,7 +52,7 @@ describe("HtmlGenerator", () => {
 							type: "constructor",
 							index: 0,
 							token: "CONFIG",
-							tokenType: "value",
+							tokenType: "string",
 							optional: false,
 						},
 					],
