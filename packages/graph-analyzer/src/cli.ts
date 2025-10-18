@@ -246,6 +246,7 @@ async function analyzeGraph(options: CliOptions): Promise<void> {
 	const format = options.format || "both";
 	const outputPath = options.output;
 
+	// biome-ignore lint/suspicious/noExplicitAny: GraphAnalyzerOptions type is complex
 	const analyzerOptions: any = {
 		outputFormat: format,
 	};

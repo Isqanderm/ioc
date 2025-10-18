@@ -138,7 +138,6 @@ describe("GraphAnalyzer", () => {
 			const analyzer = new GraphAnalyzer(
 				mockGraph,
 				"/project/src/entry.ts",
-				{},
 				{ jsonOutputPath: "./output/custom.json" },
 			);
 
@@ -153,7 +152,6 @@ describe("GraphAnalyzer", () => {
 			const analyzer = new GraphAnalyzer(
 				mockGraph,
 				"/project/src/entry.ts",
-				{},
 				{ outputPath: "./output/graph.json" },
 			);
 
@@ -258,9 +256,11 @@ describe("GraphAnalyzer", () => {
 		});
 
 		it("should skip modules not in graph", () => {
-			mockAppModule.imports = ["NonExistentModule"];
+			const modifiedAppModule = { ...mockAppModule, imports: ["NonExistentModule"] };
+			const modifiedGraph = new Map(mockGraph);
+			modifiedGraph.set("AppModule", modifiedAppModule as ParseNsModule);
 
-			const analyzer = new GraphAnalyzer(mockGraph, "/project/src/entry.ts");
+			const analyzer = new GraphAnalyzer(modifiedGraph, "/project/src/entry.ts");
 
 			expect(() => analyzer.generatePng()).not.toThrow();
 		});
@@ -315,10 +315,12 @@ describe("GraphAnalyzer", () => {
 				modules: new Map(),
 			};
 
-			mockGraph.set("ConfigModule", globalModule as ParseNsModule);
-			mockAppModule.imports = ["ConfigModule"];
+			const modifiedAppModule = { ...mockAppModule, imports: ["ConfigModule"] };
+			const modifiedGraph = new Map(mockGraph);
+			modifiedGraph.set("ConfigModule", globalModule as ParseNsModule);
+			modifiedGraph.set("AppModule", modifiedAppModule as ParseNsModule);
 
-			const analyzer = new GraphAnalyzer(mockGraph, "/project/src/entry.ts");
+			const analyzer = new GraphAnalyzer(modifiedGraph, "/project/src/entry.ts");
 			const result = analyzer.generateJson();
 
 			expect(result).toBeDefined();
