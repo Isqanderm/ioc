@@ -728,6 +728,19 @@ export class HtmlGenerator {
                         'line-color': '#ffd54f',
                         'target-arrow-color': '#ffd54f'
                     }
+                },
+                {
+                    selector: 'edge.dimmed',
+                    style: {
+                        'opacity': 0.1,
+                        'z-index': 0
+                    }
+                },
+                {
+                    selector: 'node.dimmed',
+                    style: {
+                        'opacity': 0.3
+                    }
                 }
             ],
             layout: {
@@ -753,43 +766,80 @@ export class HtmlGenerator {
         // Hide dependency edges by default (show only module structure)
         cy.edges('.dependency').hide();
 
-        // Track currently selected provider node for dependency visibility
-        let selectedProviderNode = null;
+        // Track currently selected node for edge filtering
+        let selectedNode = null;
 
         // Node click handler
         cy.on('tap', 'node', function(evt) {
             const node = evt.target;
             const data = node.data();
 
-            // Clear previous highlights
-            cy.elements().removeClass('highlighted');
+            // Store the selected node
+            selectedNode = node;
 
-            // Handle dependency edge visibility for provider nodes
-            if (data.type === 'provider') {
-                // Hide previously selected provider's dependencies
-                if (selectedProviderNode && selectedProviderNode !== node) {
-                    selectedProviderNode.connectedEdges('.dependency').hide();
-                }
+            // Clear previous highlights and dimming
+            cy.elements().removeClass('highlighted dimmed');
 
-                // Show this provider's dependencies
-                node.connectedEdges('.dependency').show();
-                selectedProviderNode = node;
-            } else {
-                // If clicking a module, hide all dependency edges
-                if (selectedProviderNode) {
-                    selectedProviderNode.connectedEdges('.dependency').hide();
-                    selectedProviderNode = null;
-                }
+            if (data.type === 'module') {
+                // MODULE SELECTION: Show only edges related to this module
+
+                // Get all edges connected to this module
+                const moduleEdges = node.connectedEdges('.import');
+
+                // Dim all edges first
+                cy.edges().addClass('dimmed');
+
+                // Show and highlight only the module's import/export edges
+                moduleEdges.removeClass('dimmed').addClass('highlighted');
+
+                // Highlight the selected module
+                node.addClass('highlighted');
+
+                // Highlight connected modules
+                moduleEdges.connectedNodes('[type="module"]').addClass('highlighted');
+
+                // Dim all other nodes except highlighted ones
+                cy.nodes().not('.highlighted').addClass('dimmed');
+
+            } else if (data.type === 'provider') {
+                // PROVIDER SELECTION: Show only edges related to this provider
+
+                // Get all dependency edges connected to this provider
+                const providerEdges = node.connectedEdges('.dependency');
+
+                // Dim all edges first
+                cy.edges().addClass('dimmed');
+
+                // Show and highlight only the provider's dependency edges
+                providerEdges.removeClass('dimmed').addClass('highlighted');
+
+                // Highlight the selected provider
+                node.addClass('highlighted');
+
+                // Highlight connected providers
+                providerEdges.connectedNodes('[type="provider"]').addClass('highlighted');
+
+                // Dim all other nodes except highlighted ones
+                cy.nodes().not('.highlighted').addClass('dimmed');
             }
-
-            // Highlight clicked node
-            node.addClass('highlighted');
-
-            // Highlight connected edges (only visible ones will show highlight)
-            node.connectedEdges().addClass('highlighted');
 
             // Show node details
             showNodeDetails(data);
+        });
+
+        // Canvas click handler for deselection
+        cy.on('tap', function(evt) {
+            // Check if the tap was on the background (not on a node or edge)
+            if (evt.target === cy) {
+                // Reset selection
+                selectedNode = null;
+
+                // Clear all highlights and dimming
+                cy.elements().removeClass('highlighted dimmed');
+
+                // Hide details panel or show default message
+                document.getElementById('details').innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">Click on a node to see details</p>';
+            }
         });
 
         // Node hover handler
@@ -801,8 +851,10 @@ export class HtmlGenerator {
         // View mode controls
         document.getElementById('view-all').addEventListener('click', function() {
             setActiveButton(this);
-            // Reset selected provider
-            selectedProviderNode = null;
+            // Reset selection
+            selectedNode = null;
+            // Clear highlights and dimming
+            cy.elements().removeClass('highlighted dimmed');
             // Show all nodes
             cy.nodes().show();
             // Show import edges, hide dependency edges (default view)
@@ -813,8 +865,10 @@ export class HtmlGenerator {
 
         document.getElementById('view-modules').addEventListener('click', function() {
             setActiveButton(this);
-            // Reset selected provider
-            selectedProviderNode = null;
+            // Reset selection
+            selectedNode = null;
+            // Clear highlights and dimming
+            cy.elements().removeClass('highlighted dimmed');
             // Hide provider nodes (children) but keep parent modules visible
             cy.nodes('[type="provider"]').hide();
             cy.edges('.dependency').hide();
@@ -827,8 +881,10 @@ export class HtmlGenerator {
 
         document.getElementById('view-providers').addEventListener('click', function() {
             setActiveButton(this);
-            // Reset selected provider
-            selectedProviderNode = null;
+            // Reset selection
+            selectedNode = null;
+            // Clear highlights and dimming
+            cy.elements().removeClass('highlighted dimmed');
             // Show parent modules (to see grouping) and provider nodes
             cy.nodes(':parent').show();
             cy.nodes('[type="provider"]').show();
@@ -856,15 +912,15 @@ export class HtmlGenerator {
 
             if (!searchTerm) {
                 // Reset to default view
-                selectedProviderNode = null;
+                selectedNode = null;
                 cy.nodes().show();
                 cy.edges('.import').show();
                 cy.edges('.dependency').hide();
-                cy.elements().removeClass('highlighted');
+                cy.elements().removeClass('highlighted dimmed');
                 return;
             }
 
-            cy.elements().removeClass('highlighted');
+            cy.elements().removeClass('highlighted dimmed');
 
             const matchingNodes = cy.nodes().filter(function(node) {
                 const label = node.data('label').toLowerCase();
@@ -889,30 +945,54 @@ export class HtmlGenerator {
             if (node.length > 0) {
                 const data = node.data();
 
-                // Remove previous highlights
-                cy.elements().removeClass('highlighted');
+                // Store the selected node
+                selectedNode = node;
 
-                // Handle dependency edge visibility for provider nodes
-                if (data.type === 'provider') {
-                    // Hide previously selected provider's dependencies
-                    if (selectedProviderNode && selectedProviderNode !== node) {
-                        selectedProviderNode.connectedEdges('.dependency').hide();
-                    }
+                // Clear previous highlights and dimming
+                cy.elements().removeClass('highlighted dimmed');
 
-                    // Show this provider's dependencies
-                    node.connectedEdges('.dependency').show();
-                    selectedProviderNode = node;
-                } else {
-                    // If navigating to a module, hide all dependency edges
-                    if (selectedProviderNode) {
-                        selectedProviderNode.connectedEdges('.dependency').hide();
-                        selectedProviderNode = null;
-                    }
+                if (data.type === 'module') {
+                    // MODULE SELECTION: Show only edges related to this module
+
+                    // Get all edges connected to this module
+                    const moduleEdges = node.connectedEdges('.import');
+
+                    // Dim all edges first
+                    cy.edges().addClass('dimmed');
+
+                    // Show and highlight only the module's import/export edges
+                    moduleEdges.removeClass('dimmed').addClass('highlighted');
+
+                    // Highlight the selected module
+                    node.addClass('highlighted');
+
+                    // Highlight connected modules
+                    moduleEdges.connectedNodes('[type="module"]').addClass('highlighted');
+
+                    // Dim all other nodes except highlighted ones
+                    cy.nodes().not('.highlighted').addClass('dimmed');
+
+                } else if (data.type === 'provider') {
+                    // PROVIDER SELECTION: Show only edges related to this provider
+
+                    // Get all dependency edges connected to this provider
+                    const providerEdges = node.connectedEdges('.dependency');
+
+                    // Dim all edges first
+                    cy.edges().addClass('dimmed');
+
+                    // Show and highlight only the provider's dependency edges
+                    providerEdges.removeClass('dimmed').addClass('highlighted');
+
+                    // Highlight the selected provider
+                    node.addClass('highlighted');
+
+                    // Highlight connected providers
+                    providerEdges.connectedNodes('[type="provider"]').addClass('highlighted');
+
+                    // Dim all other nodes except highlighted ones
+                    cy.nodes().not('.highlighted').addClass('dimmed');
                 }
-
-                // Highlight the target node and its edges
-                node.addClass('highlighted');
-                node.connectedEdges().addClass('highlighted');
 
                 // Animate pan and zoom to the node
                 cy.animate({

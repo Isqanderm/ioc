@@ -446,7 +446,8 @@ describe("HtmlGenerator", () => {
 			const html = generator.generate();
 
 			expect(html).toContain("node.addClass('highlighted')");
-			expect(html).toContain("node.connectedEdges().addClass('highlighted')");
+			// The new implementation uses selective edge filtering
+			expect(html).toContain("removeClass('dimmed').addClass('highlighted')");
 		});
 
 		it("should check if node exists before navigating", () => {
