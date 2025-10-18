@@ -8,7 +8,7 @@ export interface CacheOptions {
 
 @Injectable()
 export class CacheService {
-  private cache: Map<string, { value: any; expiresAt: number }> = new Map();
+  private cache: Map<string, { value: unknown; expiresAt: number }> = new Map();
 
   constructor(
     @Inject(ConfigService) private configService: ConfigService,

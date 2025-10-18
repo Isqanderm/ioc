@@ -36,7 +36,7 @@ export class DatabaseService {
     this.logger.info('Database connected successfully', 'DatabaseService');
   }
 
-  async query<T>(sql: string, params?: any[]): Promise<T[]> {
+  async query<T>(sql: string, params?: unknown[]): Promise<T[]> {
     if (!this.connection?.connected) {
       throw new Error('Database not connected');
     }

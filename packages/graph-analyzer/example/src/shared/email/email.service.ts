@@ -16,7 +16,7 @@ export interface EmailOptions {
 export interface EmailTemplate {
   name: string;
   subject: string;
-  variables: Record<string, any>;
+  variables: Record<string, unknown>;
 }
 
 @Injectable()

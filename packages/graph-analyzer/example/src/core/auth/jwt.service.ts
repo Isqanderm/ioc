@@ -49,7 +49,7 @@ export class JwtService {
   generateTokenPair(payload: JwtPayload): TokenPair {
     return {
       accessToken: this.sign(payload),
-      refreshToken: this.sign({ ...payload, type: 'refresh' } as any)
+      refreshToken: this.sign({ ...payload, type: 'refresh' })
     };
   }
 }
