@@ -33,7 +33,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "echo 0",
+    "test": "jest",
     "clean": "rm -rf ./dist && rm tsconfig.tsbuildinfo",
     "test:watch": "jest --watch",
     "code:format": "npx @biomejs/biome format --write",

@@ -1,3 +1,5 @@
+import type { Dependency } from "../parser/dependency-extractor";
+
 export interface ProvidersInterface {
 	parse(): this;
 	token: string | null;
@@ -5,4 +7,5 @@ export interface ProvidersInterface {
 	scope?: string | null;
 	inject?: string[];
 	type: string;
+	dependencies?: Dependency[];
 }

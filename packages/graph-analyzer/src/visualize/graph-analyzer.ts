@@ -36,6 +36,7 @@ export class GraphAnalyzer {
 					inject: provider.inject,
 					scope: provider.scope,
 					type: provider.type,
+					dependencies: provider.dependencies,
 				})),
 				dependencies: parseNsModule.deps,
 			};

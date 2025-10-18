@@ -123,7 +123,11 @@ export class ParseNsModule {
 	}
 
 	private parseProviders(providers: string[]) {
-		return new ProvidersParser(providers).parse();
+		return new ProvidersParser(
+			providers,
+			this.sourceFile,
+			this._currentFilePath,
+		).parse();
 	}
 
 	private isNsModuleGlobal(moduleName: string) {
