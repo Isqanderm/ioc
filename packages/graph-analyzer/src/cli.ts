@@ -12,9 +12,11 @@ interface CliOptions {
 	entryFile: string;
 	tsConfig?: string;
 	output?: string;
-	format?: "json" | "png" | "both";
+	format?: "json" | "png" | "html" | "both";
 	help?: boolean;
 	version?: boolean;
+	ideProtocol?: "vscode" | "webstorm" | "idea";
+	darkTheme?: boolean;
 }
 
 const VERSION = "1.0.0";
@@ -32,8 +34,10 @@ Arguments:
 
 Options:
   -c, --config <path>       Path to tsconfig.json (default: ./tsconfig.json)
-  -o, --output <path>       Output file path (default: ./graph.json or ./graph.png)
-  -f, --format <format>     Output format: json, png, or both (default: both)
+  -o, --output <path>       Output file path (default: ./graph.json, ./graph.png, or ./graph.html)
+  -f, --format <format>     Output format: json, png, html, or both (default: both)
+  --ide <protocol>          IDE protocol for clickable links: vscode, webstorm, idea (default: vscode)
+  --dark                    Use dark theme for HTML output
   -h, --help                Display this help message
   -v, --version             Display version number
 
@@ -46,6 +50,12 @@ Examples:
 
   # Generate only PNG visualization
   graph-analyzer -f png -o graph.png src/main.ts
+
+  # Generate interactive HTML visualization
+  graph-analyzer -f html -o graph.html src/main.ts
+
+  # Generate HTML with dark theme and WebStorm links
+  graph-analyzer -f html --ide webstorm --dark src/main.ts
 
   # Specify custom tsconfig.json
   graph-analyzer -c ./tsconfig.app.json src/main.ts
@@ -84,14 +94,32 @@ function parseArgs(args: string[]): CliOptions {
 			case "-f":
 			case "--format": {
 				const format = args[++i];
-				if (format !== "json" && format !== "png" && format !== "both") {
+				if (
+					format !== "json" &&
+					format !== "png" &&
+					format !== "html" &&
+					format !== "both"
+				) {
 					throw new Error(
-						`Invalid format: ${format}. Must be json, png, or both`,
+						`Invalid format: ${format}. Must be json, png, html, or both`,
 					);
 				}
 				options.format = format;
 				break;
 			}
+			case "--ide": {
+				const ide = args[++i];
+				if (ide !== "vscode" && ide !== "webstorm" && ide !== "idea") {
+					throw new Error(
+						`Invalid IDE protocol: ${ide}. Must be vscode, webstorm, or idea`,
+					);
+				}
+				options.ideProtocol = ide;
+				break;
+			}
+			case "--dark":
+				options.darkTheme = true;
+				break;
 			default:
 				if (!arg.startsWith("-")) {
 					options.entryFile = arg;
@@ -226,6 +254,13 @@ async function analyzeGraph(options: CliOptions): Promise<void> {
 		analyzerOptions.jsonOutputPath = outputPath || "./graph.json";
 	} else if (format === "png") {
 		analyzerOptions.pngOutputPath = outputPath || "./graph.png";
+	} else if (format === "html") {
+		analyzerOptions.htmlOutputPath = outputPath || "./graph.html";
+		analyzerOptions.htmlOptions = {
+			ideProtocol: options.ideProtocol || "vscode",
+			darkTheme: options.darkTheme || false,
+			title: "Dependency Graph",
+		};
 	} else {
 		// both
 		analyzerOptions.jsonOutputPath = "./graph.json";

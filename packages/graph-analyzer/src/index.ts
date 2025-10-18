@@ -32,6 +32,8 @@ export { GraphAnalyzer } from "./visualize/graph-analyzer";
 export type { GraphAnalyzerOptions } from "./visualize/graph-analyzer";
 export { JsonFormatter } from "./visualize/json-formatter";
 export { GraphGenerator } from "./visualize/generator";
+export { HtmlGenerator } from "./visualize/html-generator";
+export type { HtmlGeneratorOptions } from "./visualize/html-generator";
 
 // Parser exports
 export { ParseEntryFile } from "./parser/parse-entry-file";

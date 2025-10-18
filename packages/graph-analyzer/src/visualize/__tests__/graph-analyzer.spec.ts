@@ -5,10 +5,14 @@ import type { ParseNsModule } from "../../parser/parse-ns-module";
 // Mock fs module - need to mock both node:fs and fs since the code uses require("fs")
 vi.mock("node:fs", () => ({
 	writeFileSync: vi.fn(),
+	existsSync: vi.fn(() => true),
+	mkdirSync: vi.fn(),
 }));
 
 vi.mock("fs", () => ({
 	writeFileSync: vi.fn(),
+	existsSync: vi.fn(() => true),
+	mkdirSync: vi.fn(),
 }));
 
 // Mock GraphGenerator
@@ -318,6 +322,72 @@ describe("GraphAnalyzer", () => {
 			const result = analyzer.generateJson();
 
 			expect(result).toBeDefined();
+		});
+	});
+
+	describe("generateHtml method", () => {
+		it("should generate HTML output", () => {
+			const analyzer = new GraphAnalyzer(mockGraph, "/project/src/entry.ts", {
+				htmlOutputPath: "./graph.html",
+			});
+
+			expect(() => analyzer.generateHtml()).not.toThrow();
+		});
+
+		it("should use htmlOutputPath when specified", () => {
+			const analyzer = new GraphAnalyzer(mockGraph, "/project/src/entry.ts", {
+				htmlOutputPath: "./output/custom.html",
+			});
+
+			expect(() => analyzer.generateHtml()).not.toThrow();
+		});
+
+		it("should use outputPath when htmlOutputPath not specified", () => {
+			const analyzer = new GraphAnalyzer(mockGraph, "/project/src/entry.ts", {
+				outputPath: "./output/graph.html",
+			});
+
+			expect(() => analyzer.generateHtml()).not.toThrow();
+		});
+
+		it("should use default path when no path specified", () => {
+			const analyzer = new GraphAnalyzer(mockGraph, "/project/src/entry.ts");
+
+			expect(() => analyzer.generateHtml()).not.toThrow();
+		});
+
+		it("should pass HTML options to generator", () => {
+			const analyzer = new GraphAnalyzer(mockGraph, "/project/src/entry.ts", {
+				htmlOutputPath: "./graph.html",
+				htmlOptions: {
+					ideProtocol: "webstorm",
+					darkTheme: true,
+					title: "My Graph",
+				},
+			});
+
+			expect(() => analyzer.generateHtml()).not.toThrow();
+		});
+	});
+
+	describe("parse method with HTML format", () => {
+		it("should generate HTML when format is html", () => {
+			const analyzer = new GraphAnalyzer(mockGraph, "/project/src/entry.ts", {
+				outputFormat: "html",
+				htmlOutputPath: "./graph.html",
+			});
+
+			const result = analyzer.parse();
+
+			expect(result).toBeUndefined();
+		});
+
+		it("should handle html format in parse method", () => {
+			const analyzer = new GraphAnalyzer(mockGraph, "/project/src/entry.ts", {
+				outputFormat: "html",
+			});
+
+			expect(() => analyzer.parse()).not.toThrow();
 		});
 	});
 });

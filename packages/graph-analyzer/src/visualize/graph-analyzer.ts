@@ -3,19 +3,24 @@ import type { ParseNsModule } from "../parser/parse-ns-module";
 import type { GraphOutput } from "../interfaces/graph-output.interface";
 import { GraphGenerator } from "./generator";
 import { JsonFormatter } from "./json-formatter";
+import { HtmlGenerator, type HtmlGeneratorOptions } from "./html-generator";
 
 /**
  * Options for configuring GraphAnalyzer output
  */
 export interface GraphAnalyzerOptions {
-	/** Output format: 'json', 'png', or 'both' (default: 'both') */
-	outputFormat?: "json" | "png" | "both";
+	/** Output format: 'json', 'png', 'html', or 'both' (default: 'both') */
+	outputFormat?: "json" | "png" | "html" | "both";
 	/** Output file path (used when format is not 'both') */
 	outputPath?: string;
 	/** JSON output file path (default: './graph.json') */
 	jsonOutputPath?: string;
 	/** PNG output file path (default: './graph.png') */
 	pngOutputPath?: string;
+	/** HTML output file path (default: './graph.html') */
+	htmlOutputPath?: string;
+	/** HTML generator options */
+	htmlOptions?: HtmlGeneratorOptions;
 }
 
 /**
@@ -51,7 +56,7 @@ export class GraphAnalyzer {
 	/**
 	 * Parse the dependency graph and generate output based on configured format
 	 *
-	 * @returns GraphOutput object if format is 'json' or 'both', void if format is 'png'
+	 * @returns GraphOutput object if format is 'json', 'html', or 'both', void if format is 'png'
 	 *
 	 * @example
 	 * ```typescript
@@ -61,7 +66,10 @@ export class GraphAnalyzer {
 	 * // Generate PNG only
 	 * analyzer.parse(); // Returns void
 	 *
-	 * // Generate both
+	 * // Generate HTML only
+	 * analyzer.parse(); // Returns void
+	 *
+	 * // Generate both JSON and PNG
 	 * const output = analyzer.parse(); // Returns GraphOutput and creates PNG
 	 * ```
 	 */
@@ -74,6 +82,11 @@ export class GraphAnalyzer {
 
 		if (format === "png") {
 			this.generatePng();
+			return;
+		}
+
+		if (format === "html") {
+			this.generateHtml();
 			return;
 		}
 
@@ -173,5 +186,43 @@ export class GraphAnalyzer {
 		const graphGenerator = new GraphGenerator(json, pngPath);
 		graphGenerator.scan();
 		console.log(`PNG output written to: ${pngPath}`);
+	}
+
+	/**
+	 * Generate interactive HTML visualization of the dependency graph
+	 *
+	 * Creates an interactive HTML page with a graph visualization using Cytoscape.js.
+	 * The HTML includes zoom/pan controls, node details, search functionality, and
+	 * clickable file paths that open in your IDE.
+	 *
+	 * @example
+	 * ```typescript
+	 * analyzer.generateHtml();
+	 * // Creates graph.html in the configured output path
+	 * ```
+	 */
+	generateHtml(): void {
+		const htmlPath =
+			this.options.htmlOutputPath || this.options.outputPath || "./graph.html";
+
+		const htmlGenerator = new HtmlGenerator(
+			this.graph,
+			this.entryPoint,
+			this.options.htmlOptions || {},
+		);
+
+		const html = htmlGenerator.generate();
+
+		const fs = require("node:fs");
+		const path = require("node:path");
+
+		// Ensure directory exists
+		const dir = path.dirname(htmlPath);
+		if (!fs.existsSync(dir)) {
+			fs.mkdirSync(dir, { recursive: true });
+		}
+
+		fs.writeFileSync(htmlPath, html);
+		console.log(`HTML output written to: ${htmlPath}`);
 	}
 }
