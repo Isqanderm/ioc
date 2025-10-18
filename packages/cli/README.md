@@ -35,6 +35,29 @@ npx @nexus-ioc/cli <command> [options]
 
 ## Commands
 
+### Interactive Mode (TUI)
+
+Launch the interactive Terminal User Interface for a guided experience:
+
+```bash
+nexus-tui
+```
+
+or with the main CLI:
+
+```bash
+nexus-cli --interactive
+# or simply run without arguments
+nexus-cli
+```
+
+The interactive mode provides:
+- 🎨 Beautiful menu-driven interface
+- 🧙 Step-by-step wizards for generating services and modules
+- 👁️ Code preview before generation
+- 🔍 Smart dependency discovery and injection
+- ✨ Syntax highlighting and validation
+
 ### `generate` (or `g`)
 
 Generates a new component, such as a service or module.

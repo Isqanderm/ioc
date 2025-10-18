@@ -24,8 +24,10 @@
     "access": "public"
   },
   "files": [
-    "dist",
-    "package.json",
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.d.ts.map",
+    "dist/**/package.json",
     "LICENSE",
     "README.md"
   ],

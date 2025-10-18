@@ -25,13 +25,16 @@
     "access": "public"
   },
   "files": [
-    "dist",
-    "package.json",
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.d.ts.map",
+    "dist/**/package.json",
     "LICENSE",
     "README.md"
   ],
   "bin": {
-    "nexus-cli": "dist/cjs/index.js"
+    "nexus-cli": "dist/cjs/index.js",
+    "nexus-tui": "dist/cjs/tui-entry.js"
   },
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
@@ -63,7 +66,10 @@
     "vitest": "^3.0.0"
   },
   "dependencies": {
+    "@clack/prompts": "^0.11.0",
+    "cli-highlight": "^2.1.11",
     "commander": "^14.0.1",
+    "picocolors": "^1.1.1",
     "prettier": "^3.6.2",
     "ts-morph": "^27.0.2",
     "tslib": "^2.6.3"

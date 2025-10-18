@@ -39,6 +39,10 @@ export class GenerateAction extends AbstractAction {
 				addImports: [],
 			});
 			console.log(`Generating module: ${name}`);
+
+			if (createOptions.spec !== false) {
+				await this.generateModuleSpec(name, outputDir);
+			}
 		} else if (type === "service") {
 			console.log(`Generating service: ${name}`);
 			await this.generateProvider(name, outputDir);
@@ -52,7 +56,7 @@ export class GenerateAction extends AbstractAction {
 				});
 			}
 
-			if (!createOptions.spec) {
+			if (createOptions.spec !== false) {
 				await this.generateServiceSpec(name, outputDir);
 			}
 		}
@@ -136,6 +140,36 @@ export class GenerateAction extends AbstractAction {
 		const moduleName = this.capitalize(name);
 		const serviceTemplate = new ServiceSpecTemplate({ name: moduleName });
 		const sourceText = serviceTemplate.generate();
+
+		const formattedText = await this.prettify(sourceText, {
+			filepath: filePath,
+		});
+
+		sourceFile.replaceWithText(formattedText);
+	}
+
+	public async generateModuleSpec(name: string, outputDir: string) {
+		const filePath = path.join(outputDir, `${name}.module.spec.ts`);
+		const sourceFile = this.project.createSourceFile(filePath, "", {
+			overwrite: true,
+		});
+		const moduleName = this.capitalize(name);
+		const moduleClassName = `${moduleName}Module`;
+
+		const sourceText = `
+			import { Test } from "@nexus-ioc/testing";
+			import { ${moduleClassName} } from "./${name}.module";
+
+			describe('${moduleClassName}', () => {
+				it('should compile the module', async () => {
+					const moduleRef = await Test.createModule({
+						imports: [${moduleClassName}]
+					}).compile();
+
+					expect(moduleRef).toBeDefined();
+				});
+			});
+		`;
 
 		const formattedText = await this.prettify(sourceText, {
 			filepath: filePath,

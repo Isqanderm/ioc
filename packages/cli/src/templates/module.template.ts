@@ -60,6 +60,6 @@ export class ModuleTemplate {
         exports: [${this.exports}],
       })
       export class ${this.params.name}Module {}
-    `;
+    `.trim();
 	}
 }
