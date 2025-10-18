@@ -1,11 +1,13 @@
+import * as fs from "node:fs";
 import * as path from "node:path";
 import * as clack from "@clack/prompts";
 import pc from "picocolors";
 import type { GenerateAction } from "../../actions/generate.action";
-import type { Input } from "../../commands/command.input";
 import { ModuleTemplate } from "../../templates/module.template";
+import { ServiceTemplate } from "../../templates/service.template";
+import { ServiceSpecTemplate } from "../../templates/service-spec.template";
 import { CodePreview, type PreviewFile } from "../components/code-preview";
-import { capitalize } from "../utils/formatters";
+import { capitalize, prettifyCode } from "../utils/formatters";
 import { ProjectScanner, type ServiceInfo } from "../utils/project-scanner";
 import { validateComponentName, validatePath } from "../utils/validators";
 
@@ -15,7 +17,7 @@ import { validateComponentName, validatePath } from "../utils/validators";
 export class GenerateModuleWizard {
 	private scanner: ProjectScanner;
 
-	constructor(private readonly generateAction: GenerateAction) {
+	constructor(readonly _generateAction: GenerateAction) {
 		this.scanner = new ProjectScanner();
 	}
 
@@ -40,33 +42,73 @@ export class GenerateModuleWizard {
 				return;
 			}
 
-			// Step 3: Import existing providers (optional)
+			// Step 3: Create service for module (optional)
+			const createService = await this.promptCreateService();
+			if (createService === null) {
+				clack.cancel("Module generation cancelled");
+				return;
+			}
+
+			let serviceName: string | null = null;
+			let generateServiceTests = false;
+
+			if (createService) {
+				// Step 3a: Get service name
+				serviceName = await this.promptServiceName(moduleName);
+				if (!serviceName) {
+					clack.cancel("Module generation cancelled");
+					return;
+				}
+
+				// Step 3b: Service test generation
+				const serviceTestsResult = await this.promptServiceTestGeneration();
+				if (serviceTestsResult === null) {
+					clack.cancel("Module generation cancelled");
+					return;
+				}
+				generateServiceTests = serviceTestsResult;
+			}
+
+			// Step 4: Import existing providers (optional)
 			const providers = await this.promptProviders();
 			if (providers === null) {
 				clack.cancel("Module generation cancelled");
 				return;
 			}
 
-			// Step 4: Test generation
+			// Step 5: Module test generation
 			const generateTests = await this.promptTestGeneration();
 			if (generateTests === null) {
 				clack.cancel("Module generation cancelled");
 				return;
 			}
 
-			// Step 5: Preview files
+			// Step 6: Preview files
 			const files = this.generatePreviewFiles(
 				moduleName,
 				outputPath,
+				serviceName,
+				generateServiceTests,
 				providers,
 				generateTests,
 			);
 
-			CodePreview.showSummary({
+			// Show summary
+			const summary: Record<string, string | boolean> = {
 				module: `${moduleName}Module`,
-				tests: generateTests,
 				path: outputPath,
-			});
+			};
+
+			if (serviceName) {
+				summary.service = `${serviceName}Service`;
+				summary["service tests"] = generateServiceTests;
+			}
+
+			if (generateTests) {
+				summary["module tests"] = true;
+			}
+
+			CodePreview.showSummary(summary);
 
 			if (providers.length > 0) {
 				clack.log.info(
@@ -82,17 +124,19 @@ export class GenerateModuleWizard {
 				maxLines: 25,
 			});
 
-			// Step 5: Confirm generation
+			// Step 7: Confirm generation
 			const confirmed = await CodePreview.confirm();
 			if (!confirmed) {
 				clack.cancel("Module generation cancelled");
 				return;
 			}
 
-			// Step 6: Generate files
+			// Step 8: Generate files
 			await this.generateFiles(
 				moduleName,
 				outputPath,
+				serviceName,
+				generateServiceTests,
 				providers,
 				generateTests,
 			);
@@ -146,7 +190,57 @@ export class GenerateModuleWizard {
 	 */
 	private async promptTestGeneration(): Promise<boolean | null> {
 		const generateTests = await clack.confirm({
-			message: "Generate test file?",
+			message: "Generate test file for module?",
+			initialValue: true,
+		});
+
+		if (clack.isCancel(generateTests)) {
+			return null;
+		}
+
+		return generateTests;
+	}
+
+	/**
+	 * Prompt for creating a service for the module
+	 */
+	private async promptCreateService(): Promise<boolean | null> {
+		const createService = await clack.confirm({
+			message: "Would you like to create a service for this module?",
+			initialValue: true,
+		});
+
+		if (clack.isCancel(createService)) {
+			return null;
+		}
+
+		return createService;
+	}
+
+	/**
+	 * Prompt for service name
+	 */
+	private async promptServiceName(defaultName: string): Promise<string | null> {
+		const name = await clack.text({
+			message: "Service name:",
+			placeholder: defaultName,
+			defaultValue: defaultName,
+			validate: validateComponentName,
+		});
+
+		if (clack.isCancel(name)) {
+			return null;
+		}
+
+		return capitalize(name as string);
+	}
+
+	/**
+	 * Prompt for service test generation
+	 */
+	private async promptServiceTestGeneration(): Promise<boolean | null> {
+		const generateTests = await clack.confirm({
+			message: "Generate test file for the service?",
 			initialValue: true,
 		});
 
@@ -209,29 +303,69 @@ export class GenerateModuleWizard {
 	private generatePreviewFiles(
 		moduleName: string,
 		outputPath: string,
+		serviceName: string | null,
+		generateServiceTests: boolean,
 		providers: ServiceInfo[],
 		generateTests: boolean,
 	): PreviewFile[] {
 		const files: PreviewFile[] = [];
 
+		// Service file (if requested)
+		if (serviceName) {
+			const serviceTemplate = new ServiceTemplate({ name: serviceName });
+			const serviceContent = serviceTemplate.generate();
+
+			files.push({
+				path: path.join(outputPath, `${serviceName.toLowerCase()}.service.ts`),
+				content: serviceContent,
+			});
+
+			// Service test file (if requested)
+			if (generateServiceTests) {
+				const serviceSpecTemplate = new ServiceSpecTemplate({
+					name: serviceName,
+				});
+				const testContent = serviceSpecTemplate.generate();
+
+				files.push({
+					path: path.join(
+						outputPath,
+						`${serviceName.toLowerCase()}.service.spec.ts`,
+					),
+					content: testContent,
+				});
+			}
+		}
+
 		// Module file
 		const moduleTemplate = new ModuleTemplate({ name: moduleName });
 
-		// Add providers to the module
+		// Add service to providers if created
+		if (serviceName) {
+			moduleTemplate.addProvider([`${serviceName}Service`]);
+		}
+
+		// Add existing providers to the module
 		if (providers.length > 0) {
 			moduleTemplate.addProvider(providers.map((p) => p.className));
 		}
 
-		// Generate imports for providers
-		const imports = providers
-			.map((p) => {
-				const relativePath = this.getRelativeImportPath(outputPath, p.filePath);
-				return `import { ${p.className} } from '${relativePath}';`;
-			})
-			.join("\n");
+		// Generate imports for service and providers
+		const imports: string[] = [];
+
+		if (serviceName) {
+			imports.push(
+				`import { ${serviceName}Service } from './${serviceName.toLowerCase()}.service';`,
+			);
+		}
+
+		providers.forEach((p) => {
+			const relativePath = this.getRelativeImportPath(outputPath, p.filePath);
+			imports.push(`import { ${p.className} } from '${relativePath}';`);
+		});
 
 		const moduleContent = `import { NsModule } from '@nexus-ioc/core';
-${imports ? `${imports}\n` : ""}
+${imports.length > 0 ? `${imports.join("\n")}\n` : ""}
 ${moduleTemplate.generate()}`;
 
 		files.push({
@@ -294,37 +428,127 @@ describe('${moduleClassName}', () => {
 	private async generateFiles(
 		moduleName: string,
 		outputPath: string,
+		serviceName: string | null,
+		generateServiceTests: boolean,
 		providers: ServiceInfo[],
 		generateTests: boolean,
 	): Promise<void> {
 		const s = clack.spinner();
-		s.start("Generating module files...");
+		s.start("Generating files...");
 
 		try {
-			const inputs: Input[] = [
-				{ name: "type", value: "module" },
-				{ name: "name", value: moduleName.toLowerCase() },
-				{ name: "path", value: outputPath },
-			];
+			// Ensure output directory exists
+			const resolvedPath = this.scanner.resolvePath(outputPath);
+			if (!fs.existsSync(resolvedPath)) {
+				fs.mkdirSync(resolvedPath, { recursive: true });
+			}
 
-			const options: Input[] = [
-				{ name: "skipImport", value: true },
-				{ name: "spec", value: generateTests },
-			];
+			// Generate service files if requested
+			if (serviceName) {
+				const serviceTemplate = new ServiceTemplate({ name: serviceName });
+				const serviceContent = serviceTemplate.generate();
+				const serviceFilePath = path.join(
+					resolvedPath,
+					`${serviceName.toLowerCase()}.service.ts`,
+				);
 
-			await this.generateAction.handler(inputs, options);
+				fs.writeFileSync(
+					serviceFilePath,
+					await prettifyCode(serviceContent, serviceFilePath),
+					"utf-8",
+				);
 
-			// If we have providers, we need to update the module file
+				// Generate service test file if requested
+				if (generateServiceTests) {
+					const serviceSpecTemplate = new ServiceSpecTemplate({
+						name: serviceName,
+					});
+					const testContent = serviceSpecTemplate.generate();
+					const testFilePath = path.join(
+						resolvedPath,
+						`${serviceName.toLowerCase()}.service.spec.ts`,
+					);
+
+					fs.writeFileSync(
+						testFilePath,
+						await prettifyCode(testContent, testFilePath),
+						"utf-8",
+					);
+				}
+			}
+
+			// Generate module file with service and providers
+			const moduleTemplate = new ModuleTemplate({ name: moduleName });
+
+			// Add service to providers if created
+			if (serviceName) {
+				moduleTemplate.addProvider([`${serviceName}Service`]);
+			}
+
+			// Add existing providers to the module
 			if (providers.length > 0) {
-				// The GenerateAction will create the basic module
-				// We would need to update it with the providers
-				// For now, the basic module is created
-				clack.log.warn(
-					"Note: Providers need to be manually added to the module decorator",
+				moduleTemplate.addProvider(providers.map((p) => p.className));
+			}
+
+			// Generate imports for service and providers
+			const imports: string[] = [];
+
+			if (serviceName) {
+				imports.push(
+					`import { ${serviceName}Service } from './${serviceName.toLowerCase()}.service';`,
 				);
 			}
 
-			s.stop(pc.green("✓ Module generated successfully"));
+			providers.forEach((p) => {
+				const relativePath = this.getRelativeImportPath(outputPath, p.filePath);
+				imports.push(`import { ${p.className} } from '${relativePath}';`);
+			});
+
+			const moduleContent = `import { NsModule } from '@nexus-ioc/core';
+${imports.length > 0 ? `${imports.join("\n")}\n` : ""}
+${moduleTemplate.generate()}`;
+
+			const moduleFilePath = path.join(
+				resolvedPath,
+				`${moduleName.toLowerCase()}.module.ts`,
+			);
+
+			fs.writeFileSync(
+				moduleFilePath,
+				await prettifyCode(moduleContent, moduleFilePath),
+				"utf-8",
+			);
+
+			// Generate module test file if requested
+			if (generateTests) {
+				const moduleNameLC = moduleName.toLowerCase();
+				const moduleClassName = `${moduleName}Module`;
+				const testContent = `import { Test } from "@nexus-ioc/testing";
+import { ${moduleClassName} } from "./${moduleNameLC}.module";
+
+describe('${moduleClassName}', () => {
+  it('should compile the module', async () => {
+    const moduleRef = await Test.createModule({
+      imports: [${moduleClassName}]
+    }).compile();
+
+    expect(moduleRef).toBeDefined();
+  });
+});`;
+
+				const testFilePath = path.join(
+					resolvedPath,
+					`${moduleNameLC}.module.spec.ts`,
+				);
+
+				fs.writeFileSync(
+					testFilePath,
+					await prettifyCode(testContent, testFilePath),
+					"utf-8",
+				);
+			}
+
+			s.stop(pc.green("✓ Files generated successfully"));
 		} catch (error) {
 			s.stop(pc.red(`✗ Generation failed: ${error}`));
 			throw error;
