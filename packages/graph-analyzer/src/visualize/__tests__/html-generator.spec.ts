@@ -51,8 +51,8 @@ describe("HtmlGenerator", () => {
 						{
 							type: "constructor",
 							index: 0,
-							token: "DatabaseService",
-							tokenType: "class",
+							token: "CONFIG",
+							tokenType: "value",
 							optional: false,
 						},
 					],

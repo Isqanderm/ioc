@@ -441,9 +441,9 @@ to ensure backward compatibility and proper functionality at different scales.
                     </div>
                     <div class="control-group">
                         <label>View Mode</label>
-                        <button id="view-all" class="active">All</button>
-                        <button id="view-modules">Modules Only</button>
-                        <button id="view-providers">Providers Only</button>
+                        <button id="view-all" class="view-btn active" data-view="all">All</button>
+                        <button id="view-modules" class="view-btn" data-view="modules">Modules Only</button>
+                        <button id="view-providers" class="view-btn" data-view="providers">Providers Only</button>
                     </div>
                     <div class="control-group">
                         <label>Zoom</label>
@@ -1691,15 +1691,12 @@ to ensure backward compatibility and proper functionality at different scales.
             });
 
             // Zoom controls
-            document.getElementById('zoom-in').addEventListener('click', function() {
-                cy.zoom(cy.zoom() * 1.2);
+            document.getElementById('reset-zoom').addEventListener('click', function() {
+                cy.zoom(1);
+                cy.center();
             });
 
-            document.getElementById('zoom-out').addEventListener('click', function() {
-                cy.zoom(cy.zoom() * 0.8);
-            });
-
-            document.getElementById('zoom-fit').addEventListener('click', function() {
+            document.getElementById('fit-graph').addEventListener('click', function() {
                 cy.fit();
             });
         }

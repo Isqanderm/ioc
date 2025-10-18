@@ -69,6 +69,11 @@ export class HtmlGenerator {
 		const nodes: unknown[] = [];
 		const edges: unknown[] = [];
 
+		// Create a set of existing module names for validation
+		const existingModules = new Set(
+			graphData.modules.map((module) => module.name),
+		);
+
 		// Add module nodes (these will be parent/compound nodes)
 		for (const module of graphData.modules) {
 			nodes.push({
@@ -85,18 +90,28 @@ export class HtmlGenerator {
 				classes: ["module", module.isGlobal ? "global" : ""],
 			});
 
-			// Add edges for module imports
+			// Add edges for module imports (only for modules that exist in the graph)
 			for (const importedModule of module.imports) {
-				edges.push({
-					data: {
-						id: `edge-${module.name}-${importedModule}`,
-						source: `module-${module.name}`,
-						target: `module-${importedModule}`,
-						type: "import",
-					},
-					classes: ["import"],
-				});
+				// Only create edge if the target module exists in the graph
+				if (existingModules.has(importedModule)) {
+					edges.push({
+						data: {
+							id: `edge-${module.name}-${importedModule}`,
+							source: `module-${module.name}`,
+							target: `module-${importedModule}`,
+							type: "import",
+						},
+						classes: ["import"],
+					});
+				}
 			}
+		}
+
+		// Create a map of provider tokens to their full node IDs for dependency resolution
+		const providerMap = new Map<string, string>();
+		for (const provider of graphData.providers) {
+			const nodeId = `provider-${provider.module}-${provider.token}`;
+			providerMap.set(provider.token, nodeId);
 		}
 
 		// Add provider nodes as children of their parent modules
@@ -122,22 +137,25 @@ export class HtmlGenerator {
 
 			// Note: We no longer need "provides" edges since providers are children of modules
 
-			// Add edges for provider dependencies
+			// Add edges for provider dependencies (only for providers that exist in the graph)
 			if (provider.dependencies && provider.dependencies.length > 0) {
 				for (const dep of provider.dependencies) {
 					if (dep.token) {
 						// Find the provider node for this dependency
-						const depNodeId = `provider-${provider.module}-${dep.token}`;
-						edges.push({
-							data: {
-								id: `edge-${nodeId}-${depNodeId}`,
-								source: nodeId,
-								target: depNodeId,
-								type: "dependency",
-								optional: dep.optional,
-							},
-							classes: ["dependency", dep.optional ? "optional" : ""],
-						});
+						const depNodeId = providerMap.get(dep.token);
+						// Only create edge if the target provider exists in the graph
+						if (depNodeId) {
+							edges.push({
+								data: {
+									id: `edge-${nodeId}-${depNodeId}`,
+									source: nodeId,
+									target: depNodeId,
+									type: "dependency",
+									optional: dep.optional,
+								},
+								classes: ["dependency", dep.optional ? "optional" : ""],
+							});
+						}
 					}
 				}
 			}
