@@ -10,23 +10,37 @@ The Graph Analyzer now supports generating interactive HTML visualizations of yo
 - **Hover Effects**: Visual feedback when hovering over nodes
 - **Search**: Quickly find specific modules or providers
 - **View Modes**: Toggle between different views (all, modules only, providers only)
+- **Clickable Relationships**: Navigate between related nodes by clicking on imports, providers, exports, and dependencies in the info panel
 
 ### Node Information
 When you click on a node, you'll see:
 - **For Modules**:
   - Module name and type
   - File path (clickable to open in your IDE)
-  - Imported modules
-  - Registered providers
-  - Exported providers
+  - Imported modules (clickable to navigate to that module)
+  - Registered providers (clickable to navigate to that provider)
+  - Exported providers (clickable to navigate to that provider)
   - Global status
 
 - **For Providers**:
   - Provider token and type (Class, UseValue, UseFactory, UseClass)
-  - Module that registers the provider
+  - Module that registers the provider (clickable to navigate to that module)
   - Lifecycle scope (Singleton, Request, Transient)
-  - Dependencies
+  - Dependencies (clickable to navigate to that dependency)
   - Type-specific information (value, factory function, implementation class)
+
+### Interactive Navigation
+The info panel makes it easy to explore your dependency graph:
+- **Click on any import** in a module's "Imports" list to navigate to that module
+- **Click on any provider** in a module's "Providers" or "Exports" list to navigate to that provider
+- **Click on any dependency** in a provider's "Dependencies" list to navigate to that dependency
+- **Click on the module name** in a provider's details to navigate back to the module
+
+When you click on a relationship:
+1. The graph automatically pans and zooms to center on the target node
+2. The target node is highlighted with a visual indicator
+3. The info panel updates to show the details of the newly selected node
+4. The animation is smooth and takes 500ms with an ease-in-out-cubic easing function
 
 ### IDE Integration
 File paths are clickable and will open directly in your IDE:
@@ -229,6 +243,11 @@ Type in the search box to highlight matching nodes. The graph will automatically
 ### Zoom Controls
 - **Reset View**: Resets zoom to 100% and centers the graph
 - **Fit to Screen**: Adjusts zoom to fit all visible nodes in the viewport
+
+### Navigation
+- **Click on nodes**: Select a node to view its details in the info panel
+- **Click on relationships**: Click on any import, provider, export, or dependency in the info panel to navigate to that node
+- **Smooth animations**: All navigation includes smooth pan and zoom animations for better user experience
 
 ## Browser Compatibility
 

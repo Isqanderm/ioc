@@ -442,6 +442,22 @@ export class HtmlGenerator {
             content: "→ ";
             color: ${isDark ? "#888" : "#666"};
         }
+
+        .node-link {
+            color: ${isDark ? "#4fc3f7" : "#007acc"};
+            text-decoration: none;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+
+        .node-link:hover {
+            color: ${isDark ? "#81d4fa" : "#005a9e"};
+            text-decoration: underline;
+        }
+
+        .node-link code {
+            color: inherit;
+        }
         `;
 	}
 
@@ -675,6 +691,29 @@ export class HtmlGenerator {
             button.classList.add('active');
         }
 
+        function navigateToNode(nodeId) {
+            const node = cy.getElementById(nodeId);
+            if (node.length > 0) {
+                // Remove previous highlights
+                cy.elements().removeClass('highlighted');
+
+                // Highlight the target node and its edges
+                node.addClass('highlighted');
+                node.connectedEdges().addClass('highlighted');
+
+                // Animate pan and zoom to the node
+                cy.animate({
+                    center: { eles: node },
+                    zoom: 1.5,
+                    duration: 500,
+                    easing: 'ease-in-out-cubic'
+                });
+
+                // Show node details
+                showNodeDetails(node.data());
+            }
+        }
+
         function showNodeDetails(data) {
             const placeholder = document.querySelector('.placeholder');
             const detailsDiv = document.getElementById('node-details');
@@ -708,20 +747,38 @@ export class HtmlGenerator {
                     <div class="info-item">
                         <label>Imports (\${data.imports.length})</label>
                         <ul class="dependency-list">
-                            \${data.imports.map(imp => '<li>' + imp + '</li>').join('')}
+                            \${data.imports.map(imp => {
+                                const nodeId = 'module-' + imp;
+                                const exists = cy.getElementById(nodeId).length > 0;
+                                return exists
+                                    ? '<li><a href="#" class="node-link" data-node-id="' + nodeId + '">' + imp + '</a></li>'
+                                    : '<li>' + imp + '</li>';
+                            }).join('')}
                         </ul>
                     </div>
                     <div class="info-item">
                         <label>Providers (\${data.providers.length})</label>
                         <ul class="dependency-list">
-                            \${data.providers.map(prov => '<li>' + prov + '</li>').join('')}
+                            \${data.providers.map(prov => {
+                                const nodeId = 'provider-' + prov;
+                                const exists = cy.getElementById(nodeId).length > 0;
+                                return exists
+                                    ? '<li><a href="#" class="node-link" data-node-id="' + nodeId + '">' + prov + '</a></li>'
+                                    : '<li>' + prov + '</li>';
+                            }).join('')}
                         </ul>
                     </div>
                     \${data.exports.length > 0 ? \`
                         <div class="info-item">
                             <label>Exports (\${data.exports.length})</label>
                             <ul class="dependency-list">
-                                \${data.exports.map(exp => '<li>' + exp + '</li>').join('')}
+                                \${data.exports.map(exp => {
+                                    const nodeId = 'provider-' + exp;
+                                    const exists = cy.getElementById(nodeId).length > 0;
+                                    return exists
+                                        ? '<li><a href="#" class="node-link" data-node-id="' + nodeId + '">' + exp + '</a></li>'
+                                        : '<li>' + exp + '</li>';
+                                }).join('')}
                             </ul>
                         </div>
                     \` : ''}
@@ -741,7 +798,15 @@ export class HtmlGenerator {
                     </div>
                     <div class="info-item">
                         <label>Module</label>
-                        <div class="value"><code>\${data.module}</code></div>
+                        <div class="value">
+                            \${(() => {
+                                const nodeId = 'module-' + data.module;
+                                const exists = cy.getElementById(nodeId).length > 0;
+                                return exists
+                                    ? '<a href="#" class="node-link" data-node-id="' + nodeId + '"><code>' + data.module + '</code></a>'
+                                    : '<code>' + data.module + '</code>';
+                            })()}
+                        </div>
                     </div>
                     \${data.scope ? \`
                         <div class="info-item">
@@ -771,11 +836,15 @@ export class HtmlGenerator {
                         <div class="info-item">
                             <label>Dependencies (\${data.dependencies.length})</label>
                             <ul class="dependency-list">
-                                \${data.dependencies.map(dep =>
-                                    '<li>' + (dep.token || 'Unknown') +
-                                    (dep.optional ? ' <em>(optional)</em>' : '') +
-                                    '</li>'
-                                ).join('')}
+                                \${data.dependencies.map(dep => {
+                                    const token = dep.token || 'Unknown';
+                                    const nodeId = 'provider-' + token;
+                                    const exists = cy.getElementById(nodeId).length > 0;
+                                    const link = exists
+                                        ? '<a href="#" class="node-link" data-node-id="' + nodeId + '">' + token + '</a>'
+                                        : token;
+                                    return '<li>' + link + (dep.optional ? ' <em>(optional)</em>' : '') + '</li>';
+                                }).join('')}
                             </ul>
                         </div>
                     \` : ''}
@@ -783,6 +852,15 @@ export class HtmlGenerator {
             }
 
             detailsDiv.innerHTML = html;
+
+            // Attach click handlers to node links
+            detailsDiv.querySelectorAll('.node-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const nodeId = this.getAttribute('data-node-id');
+                    navigateToNode(nodeId);
+                });
+            });
         }
         `;
 	}

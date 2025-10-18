@@ -383,5 +383,77 @@ describe("HtmlGenerator", () => {
 			expect(html).toContain("Node Information");
 		});
 	});
+
+	describe("Interactive Navigation", () => {
+		it("should include navigateToNode function", () => {
+			const generator = new HtmlGenerator(mockGraph, "/project/src/entry.ts");
+			const html = generator.generate();
+
+			expect(html).toContain("function navigateToNode(nodeId)");
+			expect(html).toContain("cy.getElementById(nodeId)");
+			expect(html).toContain("cy.animate");
+		});
+
+		it("should make module imports clickable", () => {
+			const generator = new HtmlGenerator(mockGraph, "/project/src/entry.ts");
+			const html = generator.generate();
+
+			// Check that imports are rendered with node-link class
+			expect(html).toContain("node-link");
+			expect(html).toContain("data-node-id");
+		});
+
+		it("should make provider dependencies clickable", () => {
+			const generator = new HtmlGenerator(mockGraph, "/project/src/entry.ts");
+			const html = generator.generate();
+
+			// Check that dependencies can be rendered as links
+			expect(html).toContain("data.dependencies.map");
+		});
+
+		it("should attach click handlers to node links", () => {
+			const generator = new HtmlGenerator(mockGraph, "/project/src/entry.ts");
+			const html = generator.generate();
+
+			// Check that click handlers are attached
+			expect(html).toContain("querySelectorAll('.node-link')");
+			expect(html).toContain("addEventListener('click'");
+			expect(html).toContain("navigateToNode(nodeId)");
+		});
+
+		it("should include CSS styles for node links", () => {
+			const generator = new HtmlGenerator(mockGraph, "/project/src/entry.ts");
+			const html = generator.generate();
+
+			expect(html).toContain(".node-link");
+			expect(html).toContain("cursor: pointer");
+		});
+
+		it("should handle navigation animation", () => {
+			const generator = new HtmlGenerator(mockGraph, "/project/src/entry.ts");
+			const html = generator.generate();
+
+			expect(html).toContain("cy.animate");
+			expect(html).toContain("center: { eles: node }");
+			expect(html).toContain("zoom: 1.5");
+			expect(html).toContain("duration: 500");
+			expect(html).toContain("easing: 'ease-in-out-cubic'");
+		});
+
+		it("should highlight target node on navigation", () => {
+			const generator = new HtmlGenerator(mockGraph, "/project/src/entry.ts");
+			const html = generator.generate();
+
+			expect(html).toContain("node.addClass('highlighted')");
+			expect(html).toContain("node.connectedEdges().addClass('highlighted')");
+		});
+
+		it("should check if node exists before navigating", () => {
+			const generator = new HtmlGenerator(mockGraph, "/project/src/entry.ts");
+			const html = generator.generate();
+
+			expect(html).toContain("if (node.length > 0)");
+		});
+	});
 });
 
