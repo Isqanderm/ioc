@@ -1,9 +1,21 @@
 {
-  "name": "graph-analyzer",
+  "name": "@nexus-ioc/graph-analyzer",
   "version": "0.0.1",
-  "description": "graph analyzer for nexus ioc",
+  "description": "Static analysis tool for Nexus IoC dependency injection graphs - analyze and visualize DI dependencies without executing code",
+  "keywords": [
+    "nexus-ioc",
+    "dependency-injection",
+    "static-analysis",
+    "graph-visualization",
+    "typescript",
+    "ast-parser",
+    "di-container",
+    "dependency-graph",
+    "code-analysis",
+    "graphviz"
+  ],
   "author": "IsqanderM <aleksandr.melnik.personal@gmail.com>",
-  "homepage": "https://github.com/Isqanderm/ioc#readme",
+  "homepage": "https://github.com/Isqanderm/ioc/tree/main/packages/graph-analyzer#readme",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -16,14 +28,25 @@
     "test": "__test__"
   },
   "files": [
-    "dist",
-    "package.json",
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.js.map",
+    "!dist/**/__tests__",
+    "!dist/**/*.spec.*",
+    "!dist/**/*.test.*",
+    "docs/*.md",
+    "!docs/IMPLEMENTATION_ROADMAP.md",
+    "!docs/DEPENDENCY_EXTRACTION_IMPLEMENTATION_PLAN.md",
     "LICENSE",
     "README.md"
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Isqanderm/ioc.git"
+    "url": "git+https://github.com/Isqanderm/ioc.git",
+    "directory": "packages/graph-analyzer"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "devDependencies": {
     "@types/jest": "^29.5.12",
@@ -39,11 +62,17 @@
     "test": "jest",
     "clean": "rm -rf ./dist && rm tsconfig.tsbuildinfo",
     "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "prepublishOnly": "npm run clean && npm run build && npm test",
     "code:format": "npx @biomejs/biome format --write",
     "code:lint": "npx @biomejs/biome lint --write",
     "code:check": "npx @biomejs/biome check",
     "code:check:ci": "npx @biomejs/biome ci",
     "code:check:apply": "npx @biomejs/biome check --write"
+  },
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
   },
   "bugs": {
     "url": "https://github.com/Isqanderm/ioc/issues"
