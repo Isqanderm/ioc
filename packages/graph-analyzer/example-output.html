@@ -1,0 +1,2816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dependency Graph</title>
+    <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+    <style>
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #ffffff;
+            color: #333333;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e0e0e0;
+            background: #f5f5f5;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .metadata {
+            display: flex;
+            gap: 1.5rem;
+            font-size: 0.875rem;
+            color: #666;
+        }
+
+        .metadata code {
+            background: #e8e8e8;
+            padding: 0.125rem 0.375rem;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .controls {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+            background: #f5f5f5;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .control-group label {
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+
+        button {
+            padding: 0.5rem 1rem;
+            border: 1px solid #e0e0e0;
+            background: #ffffff;
+            color: #333333;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #e8e8e8;
+        }
+
+        button.active {
+            background: #007acc;
+            color: white;
+            border-color: #007acc;
+        }
+
+        input[type="text"] {
+            padding: 0.5rem;
+            border: 1px solid #e0e0e0;
+            background: #ffffff;
+            color: #333333;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            min-width: 250px;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        #cy {
+            flex: 1;
+            background: #ffffff;
+        }
+
+        .info-panel {
+            width: 350px;
+            border-left: 1px solid #e0e0e0;
+            background: #f5f5f5;
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .info-panel h3 {
+            margin-bottom: 1rem;
+            font-size: 1.125rem;
+        }
+
+        .info-panel .placeholder {
+            color: #666;
+            font-style: italic;
+        }
+
+        .info-item {
+            margin-bottom: 1rem;
+        }
+
+        .info-item label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            font-size: 0.875rem;
+            color: #666;
+        }
+
+        .info-item .value {
+            font-size: 0.9375rem;
+        }
+
+        .info-item code {
+            background: #e8e8e8;
+            padding: 0.125rem 0.375rem;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+        }
+
+        .info-item a {
+            color: #007acc;
+            text-decoration: none;
+        }
+
+        .info-item a:hover {
+            text-decoration: underline;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-right: 0.5rem;
+        }
+
+        .badge.module { background: #90caf9; color: #000; }
+        .badge.provider { background: #a5d6a7; color: #000; }
+        .badge.class { background: #90caf9; color: #000; }
+        .badge.usevalue { background: #a5d6a7; color: #000; }
+        .badge.usefactory { background: #ffab91; color: #000; }
+        .badge.useclass { background: #fff59d; color: #000; }
+        .badge.global { background: #ce93d8; color: #000; }
+
+        .dependency-list {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .dependency-list li {
+            padding: 0.25rem 0;
+            font-size: 0.875rem;
+        }
+
+        .dependency-list li::before {
+            content: "→ ";
+            color: #666;
+        }
+
+        .node-link {
+            color: #007acc;
+            text-decoration: none;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+
+        .node-link:hover {
+            color: #005a9e;
+            text-decoration: underline;
+        }
+
+        .node-link code {
+            color: inherit;
+        }
+        
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Dependency Graph</h1>
+            <div class="metadata">
+                <span>Entry Point: <code>/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/entry.ts</code></span>
+                <span>Modules: <strong>14</strong></span>
+                <span>Providers: <strong>17</strong></span>
+                <span>Analyzed: 10/18/2025, 5:39:43 PM</span>
+            </div>
+            
+            <div style="background: #ffebee; border: 2px solid #f44336; border-radius: 4px; padding: 1rem; margin-top: 1rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <span style="font-size: 1.5rem;">⚠️</span>
+                    <strong style="color: #c62828; font-size: 1.1rem;">Missing @Inject Decorators Detected</strong>
+                </div>
+                <p style="color: #c62828; margin-bottom: 0.75rem; font-size: 0.9rem;">
+                    3 provider(s) have dependencies without explicit @Inject decorators.
+                    This may cause runtime errors in production. Affected providers:
+                </p>
+                <ul style="color: #c62828; font-size: 0.875rem; margin-left: 1.5rem;">
+                    <li><strong>UserRepository</strong> (UsersModule): CacheService</li><li><strong>PostsService</strong> (PostsModule): UsersService</li><li><strong>CommentsService</strong> (CommentsModule): EmailService</li>
+                </ul>
+            </div>
+        
+        </header>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label>View Mode:</label>
+                <button id="view-all" class="active">All</button>
+                <button id="view-modules">Modules Only</button>
+                <button id="view-providers">Providers Only</button>
+            </div>
+            <div class="control-group">
+                <label>Search:</label>
+                <input type="text" id="search" placeholder="Search modules or providers..." />
+            </div>
+            <div class="control-group">
+                <button id="reset-zoom">Reset View</button>
+                <button id="fit-graph">Fit to Screen</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div id="cy"></div>
+            <div id="info-panel" class="info-panel">
+                <h3>Node Information</h3>
+                <p class="placeholder">Click on a node to see details</p>
+                <div id="node-details" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        
+        const graphData = {
+  "nodes": [
+    {
+      "data": {
+        "id": "module-AppsModule",
+        "label": "AppsModule",
+        "type": "module",
+        "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/apps/index.ts",
+        "isGlobal": false,
+        "imports": [
+          "CoreModule",
+          "SharedModule",
+          "UsersModule",
+          "PostsModule",
+          "CommentsModule",
+          "CategoriesModule"
+        ],
+        "exports": [],
+        "providers": []
+      },
+      "classes": [
+        "module",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "module-CoreModule",
+        "label": "CoreModule",
+        "type": "module",
+        "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/core/core.module.ts",
+        "isGlobal": false,
+        "imports": [
+          "ConfigModule",
+          "LoggerModule",
+          "DatabaseModule",
+          "AuthModule"
+        ],
+        "exports": [
+          "ConfigModule",
+          "LoggerModule",
+          "DatabaseModule",
+          "AuthModule"
+        ],
+        "providers": []
+      },
+      "classes": [
+        "module",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "module-SharedModule",
+        "label": "SharedModule",
+        "type": "module",
+        "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/shared/shared.module.ts",
+        "isGlobal": false,
+        "imports": [
+          "CacheModule",
+          "EmailModule",
+          "StorageModule"
+        ],
+        "exports": [
+          "CacheModule",
+          "EmailModule",
+          "StorageModule"
+        ],
+        "providers": []
+      },
+      "classes": [
+        "module",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "module-UsersModule",
+        "label": "UsersModule",
+        "type": "module",
+        "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/features/users/users.module.ts",
+        "isGlobal": false,
+        "imports": [
+          "DatabaseModule",
+          "LoggerModule",
+          "CacheModule",
+          "EmailModule",
+          "StorageModule"
+        ],
+        "exports": [
+          "UsersService",
+          "UserRepository"
+        ],
+        "providers": [
+          "UserRepository",
+          "UsersService"
+        ]
+      },
+      "classes": [
+        "module",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "module-PostsModule",
+        "label": "PostsModule",
+        "type": "module",
+        "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/features/posts/posts.module.ts",
+        "isGlobal": false,
+        "imports": [
+          "DatabaseModule",
+          "LoggerModule",
+          "CacheModule",
+          "UsersModule"
+        ],
+        "exports": [
+          "PostsService",
+          "PostRepository"
+        ],
+        "providers": [
+          "PostRepository",
+          "PostsService"
+        ]
+      },
+      "classes": [
+        "module",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "module-CommentsModule",
+        "label": "CommentsModule",
+        "type": "module",
+        "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/features/comments/comments.module.ts",
+        "isGlobal": false,
+        "imports": [
+          "DatabaseModule",
+          "LoggerModule",
+          "UsersModule",
+          "PostsModule",
+          "EmailModule"
+        ],
+        "exports": [
+          "CommentsService"
+        ],
+        "providers": [
+          "CommentRepository",
+          "CommentsService"
+        ]
+      },
+      "classes": [
+        "module",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "module-CategoriesModule",
+        "label": "CategoriesModule",
+        "type": "module",
+        "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/features/categories/categories.module.ts",
+        "isGlobal": false,
+        "imports": [
+          "DatabaseModule",
+          "LoggerModule",
+          "CacheModule"
+        ],
+        "exports": [
+          "CategoriesService"
+        ],
+        "providers": [
+          "CategoryRepository",
+          "CategoriesService"
+        ]
+      },
+      "classes": [
+        "module",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "module-ConfigModule",
+        "label": "ConfigModule",
+        "type": "module",
+        "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/core/config/config.module.ts",
+        "isGlobal": false,
+        "imports": [],
+        "exports": [
+          "ConfigService"
+        ],
+        "providers": [
+          "ConfigService"
+        ]
+      },
+      "classes": [
+        "module",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "module-LoggerModule",
+        "label": "LoggerModule",
+        "type": "module",
+        "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/core/logger/logger.module.ts",
+        "isGlobal": false,
+        "imports": [
+          "ConfigModule"
+        ],
+        "exports": [
+          "LoggerService"
+        ],
+        "providers": [
+          "LoggerService"
+        ]
+      },
+      "classes": [
+        "module",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "module-DatabaseModule",
+        "label": "DatabaseModule",
+        "type": "module",
+        "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/core/database/database.module.ts",
+        "isGlobal": false,
+        "imports": [
+          "ConfigModule",
+          "LoggerModule"
+        ],
+        "exports": [
+          "DatabaseService"
+        ],
+        "providers": [
+          "DatabaseService"
+        ]
+      },
+      "classes": [
+        "module",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "module-AuthModule",
+        "label": "AuthModule",
+        "type": "module",
+        "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/core/auth/auth.module.ts",
+        "isGlobal": false,
+        "imports": [
+          "ConfigModule",
+          "LoggerModule"
+        ],
+        "exports": [
+          "AuthService",
+          "JwtService"
+        ],
+        "providers": [
+          "AuthService",
+          "JwtService",
+          "PasswordService"
+        ]
+      },
+      "classes": [
+        "module",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "module-CacheModule",
+        "label": "CacheModule",
+        "type": "module",
+        "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/shared/cache/cache.module.ts",
+        "isGlobal": false,
+        "imports": [
+          "ConfigModule",
+          "LoggerModule"
+        ],
+        "exports": [
+          "CacheService"
+        ],
+        "providers": [
+          "CacheService"
+        ]
+      },
+      "classes": [
+        "module",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "module-EmailModule",
+        "label": "EmailModule",
+        "type": "module",
+        "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/shared/email/email.module.ts",
+        "isGlobal": false,
+        "imports": [
+          "ConfigModule",
+          "LoggerModule"
+        ],
+        "exports": [
+          "EmailService"
+        ],
+        "providers": [
+          "EmailService"
+        ]
+      },
+      "classes": [
+        "module",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "module-StorageModule",
+        "label": "StorageModule",
+        "type": "module",
+        "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/shared/storage/storage.module.ts",
+        "isGlobal": false,
+        "imports": [
+          "ConfigModule",
+          "LoggerModule"
+        ],
+        "exports": [
+          "StorageService"
+        ],
+        "providers": [
+          "StorageService"
+        ]
+      },
+      "classes": [
+        "module",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "provider-UsersModule-UserRepository",
+        "label": "UserRepository",
+        "type": "provider",
+        "providerType": "Class",
+        "module": "UsersModule",
+        "dependencies": [
+          {
+            "type": "constructor",
+            "index": 0,
+            "token": "DatabaseService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(DatabaseService) private database: DatabaseService"
+          },
+          {
+            "type": "constructor",
+            "index": 1,
+            "token": "CacheService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": false,
+            "raw": "private cache: CacheService"
+          },
+          {
+            "type": "constructor",
+            "index": 2,
+            "token": "LoggerService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(LoggerService) private logger: LoggerService"
+          }
+        ],
+        "hasMissingDecorators": true,
+        "parent": "module-UsersModule"
+      },
+      "classes": [
+        "provider",
+        "class",
+        "missing-decorator"
+      ]
+    },
+    {
+      "data": {
+        "id": "provider-UsersModule-UsersService",
+        "label": "UsersService",
+        "type": "provider",
+        "providerType": "Class",
+        "module": "UsersModule",
+        "dependencies": [
+          {
+            "type": "constructor",
+            "index": 0,
+            "token": "UserRepository",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(UserRepository) private userRepository: UserRepository"
+          },
+          {
+            "type": "constructor",
+            "index": 1,
+            "token": "EmailService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(EmailService) private emailService: EmailService"
+          },
+          {
+            "type": "constructor",
+            "index": 2,
+            "token": "StorageService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(StorageService) private storageService: StorageService"
+          },
+          {
+            "type": "constructor",
+            "index": 3,
+            "token": "LoggerService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(LoggerService) private logger: LoggerService"
+          }
+        ],
+        "hasMissingDecorators": false,
+        "parent": "module-UsersModule"
+      },
+      "classes": [
+        "provider",
+        "class"
+      ]
+    },
+    {
+      "data": {
+        "id": "provider-PostsModule-PostRepository",
+        "label": "PostRepository",
+        "type": "provider",
+        "providerType": "Class",
+        "module": "PostsModule",
+        "dependencies": [
+          {
+            "type": "constructor",
+            "index": 0,
+            "token": "DatabaseService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(DatabaseService) private database: DatabaseService"
+          },
+          {
+            "type": "constructor",
+            "index": 1,
+            "token": "CacheService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(CacheService) private cache: CacheService"
+          },
+          {
+            "type": "constructor",
+            "index": 2,
+            "token": "LoggerService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(LoggerService) private logger: LoggerService"
+          }
+        ],
+        "hasMissingDecorators": false,
+        "parent": "module-PostsModule"
+      },
+      "classes": [
+        "provider",
+        "class"
+      ]
+    },
+    {
+      "data": {
+        "id": "provider-PostsModule-PostsService",
+        "label": "PostsService",
+        "type": "provider",
+        "providerType": "Class",
+        "module": "PostsModule",
+        "dependencies": [
+          {
+            "type": "constructor",
+            "index": 0,
+            "token": "PostRepository",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(PostRepository) private postRepository: PostRepository"
+          },
+          {
+            "type": "constructor",
+            "index": 1,
+            "token": "UsersService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": false,
+            "raw": "private usersService: UsersService"
+          },
+          {
+            "type": "constructor",
+            "index": 2,
+            "token": "LoggerService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(LoggerService) private logger: LoggerService"
+          }
+        ],
+        "hasMissingDecorators": true,
+        "parent": "module-PostsModule"
+      },
+      "classes": [
+        "provider",
+        "class",
+        "missing-decorator"
+      ]
+    },
+    {
+      "data": {
+        "id": "provider-CommentsModule-CommentRepository",
+        "label": "CommentRepository",
+        "type": "provider",
+        "providerType": "Class",
+        "module": "CommentsModule",
+        "dependencies": [
+          {
+            "type": "constructor",
+            "index": 0,
+            "token": "DatabaseService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(DatabaseService) private database: DatabaseService"
+          },
+          {
+            "type": "constructor",
+            "index": 1,
+            "token": "LoggerService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(LoggerService) private logger: LoggerService"
+          }
+        ],
+        "hasMissingDecorators": false,
+        "parent": "module-CommentsModule"
+      },
+      "classes": [
+        "provider",
+        "class"
+      ]
+    },
+    {
+      "data": {
+        "id": "provider-CommentsModule-CommentsService",
+        "label": "CommentsService",
+        "type": "provider",
+        "providerType": "Class",
+        "module": "CommentsModule",
+        "dependencies": [
+          {
+            "type": "constructor",
+            "index": 0,
+            "token": "CommentRepository",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(CommentRepository) private commentRepository: CommentRepository"
+          },
+          {
+            "type": "constructor",
+            "index": 1,
+            "token": "UsersService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(UsersService) private usersService: UsersService"
+          },
+          {
+            "type": "constructor",
+            "index": 2,
+            "token": "PostsService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(PostsService) private postsService: PostsService"
+          },
+          {
+            "type": "constructor",
+            "index": 3,
+            "token": "EmailService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": false,
+            "raw": "private emailService: EmailService"
+          },
+          {
+            "type": "constructor",
+            "index": 4,
+            "token": "LoggerService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(LoggerService) private logger: LoggerService"
+          }
+        ],
+        "hasMissingDecorators": true,
+        "parent": "module-CommentsModule"
+      },
+      "classes": [
+        "provider",
+        "class",
+        "missing-decorator"
+      ]
+    },
+    {
+      "data": {
+        "id": "provider-CategoriesModule-CategoryRepository",
+        "label": "CategoryRepository",
+        "type": "provider",
+        "providerType": "Class",
+        "module": "CategoriesModule",
+        "dependencies": [
+          {
+            "type": "constructor",
+            "index": 0,
+            "token": "DatabaseService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(DatabaseService) private database: DatabaseService"
+          },
+          {
+            "type": "constructor",
+            "index": 1,
+            "token": "CacheService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(CacheService) private cache: CacheService"
+          },
+          {
+            "type": "constructor",
+            "index": 2,
+            "token": "LoggerService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(LoggerService) private logger: LoggerService"
+          }
+        ],
+        "hasMissingDecorators": false,
+        "parent": "module-CategoriesModule"
+      },
+      "classes": [
+        "provider",
+        "class"
+      ]
+    },
+    {
+      "data": {
+        "id": "provider-CategoriesModule-CategoriesService",
+        "label": "CategoriesService",
+        "type": "provider",
+        "providerType": "Class",
+        "module": "CategoriesModule",
+        "dependencies": [
+          {
+            "type": "constructor",
+            "index": 0,
+            "token": "CategoryRepository",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(CategoryRepository) private categoryRepository: CategoryRepository"
+          },
+          {
+            "type": "constructor",
+            "index": 1,
+            "token": "LoggerService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(LoggerService) private logger: LoggerService"
+          }
+        ],
+        "hasMissingDecorators": false,
+        "parent": "module-CategoriesModule"
+      },
+      "classes": [
+        "provider",
+        "class"
+      ]
+    },
+    {
+      "data": {
+        "id": "provider-ConfigModule-ConfigService",
+        "label": "ConfigService",
+        "type": "provider",
+        "providerType": "Class",
+        "module": "ConfigModule",
+        "dependencies": [],
+        "hasMissingDecorators": false,
+        "parent": "module-ConfigModule"
+      },
+      "classes": [
+        "provider",
+        "class"
+      ]
+    },
+    {
+      "data": {
+        "id": "provider-LoggerModule-LoggerService",
+        "label": "LoggerService",
+        "type": "provider",
+        "providerType": "Class",
+        "module": "LoggerModule",
+        "dependencies": [
+          {
+            "type": "constructor",
+            "index": 0,
+            "token": "ConfigService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(ConfigService) private configService: ConfigService"
+          }
+        ],
+        "hasMissingDecorators": false,
+        "parent": "module-LoggerModule"
+      },
+      "classes": [
+        "provider",
+        "class"
+      ]
+    },
+    {
+      "data": {
+        "id": "provider-DatabaseModule-DatabaseService",
+        "label": "DatabaseService",
+        "type": "provider",
+        "providerType": "Class",
+        "module": "DatabaseModule",
+        "dependencies": [
+          {
+            "type": "constructor",
+            "index": 0,
+            "token": "ConfigService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(ConfigService) private configService: ConfigService"
+          },
+          {
+            "type": "constructor",
+            "index": 1,
+            "token": "LoggerService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(LoggerService) private logger: LoggerService"
+          }
+        ],
+        "hasMissingDecorators": false,
+        "parent": "module-DatabaseModule"
+      },
+      "classes": [
+        "provider",
+        "class"
+      ]
+    },
+    {
+      "data": {
+        "id": "provider-AuthModule-AuthService",
+        "label": "AuthService",
+        "type": "provider",
+        "providerType": "Class",
+        "module": "AuthModule",
+        "dependencies": [
+          {
+            "type": "constructor",
+            "index": 0,
+            "token": "JwtService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(JwtService) private jwtService: JwtService"
+          },
+          {
+            "type": "constructor",
+            "index": 1,
+            "token": "PasswordService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(PasswordService) private passwordService: PasswordService"
+          },
+          {
+            "type": "constructor",
+            "index": 2,
+            "token": "LoggerService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(LoggerService) private logger: LoggerService"
+          }
+        ],
+        "hasMissingDecorators": false,
+        "parent": "module-AuthModule"
+      },
+      "classes": [
+        "provider",
+        "class"
+      ]
+    },
+    {
+      "data": {
+        "id": "provider-AuthModule-JwtService",
+        "label": "JwtService",
+        "type": "provider",
+        "providerType": "Class",
+        "module": "AuthModule",
+        "dependencies": [
+          {
+            "type": "constructor",
+            "index": 0,
+            "token": "ConfigService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(ConfigService) private configService: ConfigService"
+          },
+          {
+            "type": "constructor",
+            "index": 1,
+            "token": "LoggerService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(LoggerService) private logger: LoggerService"
+          }
+        ],
+        "hasMissingDecorators": false,
+        "parent": "module-AuthModule"
+      },
+      "classes": [
+        "provider",
+        "class"
+      ]
+    },
+    {
+      "data": {
+        "id": "provider-AuthModule-PasswordService",
+        "label": "PasswordService",
+        "type": "provider",
+        "providerType": "Class",
+        "module": "AuthModule",
+        "dependencies": [
+          {
+            "type": "constructor",
+            "index": 0,
+            "token": "LoggerService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(LoggerService) private logger: LoggerService"
+          }
+        ],
+        "hasMissingDecorators": false,
+        "parent": "module-AuthModule"
+      },
+      "classes": [
+        "provider",
+        "class"
+      ]
+    },
+    {
+      "data": {
+        "id": "provider-CacheModule-CacheService",
+        "label": "CacheService",
+        "type": "provider",
+        "providerType": "Class",
+        "module": "CacheModule",
+        "dependencies": [
+          {
+            "type": "constructor",
+            "index": 0,
+            "token": "ConfigService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(ConfigService) private configService: ConfigService"
+          },
+          {
+            "type": "constructor",
+            "index": 1,
+            "token": "LoggerService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(LoggerService) private logger: LoggerService"
+          }
+        ],
+        "hasMissingDecorators": false,
+        "parent": "module-CacheModule"
+      },
+      "classes": [
+        "provider",
+        "class"
+      ]
+    },
+    {
+      "data": {
+        "id": "provider-EmailModule-EmailService",
+        "label": "EmailService",
+        "type": "provider",
+        "providerType": "Class",
+        "module": "EmailModule",
+        "dependencies": [
+          {
+            "type": "constructor",
+            "index": 0,
+            "token": "ConfigService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(ConfigService) private configService: ConfigService"
+          },
+          {
+            "type": "constructor",
+            "index": 1,
+            "token": "LoggerService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(LoggerService) private logger: LoggerService"
+          }
+        ],
+        "hasMissingDecorators": false,
+        "parent": "module-EmailModule"
+      },
+      "classes": [
+        "provider",
+        "class"
+      ]
+    },
+    {
+      "data": {
+        "id": "provider-StorageModule-StorageService",
+        "label": "StorageService",
+        "type": "provider",
+        "providerType": "Class",
+        "module": "StorageModule",
+        "dependencies": [
+          {
+            "type": "constructor",
+            "index": 0,
+            "token": "ConfigService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(ConfigService) private configService: ConfigService"
+          },
+          {
+            "type": "constructor",
+            "index": 1,
+            "token": "LoggerService",
+            "tokenType": "class",
+            "optional": false,
+            "hasExplicitDecorator": true,
+            "raw": "@Inject(LoggerService) private logger: LoggerService"
+          }
+        ],
+        "hasMissingDecorators": false,
+        "parent": "module-StorageModule"
+      },
+      "classes": [
+        "provider",
+        "class"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "data": {
+        "id": "edge-AppsModule-CoreModule",
+        "source": "module-AppsModule",
+        "target": "module-CoreModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-AppsModule-SharedModule",
+        "source": "module-AppsModule",
+        "target": "module-SharedModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-AppsModule-UsersModule",
+        "source": "module-AppsModule",
+        "target": "module-UsersModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-AppsModule-PostsModule",
+        "source": "module-AppsModule",
+        "target": "module-PostsModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-AppsModule-CommentsModule",
+        "source": "module-AppsModule",
+        "target": "module-CommentsModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-AppsModule-CategoriesModule",
+        "source": "module-AppsModule",
+        "target": "module-CategoriesModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-CoreModule-ConfigModule",
+        "source": "module-CoreModule",
+        "target": "module-ConfigModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-CoreModule-LoggerModule",
+        "source": "module-CoreModule",
+        "target": "module-LoggerModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-CoreModule-DatabaseModule",
+        "source": "module-CoreModule",
+        "target": "module-DatabaseModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-CoreModule-AuthModule",
+        "source": "module-CoreModule",
+        "target": "module-AuthModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-SharedModule-CacheModule",
+        "source": "module-SharedModule",
+        "target": "module-CacheModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-SharedModule-EmailModule",
+        "source": "module-SharedModule",
+        "target": "module-EmailModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-SharedModule-StorageModule",
+        "source": "module-SharedModule",
+        "target": "module-StorageModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-UsersModule-DatabaseModule",
+        "source": "module-UsersModule",
+        "target": "module-DatabaseModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-UsersModule-LoggerModule",
+        "source": "module-UsersModule",
+        "target": "module-LoggerModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-UsersModule-CacheModule",
+        "source": "module-UsersModule",
+        "target": "module-CacheModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-UsersModule-EmailModule",
+        "source": "module-UsersModule",
+        "target": "module-EmailModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-UsersModule-StorageModule",
+        "source": "module-UsersModule",
+        "target": "module-StorageModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-PostsModule-DatabaseModule",
+        "source": "module-PostsModule",
+        "target": "module-DatabaseModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-PostsModule-LoggerModule",
+        "source": "module-PostsModule",
+        "target": "module-LoggerModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-PostsModule-CacheModule",
+        "source": "module-PostsModule",
+        "target": "module-CacheModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-PostsModule-UsersModule",
+        "source": "module-PostsModule",
+        "target": "module-UsersModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-CommentsModule-DatabaseModule",
+        "source": "module-CommentsModule",
+        "target": "module-DatabaseModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-CommentsModule-LoggerModule",
+        "source": "module-CommentsModule",
+        "target": "module-LoggerModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-CommentsModule-UsersModule",
+        "source": "module-CommentsModule",
+        "target": "module-UsersModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-CommentsModule-PostsModule",
+        "source": "module-CommentsModule",
+        "target": "module-PostsModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-CommentsModule-EmailModule",
+        "source": "module-CommentsModule",
+        "target": "module-EmailModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-CategoriesModule-DatabaseModule",
+        "source": "module-CategoriesModule",
+        "target": "module-DatabaseModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-CategoriesModule-LoggerModule",
+        "source": "module-CategoriesModule",
+        "target": "module-LoggerModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-CategoriesModule-CacheModule",
+        "source": "module-CategoriesModule",
+        "target": "module-CacheModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-LoggerModule-ConfigModule",
+        "source": "module-LoggerModule",
+        "target": "module-ConfigModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-DatabaseModule-ConfigModule",
+        "source": "module-DatabaseModule",
+        "target": "module-ConfigModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-DatabaseModule-LoggerModule",
+        "source": "module-DatabaseModule",
+        "target": "module-LoggerModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-AuthModule-ConfigModule",
+        "source": "module-AuthModule",
+        "target": "module-ConfigModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-AuthModule-LoggerModule",
+        "source": "module-AuthModule",
+        "target": "module-LoggerModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-CacheModule-ConfigModule",
+        "source": "module-CacheModule",
+        "target": "module-ConfigModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-CacheModule-LoggerModule",
+        "source": "module-CacheModule",
+        "target": "module-LoggerModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-EmailModule-ConfigModule",
+        "source": "module-EmailModule",
+        "target": "module-ConfigModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-EmailModule-LoggerModule",
+        "source": "module-EmailModule",
+        "target": "module-LoggerModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-StorageModule-ConfigModule",
+        "source": "module-StorageModule",
+        "target": "module-ConfigModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-StorageModule-LoggerModule",
+        "source": "module-StorageModule",
+        "target": "module-LoggerModule",
+        "type": "import"
+      },
+      "classes": [
+        "import"
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-UsersModule-UserRepository-provider-DatabaseModule-DatabaseService",
+        "source": "provider-UsersModule-UserRepository",
+        "target": "provider-DatabaseModule-DatabaseService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-UsersModule-UserRepository-provider-CacheModule-CacheService",
+        "source": "provider-UsersModule-UserRepository",
+        "target": "provider-CacheModule-CacheService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-UsersModule-UserRepository-provider-LoggerModule-LoggerService",
+        "source": "provider-UsersModule-UserRepository",
+        "target": "provider-LoggerModule-LoggerService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-UsersModule-UsersService-provider-UsersModule-UserRepository",
+        "source": "provider-UsersModule-UsersService",
+        "target": "provider-UsersModule-UserRepository",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-UsersModule-UsersService-provider-EmailModule-EmailService",
+        "source": "provider-UsersModule-UsersService",
+        "target": "provider-EmailModule-EmailService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-UsersModule-UsersService-provider-StorageModule-StorageService",
+        "source": "provider-UsersModule-UsersService",
+        "target": "provider-StorageModule-StorageService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-UsersModule-UsersService-provider-LoggerModule-LoggerService",
+        "source": "provider-UsersModule-UsersService",
+        "target": "provider-LoggerModule-LoggerService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-PostsModule-PostRepository-provider-DatabaseModule-DatabaseService",
+        "source": "provider-PostsModule-PostRepository",
+        "target": "provider-DatabaseModule-DatabaseService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-PostsModule-PostRepository-provider-CacheModule-CacheService",
+        "source": "provider-PostsModule-PostRepository",
+        "target": "provider-CacheModule-CacheService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-PostsModule-PostRepository-provider-LoggerModule-LoggerService",
+        "source": "provider-PostsModule-PostRepository",
+        "target": "provider-LoggerModule-LoggerService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-PostsModule-PostsService-provider-PostsModule-PostRepository",
+        "source": "provider-PostsModule-PostsService",
+        "target": "provider-PostsModule-PostRepository",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-PostsModule-PostsService-provider-UsersModule-UsersService",
+        "source": "provider-PostsModule-PostsService",
+        "target": "provider-UsersModule-UsersService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-PostsModule-PostsService-provider-LoggerModule-LoggerService",
+        "source": "provider-PostsModule-PostsService",
+        "target": "provider-LoggerModule-LoggerService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-CommentsModule-CommentRepository-provider-DatabaseModule-DatabaseService",
+        "source": "provider-CommentsModule-CommentRepository",
+        "target": "provider-DatabaseModule-DatabaseService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-CommentsModule-CommentRepository-provider-LoggerModule-LoggerService",
+        "source": "provider-CommentsModule-CommentRepository",
+        "target": "provider-LoggerModule-LoggerService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-CommentsModule-CommentsService-provider-CommentsModule-CommentRepository",
+        "source": "provider-CommentsModule-CommentsService",
+        "target": "provider-CommentsModule-CommentRepository",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-CommentsModule-CommentsService-provider-UsersModule-UsersService",
+        "source": "provider-CommentsModule-CommentsService",
+        "target": "provider-UsersModule-UsersService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-CommentsModule-CommentsService-provider-PostsModule-PostsService",
+        "source": "provider-CommentsModule-CommentsService",
+        "target": "provider-PostsModule-PostsService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-CommentsModule-CommentsService-provider-EmailModule-EmailService",
+        "source": "provider-CommentsModule-CommentsService",
+        "target": "provider-EmailModule-EmailService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-CommentsModule-CommentsService-provider-LoggerModule-LoggerService",
+        "source": "provider-CommentsModule-CommentsService",
+        "target": "provider-LoggerModule-LoggerService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-CategoriesModule-CategoryRepository-provider-DatabaseModule-DatabaseService",
+        "source": "provider-CategoriesModule-CategoryRepository",
+        "target": "provider-DatabaseModule-DatabaseService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-CategoriesModule-CategoryRepository-provider-CacheModule-CacheService",
+        "source": "provider-CategoriesModule-CategoryRepository",
+        "target": "provider-CacheModule-CacheService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-CategoriesModule-CategoryRepository-provider-LoggerModule-LoggerService",
+        "source": "provider-CategoriesModule-CategoryRepository",
+        "target": "provider-LoggerModule-LoggerService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-CategoriesModule-CategoriesService-provider-CategoriesModule-CategoryRepository",
+        "source": "provider-CategoriesModule-CategoriesService",
+        "target": "provider-CategoriesModule-CategoryRepository",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-CategoriesModule-CategoriesService-provider-LoggerModule-LoggerService",
+        "source": "provider-CategoriesModule-CategoriesService",
+        "target": "provider-LoggerModule-LoggerService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-LoggerModule-LoggerService-provider-ConfigModule-ConfigService",
+        "source": "provider-LoggerModule-LoggerService",
+        "target": "provider-ConfigModule-ConfigService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-DatabaseModule-DatabaseService-provider-ConfigModule-ConfigService",
+        "source": "provider-DatabaseModule-DatabaseService",
+        "target": "provider-ConfigModule-ConfigService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-DatabaseModule-DatabaseService-provider-LoggerModule-LoggerService",
+        "source": "provider-DatabaseModule-DatabaseService",
+        "target": "provider-LoggerModule-LoggerService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-AuthModule-AuthService-provider-AuthModule-JwtService",
+        "source": "provider-AuthModule-AuthService",
+        "target": "provider-AuthModule-JwtService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-AuthModule-AuthService-provider-AuthModule-PasswordService",
+        "source": "provider-AuthModule-AuthService",
+        "target": "provider-AuthModule-PasswordService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-AuthModule-AuthService-provider-LoggerModule-LoggerService",
+        "source": "provider-AuthModule-AuthService",
+        "target": "provider-LoggerModule-LoggerService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-AuthModule-JwtService-provider-ConfigModule-ConfigService",
+        "source": "provider-AuthModule-JwtService",
+        "target": "provider-ConfigModule-ConfigService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-AuthModule-JwtService-provider-LoggerModule-LoggerService",
+        "source": "provider-AuthModule-JwtService",
+        "target": "provider-LoggerModule-LoggerService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-AuthModule-PasswordService-provider-LoggerModule-LoggerService",
+        "source": "provider-AuthModule-PasswordService",
+        "target": "provider-LoggerModule-LoggerService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-CacheModule-CacheService-provider-ConfigModule-ConfigService",
+        "source": "provider-CacheModule-CacheService",
+        "target": "provider-ConfigModule-ConfigService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-CacheModule-CacheService-provider-LoggerModule-LoggerService",
+        "source": "provider-CacheModule-CacheService",
+        "target": "provider-LoggerModule-LoggerService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-EmailModule-EmailService-provider-ConfigModule-ConfigService",
+        "source": "provider-EmailModule-EmailService",
+        "target": "provider-ConfigModule-ConfigService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-EmailModule-EmailService-provider-LoggerModule-LoggerService",
+        "source": "provider-EmailModule-EmailService",
+        "target": "provider-LoggerModule-LoggerService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-StorageModule-StorageService-provider-ConfigModule-ConfigService",
+        "source": "provider-StorageModule-StorageService",
+        "target": "provider-ConfigModule-ConfigService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    },
+    {
+      "data": {
+        "id": "edge-provider-StorageModule-StorageService-provider-LoggerModule-LoggerService",
+        "source": "provider-StorageModule-StorageService",
+        "target": "provider-LoggerModule-LoggerService",
+        "type": "dependency",
+        "optional": false
+      },
+      "classes": [
+        "dependency",
+        ""
+      ]
+    }
+  ]
+};
+        const providerMap = {
+  "UserRepository": "provider-UsersModule-UserRepository",
+  "UsersService": "provider-UsersModule-UsersService",
+  "PostRepository": "provider-PostsModule-PostRepository",
+  "PostsService": "provider-PostsModule-PostsService",
+  "CommentRepository": "provider-CommentsModule-CommentRepository",
+  "CommentsService": "provider-CommentsModule-CommentsService",
+  "CategoryRepository": "provider-CategoriesModule-CategoryRepository",
+  "CategoriesService": "provider-CategoriesModule-CategoriesService",
+  "ConfigService": "provider-ConfigModule-ConfigService",
+  "LoggerService": "provider-LoggerModule-LoggerService",
+  "DatabaseService": "provider-DatabaseModule-DatabaseService",
+  "AuthService": "provider-AuthModule-AuthService",
+  "JwtService": "provider-AuthModule-JwtService",
+  "PasswordService": "provider-AuthModule-PasswordService",
+  "CacheService": "provider-CacheModule-CacheService",
+  "EmailService": "provider-EmailModule-EmailService",
+  "StorageService": "provider-StorageModule-StorageService"
+};
+        const moduleMap = {
+  "AppsModule": "module-AppsModule",
+  "CoreModule": "module-CoreModule",
+  "SharedModule": "module-SharedModule",
+  "UsersModule": "module-UsersModule",
+  "PostsModule": "module-PostsModule",
+  "CommentsModule": "module-CommentsModule",
+  "CategoriesModule": "module-CategoriesModule",
+  "ConfigModule": "module-ConfigModule",
+  "LoggerModule": "module-LoggerModule",
+  "DatabaseModule": "module-DatabaseModule",
+  "AuthModule": "module-AuthModule",
+  "CacheModule": "module-CacheModule",
+  "EmailModule": "module-EmailModule",
+  "StorageModule": "module-StorageModule"
+};
+
+        // Initialize Cytoscape
+        const cy = cytoscape({
+            container: document.getElementById('cy'),
+            elements: graphData,
+            style: [
+                {
+                    selector: 'node',
+                    style: {
+                        'label': 'data(label)',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'font-size': '12px',
+                        'font-weight': '600',
+                        'color': '#333',
+                        'text-outline-width': 2,
+                        'text-outline-color': '#fff',
+                        'width': '80px',
+                        'height': '80px',
+                        'border-width': 2,
+                        'border-color': '#666'
+                    }
+                },
+                {
+                    // Parent/compound nodes (modules containing providers)
+                    selector: ':parent',
+                    style: {
+                        'text-valign': 'top',
+                        'text-halign': 'center',
+                        'text-margin-y': -10,
+                        'background-opacity': 0.15,
+                        'background-color': '#90caf9',
+                        'border-width': 3,
+                        'border-color': '#42a5f5',
+                        'border-opacity': 0.8,
+                        'padding': '10px',
+                        'shape': 'roundrectangle',
+                        'font-size': '14px',
+                        'font-weight': 'bold',
+                        'compound-sizing-wrt-labels': 'include',
+                        'min-width': '80px',
+                        'min-height': '60px'
+                    }
+                },
+                {
+                    selector: ':parent.global',
+                    style: {
+                        'background-color': '#ce93d8',
+                        'border-color': '#ab47bc',
+                        'border-width': 4
+                    }
+                },
+                {
+                    // Module nodes without children (standalone modules)
+                    selector: 'node.module',
+                    style: {
+                        'background-color': '#90caf9',
+                        'shape': 'roundrectangle',
+                        'width': '120px',
+                        'height': '60px'
+                    }
+                },
+                {
+                    selector: 'node.module.global',
+                    style: {
+                        'background-color': '#ce93d8',
+                        'border-width': 3,
+                        'border-color': '#9c27b0'
+                    }
+                },
+                {
+                    selector: 'node.provider',
+                    style: {
+                        'shape': 'ellipse',
+                        'width': '80px',
+                        'height': '80px',
+                        'font-size': '10px'
+                    }
+                },
+                {
+                    selector: 'node.provider.class',
+                    style: {
+                        'background-color': '#a5d6a7',
+                        'border-color': '#66bb6a'
+                    }
+                },
+                {
+                    selector: 'node.provider.usevalue',
+                    style: {
+                        'background-color': '#a5d6a7',
+                        'border-color': '#66bb6a'
+                    }
+                },
+                {
+                    selector: 'node.provider.usefactory',
+                    style: {
+                        'background-color': '#ffab91',
+                        'border-color': '#ff7043'
+                    }
+                },
+                {
+                    selector: 'node.provider.useclass',
+                    style: {
+                        'background-color': '#fff59d',
+                        'border-color': '#ffee58'
+                    }
+                },
+                {
+                    // Providers with missing @Inject decorators (error state)
+                    selector: 'node.provider.missing-decorator',
+                    style: {
+                        'border-width': 3,
+                        'border-color': '#f44336',
+                        'border-style': 'double'
+                    }
+                },
+                {
+                    selector: 'edge',
+                    style: {
+                        'width': 2,
+                        'curve-style': 'bezier',
+                        'target-arrow-shape': 'triangle',
+                        'arrow-scale': 1.5
+                    }
+                },
+                {
+                    selector: 'edge.import',
+                    style: {
+                        'line-color': '#666',
+                        'target-arrow-color': '#666'
+                    }
+                },
+                {
+                    selector: 'edge.provides',
+                    style: {
+                        'line-color': '#4caf50',
+                        'target-arrow-color': '#4caf50',
+                        'line-style': 'dashed'
+                    }
+                },
+                {
+                    selector: 'edge.dependency',
+                    style: {
+                        'line-color': '#ff9800',
+                        'target-arrow-color': '#ff9800'
+                    }
+                },
+                {
+                    selector: 'edge.dependency.optional',
+                    style: {
+                        'line-style': 'dotted'
+                    }
+                },
+                {
+                    selector: 'node.highlighted',
+                    style: {
+                        'border-width': 4,
+                        'border-color': '#ffd54f',
+                        'background-color': '#ffd54f'
+                    }
+                },
+                {
+                    selector: ':parent.highlighted',
+                    style: {
+                        'border-width': 5,
+                        'border-color': '#ffc107',
+                        'background-opacity': 0.3
+                    }
+                },
+                {
+                    selector: 'edge.highlighted',
+                    style: {
+                        'width': 4,
+                        'line-color': '#ffd54f',
+                        'target-arrow-color': '#ffd54f'
+                    }
+                }
+            ],
+            layout: {
+                name: 'cose',
+                animate: true,
+                animationDuration: 500,
+                nodeRepulsion: 8000,
+                idealEdgeLength: 100,
+                edgeElasticity: 100,
+                nestingFactor: 1.5,
+                gravity: 1,
+                numIter: 1000,
+                initialTemp: 200,
+                coolingFactor: 0.95,
+                minTemp: 1.0,
+                // Compound node specific options
+                componentSpacing: 100,
+                nodeOverlap: 10,
+                padding: 20
+            }
+        });
+
+        // Hide dependency edges by default (show only module structure)
+        cy.edges('.dependency').hide();
+
+        // Track currently selected provider node for dependency visibility
+        let selectedProviderNode = null;
+
+        // Node click handler
+        cy.on('tap', 'node', function(evt) {
+            const node = evt.target;
+            const data = node.data();
+
+            // Clear previous highlights
+            cy.elements().removeClass('highlighted');
+
+            // Handle dependency edge visibility for provider nodes
+            if (data.type === 'provider') {
+                // Hide previously selected provider's dependencies
+                if (selectedProviderNode && selectedProviderNode !== node) {
+                    selectedProviderNode.connectedEdges('.dependency').hide();
+                }
+
+                // Show this provider's dependencies
+                node.connectedEdges('.dependency').show();
+                selectedProviderNode = node;
+            } else {
+                // If clicking a module, hide all dependency edges
+                if (selectedProviderNode) {
+                    selectedProviderNode.connectedEdges('.dependency').hide();
+                    selectedProviderNode = null;
+                }
+            }
+
+            // Highlight clicked node
+            node.addClass('highlighted');
+
+            // Highlight connected edges (only visible ones will show highlight)
+            node.connectedEdges().addClass('highlighted');
+
+            // Show node details
+            showNodeDetails(data);
+        });
+
+        // Node hover handler
+        cy.on('mouseover', 'node', function(evt) {
+            const node = evt.target;
+            node.style('cursor', 'pointer');
+        });
+
+        // View mode controls
+        document.getElementById('view-all').addEventListener('click', function() {
+            setActiveButton(this);
+            // Reset selected provider
+            selectedProviderNode = null;
+            // Show all nodes
+            cy.nodes().show();
+            // Show import edges, hide dependency edges (default view)
+            cy.edges('.import').show();
+            cy.edges('.dependency').hide();
+            cy.fit();
+        });
+
+        document.getElementById('view-modules').addEventListener('click', function() {
+            setActiveButton(this);
+            // Reset selected provider
+            selectedProviderNode = null;
+            // Hide provider nodes (children) but keep parent modules visible
+            cy.nodes('[type="provider"]').hide();
+            cy.edges('.dependency').hide();
+            // Show parent modules and import edges
+            cy.nodes(':parent').show();
+            cy.nodes('[type="module"]').show();
+            cy.edges('.import').show();
+            cy.fit();
+        });
+
+        document.getElementById('view-providers').addEventListener('click', function() {
+            setActiveButton(this);
+            // Reset selected provider
+            selectedProviderNode = null;
+            // Show parent modules (to see grouping) and provider nodes
+            cy.nodes(':parent').show();
+            cy.nodes('[type="provider"]').show();
+            // Show all dependency edges in this view
+            cy.edges('.dependency').show();
+            // Hide import edges but keep module containers visible for context
+            cy.edges('.import').hide();
+            cy.fit();
+        });
+
+        // Reset zoom
+        document.getElementById('reset-zoom').addEventListener('click', function() {
+            cy.zoom(1);
+            cy.center();
+        });
+
+        // Fit graph
+        document.getElementById('fit-graph').addEventListener('click', function() {
+            cy.fit();
+        });
+
+        // Search functionality
+        document.getElementById('search').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+
+            if (!searchTerm) {
+                // Reset to default view
+                selectedProviderNode = null;
+                cy.nodes().show();
+                cy.edges('.import').show();
+                cy.edges('.dependency').hide();
+                cy.elements().removeClass('highlighted');
+                return;
+            }
+
+            cy.elements().removeClass('highlighted');
+
+            const matchingNodes = cy.nodes().filter(function(node) {
+                const label = node.data('label').toLowerCase();
+                return label.includes(searchTerm);
+            });
+
+            if (matchingNodes.length > 0) {
+                matchingNodes.addClass('highlighted');
+                cy.fit(matchingNodes, 50);
+            }
+        });
+
+        function setActiveButton(button) {
+            document.querySelectorAll('.control-group button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            button.classList.add('active');
+        }
+
+        function navigateToNode(nodeId) {
+            const node = cy.getElementById(nodeId);
+            if (node.length > 0) {
+                const data = node.data();
+
+                // Remove previous highlights
+                cy.elements().removeClass('highlighted');
+
+                // Handle dependency edge visibility for provider nodes
+                if (data.type === 'provider') {
+                    // Hide previously selected provider's dependencies
+                    if (selectedProviderNode && selectedProviderNode !== node) {
+                        selectedProviderNode.connectedEdges('.dependency').hide();
+                    }
+
+                    // Show this provider's dependencies
+                    node.connectedEdges('.dependency').show();
+                    selectedProviderNode = node;
+                } else {
+                    // If navigating to a module, hide all dependency edges
+                    if (selectedProviderNode) {
+                        selectedProviderNode.connectedEdges('.dependency').hide();
+                        selectedProviderNode = null;
+                    }
+                }
+
+                // Highlight the target node and its edges
+                node.addClass('highlighted');
+                node.connectedEdges().addClass('highlighted');
+
+                // Animate pan and zoom to the node
+                cy.animate({
+                    center: { eles: node },
+                    zoom: 1.5,
+                    duration: 500,
+                    easing: 'ease-in-out-cubic'
+                });
+
+                // Show node details
+                showNodeDetails(data);
+            }
+        }
+
+        function showNodeDetails(data) {
+            const placeholder = document.querySelector('.placeholder');
+            const detailsDiv = document.getElementById('node-details');
+
+            placeholder.style.display = 'none';
+            detailsDiv.style.display = 'block';
+
+            let html = '';
+
+            if (data.type === 'module') {
+                html = `
+                    <div class="info-item">
+                        <label>Type</label>
+                        <div class="value">
+                            <span class="badge module">Module</span>
+                            ${data.isGlobal ? '<span class="badge global">Global</span>' : ''}
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <label>Name</label>
+                        <div class="value"><code>${data.label}</code></div>
+                    </div>
+                    <div class="info-item">
+                        <label>File Path</label>
+                        <div class="value">
+                            <a href="vscode://file/' + data.path + ':1:1" target="_blank">
+                                ${data.path}
+                            </a>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <label>Imports (${data.imports.length})</label>
+                        <ul class="dependency-list">
+                            ${data.imports.map(imp => {
+                                const nodeId = 'module-' + imp;
+                                const exists = cy.getElementById(nodeId).length > 0;
+                                return exists
+                                    ? '<li><a href="#" class="node-link" data-node-id="' + nodeId + '">' + imp + '</a></li>'
+                                    : '<li>' + imp + '</li>';
+                            }).join('')}
+                        </ul>
+                    </div>
+                    <div class="info-item">
+                        <label>Providers (${data.providers.length})</label>
+                        <ul class="dependency-list">
+                            ${data.providers.map(prov => {
+                                // Use providerMap to get the correct node ID
+                                const nodeId = providerMap[prov];
+                                const exists = nodeId && cy.getElementById(nodeId).length > 0;
+                                return exists
+                                    ? '<li><a href="#" class="node-link" data-node-id="' + nodeId + '">' + prov + '</a></li>'
+                                    : '<li>' + prov + '</li>';
+                            }).join('')}
+                        </ul>
+                    </div>
+                    ${data.exports.length > 0 ? `
+                        <div class="info-item">
+                            <label>Exports (${data.exports.length})</label>
+                            <ul class="dependency-list">
+                                ${data.exports.map(exp => {
+                                    // Check if export is a provider or a module
+                                    let nodeId = providerMap[exp] || moduleMap[exp];
+                                    const exists = nodeId && cy.getElementById(nodeId).length > 0;
+                                    return exists
+                                        ? '<li><a href="#" class="node-link" data-node-id="' + nodeId + '">' + exp + '</a></li>'
+                                        : '<li>' + exp + '</li>';
+                                }).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+                `;
+            } else if (data.type === 'provider') {
+                html = `
+                    <div class="info-item">
+                        <label>Type</label>
+                        <div class="value">
+                            <span class="badge provider">Provider</span>
+                            <span class="badge ${data.providerType.toLowerCase()}">${data.providerType}</span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <label>Token</label>
+                        <div class="value"><code>${data.label}</code></div>
+                    </div>
+                    <div class="info-item">
+                        <label>Module</label>
+                        <div class="value">
+                            ${(() => {
+                                const nodeId = 'module-' + data.module;
+                                const exists = cy.getElementById(nodeId).length > 0;
+                                return exists
+                                    ? '<a href="#" class="node-link" data-node-id="' + nodeId + '"><code>' + data.module + '</code></a>'
+                                    : '<code>' + data.module + '</code>';
+                            })()}
+                        </div>
+                    </div>
+                    ${data.scope ? `
+                        <div class="info-item">
+                            <label>Scope</label>
+                            <div class="value">${data.scope}</div>
+                        </div>
+                    ` : ''}
+                    ${data.value !== undefined ? `
+                        <div class="info-item">
+                            <label>Value</label>
+                            <div class="value"><code>${data.value}</code></div>
+                        </div>
+                    ` : ''}
+                    ${data.factory ? `
+                        <div class="info-item">
+                            <label>Factory</label>
+                            <div class="value"><code>${data.factory}</code></div>
+                        </div>
+                    ` : ''}
+                    ${data.useClass ? `
+                        <div class="info-item">
+                            <label>Use Class</label>
+                            <div class="value"><code>${data.useClass}</code></div>
+                        </div>
+                    ` : ''}
+                    ${data.hasMissingDecorators ? `
+                        <div class="info-item" style="background: #ffebee; padding: 0.75rem; border-left: 3px solid #f44336; margin-bottom: 1rem;">
+                            <label style="color: #c62828; font-weight: bold;">⚠️ Missing @Inject Decorators</label>
+                            <div class="value" style="color: #c62828; font-size: 0.875rem;">
+                                Some dependencies are missing explicit @Inject decorators. This may cause runtime errors.
+                            </div>
+                        </div>
+                    ` : ''}
+                    ${data.dependencies && data.dependencies.length > 0 ? `
+                        <div class="info-item">
+                            <label>Dependencies (${data.dependencies.length})</label>
+                            <ul class="dependency-list">
+                                ${data.dependencies.map(dep => {
+                                    const token = dep.token || 'Unknown';
+                                    // Use providerMap to get the correct node ID
+                                    const nodeId = providerMap[token];
+                                    const exists = nodeId && cy.getElementById(nodeId).length > 0;
+                                    const link = exists
+                                        ? '<a href="#" class="node-link" data-node-id="' + nodeId + '">' + token + '</a>'
+                                        : token;
+                                    const warning = dep.hasExplicitDecorator === false
+                                        ? ' <span style="color: #f44336; font-weight: bold;">⚠️ Missing @Inject</span>'
+                                        : '';
+                                    return '<li>' + link + (dep.optional ? ' <em>(optional)</em>' : '') + warning + '</li>';
+                                }).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+                `;
+            }
+
+            detailsDiv.innerHTML = html;
+
+            // Attach click handlers to node links
+            detailsDiv.querySelectorAll('.node-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const nodeId = this.getAttribute('data-node-id');
+                    navigateToNode(nodeId);
+                });
+            });
+        }
+        
+    </script>
+</body>
+</html>

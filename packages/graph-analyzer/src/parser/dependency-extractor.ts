@@ -16,6 +16,8 @@ export interface Dependency {
 	tokenType: "class" | "string" | "symbol";
 	/** Whether the dependency is optional */
 	optional: boolean;
+	/** Whether the dependency has an explicit @Inject decorator */
+	hasExplicitDecorator: boolean;
 	/** Raw AST text for debugging */
 	raw?: string;
 }
@@ -66,6 +68,7 @@ export class DependencyExtractor {
 
 	/**
 	 * Extract dependencies from constructor parameters with @Inject decorators
+	 * or from TypeScript type annotations (Reflection-based DI)
 	 */
 	private extractConstructorDependencies(
 		classDeclaration: ts.ClassDeclaration,
@@ -82,6 +85,7 @@ export class DependencyExtractor {
 			const injectDecorator = this.findInjectDecorator(param);
 
 			if (injectDecorator) {
+				// Explicit @Inject decorator found
 				const { token, tokenType } = this.extractTokenFromDecorator(
 					injectDecorator,
 					sourceFile,
@@ -94,8 +98,26 @@ export class DependencyExtractor {
 					token,
 					tokenType,
 					optional,
+					hasExplicitDecorator: true,
 					raw: param.getText(sourceFile),
 				});
+			} else {
+				// No @Inject decorator - try to extract from TypeScript type annotation
+				// This supports Reflection-based DI (emitDecoratorMetadata)
+				const typeInfo = this.extractTypeFromParameter(param, sourceFile);
+				if (typeInfo) {
+					const optional = this.isParameterOptional(param);
+
+					dependencies.push({
+						type: "constructor",
+						index,
+						token: typeInfo.token,
+						tokenType: typeInfo.tokenType,
+						optional,
+						hasExplicitDecorator: false,
+						raw: param.getText(sourceFile),
+					});
+				}
 			}
 		});
 
@@ -133,6 +155,7 @@ export class DependencyExtractor {
 						token,
 						tokenType,
 						optional,
+						hasExplicitDecorator: true,
 						raw: member.getText(sourceFile),
 					});
 				}
@@ -224,6 +247,7 @@ export class DependencyExtractor {
 				token,
 				tokenType,
 				optional,
+				hasExplicitDecorator: true, // Static dependencies are explicit
 				raw: obj.getText(sourceFile),
 			};
 		}
@@ -373,6 +397,50 @@ export class DependencyExtractor {
 		return node.modifiers.some(
 			(modifier) => modifier.kind === ts.SyntaxKind.StaticKeyword,
 		);
+	}
+
+	/**
+	 * Extract type information from a constructor parameter's type annotation
+	 * Used for Reflection-based DI when no @Inject decorator is present
+	 */
+	private extractTypeFromParameter(
+		param: ts.ParameterDeclaration,
+		sourceFile: ts.SourceFile,
+	): { token: string; tokenType: "class" | "string" | "symbol" } | null {
+		if (!param.type) {
+			return null;
+		}
+
+		// Handle TypeReference (e.g., DatabaseService, LoggerService)
+		if (ts.isTypeReferenceNode(param.type)) {
+			const typeName = param.type.typeName;
+			if (ts.isIdentifier(typeName)) {
+				return {
+					token: typeName.text,
+					tokenType: "class",
+				};
+			}
+		}
+
+		// Handle other type nodes if needed
+		return null;
+	}
+
+	/**
+	 * Check if a parameter is optional (has ? modifier or default value)
+	 */
+	private isParameterOptional(param: ts.ParameterDeclaration): boolean {
+		// Check for ? modifier (e.g., param?: Type)
+		if (param.questionToken) {
+			return true;
+		}
+
+		// Check for default value (e.g., param = defaultValue)
+		if (param.initializer) {
+			return true;
+		}
+
+		return false;
 	}
 
 	/**

@@ -1,0 +1,720 @@
+{
+  "modules": [
+    {
+      "name": "AppsModule",
+      "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/apps/index.ts",
+      "imports": [
+        "CoreModule",
+        "SharedModule",
+        "UsersModule",
+        "PostsModule",
+        "CommentsModule",
+        "CategoriesModule"
+      ],
+      "exports": [],
+      "providers": [],
+      "isGlobal": false
+    },
+    {
+      "name": "CoreModule",
+      "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/core/core.module.ts",
+      "imports": [
+        "ConfigModule",
+        "LoggerModule",
+        "DatabaseModule",
+        "AuthModule"
+      ],
+      "exports": [
+        "ConfigModule",
+        "LoggerModule",
+        "DatabaseModule",
+        "AuthModule"
+      ],
+      "providers": [],
+      "isGlobal": false
+    },
+    {
+      "name": "SharedModule",
+      "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/shared/shared.module.ts",
+      "imports": [
+        "CacheModule",
+        "EmailModule",
+        "StorageModule"
+      ],
+      "exports": [
+        "CacheModule",
+        "EmailModule",
+        "StorageModule"
+      ],
+      "providers": [],
+      "isGlobal": false
+    },
+    {
+      "name": "UsersModule",
+      "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/features/users/users.module.ts",
+      "imports": [
+        "DatabaseModule",
+        "LoggerModule",
+        "CacheModule",
+        "EmailModule",
+        "StorageModule"
+      ],
+      "exports": [
+        "UsersService",
+        "UserRepository"
+      ],
+      "providers": [
+        "UserRepository",
+        "UsersService"
+      ],
+      "isGlobal": false
+    },
+    {
+      "name": "PostsModule",
+      "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/features/posts/posts.module.ts",
+      "imports": [
+        "DatabaseModule",
+        "LoggerModule",
+        "CacheModule",
+        "UsersModule"
+      ],
+      "exports": [
+        "PostsService",
+        "PostRepository"
+      ],
+      "providers": [
+        "PostRepository",
+        "PostsService"
+      ],
+      "isGlobal": false
+    },
+    {
+      "name": "CommentsModule",
+      "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/features/comments/comments.module.ts",
+      "imports": [
+        "DatabaseModule",
+        "LoggerModule",
+        "UsersModule",
+        "PostsModule",
+        "EmailModule"
+      ],
+      "exports": [
+        "CommentsService"
+      ],
+      "providers": [
+        "CommentRepository",
+        "CommentsService"
+      ],
+      "isGlobal": false
+    },
+    {
+      "name": "CategoriesModule",
+      "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/features/categories/categories.module.ts",
+      "imports": [
+        "DatabaseModule",
+        "LoggerModule",
+        "CacheModule"
+      ],
+      "exports": [
+        "CategoriesService"
+      ],
+      "providers": [
+        "CategoryRepository",
+        "CategoriesService"
+      ],
+      "isGlobal": false
+    },
+    {
+      "name": "ConfigModule",
+      "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/core/config/config.module.ts",
+      "imports": [],
+      "exports": [
+        "ConfigService"
+      ],
+      "providers": [
+        "ConfigService"
+      ],
+      "isGlobal": false
+    },
+    {
+      "name": "LoggerModule",
+      "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/core/logger/logger.module.ts",
+      "imports": [
+        "ConfigModule"
+      ],
+      "exports": [
+        "LoggerService"
+      ],
+      "providers": [
+        "LoggerService"
+      ],
+      "isGlobal": false
+    },
+    {
+      "name": "DatabaseModule",
+      "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/core/database/database.module.ts",
+      "imports": [
+        "ConfigModule",
+        "LoggerModule"
+      ],
+      "exports": [
+        "DatabaseService"
+      ],
+      "providers": [
+        "DatabaseService"
+      ],
+      "isGlobal": false
+    },
+    {
+      "name": "AuthModule",
+      "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/core/auth/auth.module.ts",
+      "imports": [
+        "ConfigModule",
+        "LoggerModule"
+      ],
+      "exports": [
+        "AuthService",
+        "JwtService"
+      ],
+      "providers": [
+        "AuthService",
+        "JwtService",
+        "PasswordService"
+      ],
+      "isGlobal": false
+    },
+    {
+      "name": "CacheModule",
+      "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/shared/cache/cache.module.ts",
+      "imports": [
+        "ConfigModule",
+        "LoggerModule"
+      ],
+      "exports": [
+        "CacheService"
+      ],
+      "providers": [
+        "CacheService"
+      ],
+      "isGlobal": false
+    },
+    {
+      "name": "EmailModule",
+      "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/shared/email/email.module.ts",
+      "imports": [
+        "ConfigModule",
+        "LoggerModule"
+      ],
+      "exports": [
+        "EmailService"
+      ],
+      "providers": [
+        "EmailService"
+      ],
+      "isGlobal": false
+    },
+    {
+      "name": "StorageModule",
+      "path": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/shared/storage/storage.module.ts",
+      "imports": [
+        "ConfigModule",
+        "LoggerModule"
+      ],
+      "exports": [
+        "StorageService"
+      ],
+      "providers": [
+        "StorageService"
+      ],
+      "isGlobal": false
+    }
+  ],
+  "providers": [
+    {
+      "token": "UserRepository",
+      "type": "Class",
+      "module": "UsersModule",
+      "dependencies": [
+        {
+          "type": "constructor",
+          "index": 0,
+          "token": "DatabaseService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(DatabaseService) private database: DatabaseService"
+        },
+        {
+          "type": "constructor",
+          "index": 1,
+          "token": "CacheService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": false,
+          "raw": "private cache: CacheService"
+        },
+        {
+          "type": "constructor",
+          "index": 2,
+          "token": "LoggerService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(LoggerService) private logger: LoggerService"
+        }
+      ]
+    },
+    {
+      "token": "UsersService",
+      "type": "Class",
+      "module": "UsersModule",
+      "dependencies": [
+        {
+          "type": "constructor",
+          "index": 0,
+          "token": "UserRepository",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(UserRepository) private userRepository: UserRepository"
+        },
+        {
+          "type": "constructor",
+          "index": 1,
+          "token": "EmailService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(EmailService) private emailService: EmailService"
+        },
+        {
+          "type": "constructor",
+          "index": 2,
+          "token": "StorageService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(StorageService) private storageService: StorageService"
+        },
+        {
+          "type": "constructor",
+          "index": 3,
+          "token": "LoggerService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(LoggerService) private logger: LoggerService"
+        }
+      ]
+    },
+    {
+      "token": "PostRepository",
+      "type": "Class",
+      "module": "PostsModule",
+      "dependencies": [
+        {
+          "type": "constructor",
+          "index": 0,
+          "token": "DatabaseService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(DatabaseService) private database: DatabaseService"
+        },
+        {
+          "type": "constructor",
+          "index": 1,
+          "token": "CacheService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(CacheService) private cache: CacheService"
+        },
+        {
+          "type": "constructor",
+          "index": 2,
+          "token": "LoggerService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(LoggerService) private logger: LoggerService"
+        }
+      ]
+    },
+    {
+      "token": "PostsService",
+      "type": "Class",
+      "module": "PostsModule",
+      "dependencies": [
+        {
+          "type": "constructor",
+          "index": 0,
+          "token": "PostRepository",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(PostRepository) private postRepository: PostRepository"
+        },
+        {
+          "type": "constructor",
+          "index": 1,
+          "token": "UsersService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": false,
+          "raw": "private usersService: UsersService"
+        },
+        {
+          "type": "constructor",
+          "index": 2,
+          "token": "LoggerService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(LoggerService) private logger: LoggerService"
+        }
+      ]
+    },
+    {
+      "token": "CommentRepository",
+      "type": "Class",
+      "module": "CommentsModule",
+      "dependencies": [
+        {
+          "type": "constructor",
+          "index": 0,
+          "token": "DatabaseService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(DatabaseService) private database: DatabaseService"
+        },
+        {
+          "type": "constructor",
+          "index": 1,
+          "token": "LoggerService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(LoggerService) private logger: LoggerService"
+        }
+      ]
+    },
+    {
+      "token": "CommentsService",
+      "type": "Class",
+      "module": "CommentsModule",
+      "dependencies": [
+        {
+          "type": "constructor",
+          "index": 0,
+          "token": "CommentRepository",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(CommentRepository) private commentRepository: CommentRepository"
+        },
+        {
+          "type": "constructor",
+          "index": 1,
+          "token": "UsersService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(UsersService) private usersService: UsersService"
+        },
+        {
+          "type": "constructor",
+          "index": 2,
+          "token": "PostsService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(PostsService) private postsService: PostsService"
+        },
+        {
+          "type": "constructor",
+          "index": 3,
+          "token": "EmailService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": false,
+          "raw": "private emailService: EmailService"
+        },
+        {
+          "type": "constructor",
+          "index": 4,
+          "token": "LoggerService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(LoggerService) private logger: LoggerService"
+        }
+      ]
+    },
+    {
+      "token": "CategoryRepository",
+      "type": "Class",
+      "module": "CategoriesModule",
+      "dependencies": [
+        {
+          "type": "constructor",
+          "index": 0,
+          "token": "DatabaseService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(DatabaseService) private database: DatabaseService"
+        },
+        {
+          "type": "constructor",
+          "index": 1,
+          "token": "CacheService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(CacheService) private cache: CacheService"
+        },
+        {
+          "type": "constructor",
+          "index": 2,
+          "token": "LoggerService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(LoggerService) private logger: LoggerService"
+        }
+      ]
+    },
+    {
+      "token": "CategoriesService",
+      "type": "Class",
+      "module": "CategoriesModule",
+      "dependencies": [
+        {
+          "type": "constructor",
+          "index": 0,
+          "token": "CategoryRepository",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(CategoryRepository) private categoryRepository: CategoryRepository"
+        },
+        {
+          "type": "constructor",
+          "index": 1,
+          "token": "LoggerService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(LoggerService) private logger: LoggerService"
+        }
+      ]
+    },
+    {
+      "token": "ConfigService",
+      "type": "Class",
+      "module": "ConfigModule",
+      "dependencies": []
+    },
+    {
+      "token": "LoggerService",
+      "type": "Class",
+      "module": "LoggerModule",
+      "dependencies": [
+        {
+          "type": "constructor",
+          "index": 0,
+          "token": "ConfigService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(ConfigService) private configService: ConfigService"
+        }
+      ]
+    },
+    {
+      "token": "DatabaseService",
+      "type": "Class",
+      "module": "DatabaseModule",
+      "dependencies": [
+        {
+          "type": "constructor",
+          "index": 0,
+          "token": "ConfigService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(ConfigService) private configService: ConfigService"
+        },
+        {
+          "type": "constructor",
+          "index": 1,
+          "token": "LoggerService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(LoggerService) private logger: LoggerService"
+        }
+      ]
+    },
+    {
+      "token": "AuthService",
+      "type": "Class",
+      "module": "AuthModule",
+      "dependencies": [
+        {
+          "type": "constructor",
+          "index": 0,
+          "token": "JwtService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(JwtService) private jwtService: JwtService"
+        },
+        {
+          "type": "constructor",
+          "index": 1,
+          "token": "PasswordService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(PasswordService) private passwordService: PasswordService"
+        },
+        {
+          "type": "constructor",
+          "index": 2,
+          "token": "LoggerService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(LoggerService) private logger: LoggerService"
+        }
+      ]
+    },
+    {
+      "token": "JwtService",
+      "type": "Class",
+      "module": "AuthModule",
+      "dependencies": [
+        {
+          "type": "constructor",
+          "index": 0,
+          "token": "ConfigService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(ConfigService) private configService: ConfigService"
+        },
+        {
+          "type": "constructor",
+          "index": 1,
+          "token": "LoggerService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(LoggerService) private logger: LoggerService"
+        }
+      ]
+    },
+    {
+      "token": "PasswordService",
+      "type": "Class",
+      "module": "AuthModule",
+      "dependencies": [
+        {
+          "type": "constructor",
+          "index": 0,
+          "token": "LoggerService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(LoggerService) private logger: LoggerService"
+        }
+      ]
+    },
+    {
+      "token": "CacheService",
+      "type": "Class",
+      "module": "CacheModule",
+      "dependencies": [
+        {
+          "type": "constructor",
+          "index": 0,
+          "token": "ConfigService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(ConfigService) private configService: ConfigService"
+        },
+        {
+          "type": "constructor",
+          "index": 1,
+          "token": "LoggerService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(LoggerService) private logger: LoggerService"
+        }
+      ]
+    },
+    {
+      "token": "EmailService",
+      "type": "Class",
+      "module": "EmailModule",
+      "dependencies": [
+        {
+          "type": "constructor",
+          "index": 0,
+          "token": "ConfigService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(ConfigService) private configService: ConfigService"
+        },
+        {
+          "type": "constructor",
+          "index": 1,
+          "token": "LoggerService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(LoggerService) private logger: LoggerService"
+        }
+      ]
+    },
+    {
+      "token": "StorageService",
+      "type": "Class",
+      "module": "StorageModule",
+      "dependencies": [
+        {
+          "type": "constructor",
+          "index": 0,
+          "token": "ConfigService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(ConfigService) private configService: ConfigService"
+        },
+        {
+          "type": "constructor",
+          "index": 1,
+          "token": "LoggerService",
+          "tokenType": "class",
+          "optional": false,
+          "hasExplicitDecorator": true,
+          "raw": "@Inject(LoggerService) private logger: LoggerService"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "entryPoint": "/Users/alexandermelnik/homespace/ioc/packages/graph-analyzer/example/src/entry.ts",
+    "rootModule": "AppsModule",
+    "analyzedAt": "2025-10-18T15:40:20.838Z",
+    "version": "1.0.0",
+    "totalModules": 14,
+    "totalProviders": 17
+  }
+}

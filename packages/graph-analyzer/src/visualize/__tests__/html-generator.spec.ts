@@ -54,6 +54,7 @@ describe("HtmlGenerator", () => {
 							token: "CONFIG",
 							tokenType: "string",
 							optional: false,
+							hasExplicitDecorator: true,
 						},
 					],
 					parse: () => ({} as any),

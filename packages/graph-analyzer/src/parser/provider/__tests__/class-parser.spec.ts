@@ -307,14 +307,23 @@ describe("ClassParser", () => {
 			const parser = new ClassParser("RpcService", sourceFile);
 			parser.parse();
 
-			// Should only extract the one with @Inject decorator
-			expect(parser.dependencies).toHaveLength(1);
+			// Should extract both: one with @Inject decorator and one from type annotation
+			expect(parser.dependencies).toHaveLength(2);
 			expect(parser.dependencies[0]).toMatchObject({
 				type: "constructor",
 				index: 0,
 				token: "URL_TOKEN",
 				tokenType: "string",
 				optional: false,
+				hasExplicitDecorator: true,
+			});
+			expect(parser.dependencies[1]).toMatchObject({
+				type: "constructor",
+				index: 1,
+				token: "RpcHelper",
+				tokenType: "class",
+				optional: false,
+				hasExplicitDecorator: false,
 			});
 		});
 	});

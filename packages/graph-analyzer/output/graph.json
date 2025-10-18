@@ -1,0 +1,34 @@
+{
+  "modules": [
+    {
+      "name": "AppModule",
+      "path": "/project/src/app.module.ts",
+      "imports": [
+        "UserModule"
+      ],
+      "exports": [
+        "UserService"
+      ],
+      "providers": [
+        "UserService"
+      ],
+      "isGlobal": false
+    }
+  ],
+  "providers": [
+    {
+      "token": "UserService",
+      "type": "Class",
+      "module": "AppModule",
+      "dependencies": []
+    }
+  ],
+  "metadata": {
+    "entryPoint": "/project/src/entry.ts",
+    "rootModule": "AppModule",
+    "analyzedAt": "2025-10-18T15:39:32.814Z",
+    "version": "1.0.0",
+    "totalModules": 1,
+    "totalProviders": 1
+  }
+}

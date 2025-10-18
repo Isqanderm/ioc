@@ -1,9 +1,19 @@
-import { ArticleModule } from "@external/article/article.module";
 import { NsModule } from "nexus-ioc";
-import { PostsModule } from "./posts/posts.module";
-import { UserModule } from "./user/user.module";
+import { CoreModule } from "../core/core.module";
+import { SharedModule } from "../shared/shared.module";
+import { UsersModule } from "../features/users/users.module";
+import { PostsModule } from "../features/posts/posts.module";
+import { CommentsModule } from "../features/comments/comments.module";
+import { CategoriesModule } from "../features/categories/categories.module";
 
 @NsModule({
-	imports: [UserModule, PostsModule, ArticleModule],
+	imports: [
+		CoreModule,
+		SharedModule,
+		UsersModule,
+		PostsModule,
+		CommentsModule,
+		CategoriesModule
+	],
 })
 export class AppsModule {}
