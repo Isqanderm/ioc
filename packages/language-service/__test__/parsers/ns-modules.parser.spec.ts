@@ -1,4 +1,5 @@
 import * as ts from "typescript/lib/tsserverlibrary";
+import { vi } from "vitest";
 import type { Logger } from "../../src/logger";
 import { NsModulesParser } from "../../src/parsers/ns-modules.parser";
 
@@ -75,8 +76,8 @@ describe("NsModulesParser", () => {
 		typeChecker = program.getTypeChecker();
 
 		mockLogger = {
-			log: jest.fn(),
-			error: jest.fn(),
+			log: vi.fn(),
+			error: vi.fn(),
 		} as unknown as Logger;
 	});
 

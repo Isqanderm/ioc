@@ -145,7 +145,7 @@ export const getSemanticDiagnosticsActions = (
 						file: sourceFile,
 						start: param.start,
 						length: param.length,
-						messageText: `У класса ${injectableClass.name?.text} отсутствуют зависимости: ${param.name.getText()}`,
+						messageText: `Class '${injectableClass.name?.text}' is missing dependency: ${param.name.getText()}`,
 						category: ts.DiagnosticCategory.Error,
 						code: 9999,
 						relatedInformation: [
@@ -155,7 +155,7 @@ export const getSemanticDiagnosticsActions = (
 								file: referenceModule.sourceFile,
 								start: referenceModule.start,
 								length: referenceModule.length,
-								messageText: `Модуль: ${referenceModule.moduleName}`,
+								messageText: `Module: ${referenceModule.moduleName}`,
 							},
 						],
 					});
@@ -173,7 +173,7 @@ export const getSemanticDiagnosticsActions = (
 							file: sourceFile,
 							start: param.start,
 							length: param.length,
-							messageText: `У зависимости ${param.name.getText()} не совпадают типы`,
+							messageText: `Type mismatch for dependency '${param.name.getText()}'`,
 							category: ts.DiagnosticCategory.Error,
 							code: 9999,
 							relatedInformation: [
@@ -183,7 +183,7 @@ export const getSemanticDiagnosticsActions = (
 									file: referenceModule.sourceFile,
 									start: referenceModule.start,
 									length: referenceModule.length,
-									messageText: `Модуль: ${referenceModule.moduleName}`,
+									messageText: `Module: ${referenceModule.moduleName}`,
 								},
 							],
 						});
@@ -192,12 +192,12 @@ export const getSemanticDiagnosticsActions = (
 			}
 
 			if (!referenceModules.length) {
-				// кейс когда мы указали зависимости в классе, но он не связан ни с одним модулем
+				// Case when we specified dependencies in the class, but it is not connected to any module
 				diagnostic.push({
 					file: sourceFile,
 					start: param.start,
 					length: param.length,
-					messageText: `У класса ${injectableClass.name?.text} отсутствуют зависимости: ${param.name.getText()}`,
+					messageText: `Class '${injectableClass.name?.text}' is missing dependency: ${param.name.getText()}`,
 					category: ts.DiagnosticCategory.Error,
 					code: 9999,
 				});

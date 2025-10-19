@@ -1,5 +1,6 @@
 import { tsquery } from "@phenomnomnominal/tsquery";
 import * as ts from "typescript/lib/tsserverlibrary";
+import { vi } from "vitest";
 import type { Logger } from "../../src/logger";
 import { NsModuleParser } from "../../src/parsers/ns-module.parser";
 
@@ -80,8 +81,8 @@ describe("NsModuleParser", () => {
 		typeChecker = program.getTypeChecker();
 
 		mockLogger = {
-			log: jest.fn(),
-			error: jest.fn(),
+			log: vi.fn(),
+			error: vi.fn(),
 		} as unknown as Logger;
 	});
 

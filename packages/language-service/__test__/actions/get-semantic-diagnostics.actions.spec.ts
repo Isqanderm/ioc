@@ -1,5 +1,6 @@
 import { tsquery } from "@phenomnomnominal/tsquery";
 import * as ts from "typescript/lib/tsserverlibrary";
+import { vi } from "vitest";
 import { getSemanticDiagnosticsActions } from "../../src/actions/get-semantic-diagnostics.actions";
 import type { NsLanguageService } from "../../src/language-service/ns-language-service";
 import type { Logger } from "../../src/logger";
@@ -12,12 +13,14 @@ describe("getSemanticDiagnosticsActions", () => {
 
 	beforeEach(() => {
 		mockLogger = {
-			log: jest.fn(),
-			error: jest.fn(),
+			log: vi.fn(),
+			error: vi.fn(),
 		} as unknown as Logger;
 
 		const files = new Map([
-			["test.ts", `
+			[
+				"test.ts",
+				`
 				import { NsModule, Injectable, Inject } from "@nexus-ioc/core";
 				import { AppService } from "./app.service";
 				import { UserModule } from "./user/user.module";
@@ -51,7 +54,8 @@ describe("getSemanticDiagnosticsActions", () => {
 						@Inject() private readonly someService: any
 					) {}
 				}
-			`],
+			`,
+			],
 		]);
 
 		const compilerHost = ts.createCompilerHost({});
@@ -134,9 +138,7 @@ describe("getSemanticDiagnosticsActions", () => {
 		);
 
 		expect(typeMismatchDiagnostic).toBeDefined();
-		expect(typeMismatchDiagnostic?.category).toBe(
-			ts.DiagnosticCategory.Error,
-		);
+		expect(typeMismatchDiagnostic?.category).toBe(ts.DiagnosticCategory.Error);
 	});
 
 	it("should create diagnostic for service not connected to any module", () => {

@@ -1,12 +1,12 @@
 import * as ts from "typescript/lib/tsserverlibrary";
 import { findTypeReferences } from "../helpers/find-type-references.helper";
+import type { NsLanguageService } from "../language-service/ns-language-service";
 import {
 	type NsModuleDeclaration,
 	NsModuleParser,
 	type ProviderType,
 } from "../parsers/ns-module.parser";
 import { NsModulesParser } from "../parsers/ns-modules.parser";
-import type { NsLanguageService } from "../language-service/ns-language-service";
 
 /**
  * Данный метод нужен для поиска объявлений для зависимости и формирования

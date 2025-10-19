@@ -1,6 +1,7 @@
 import { tsquery } from "@phenomnomnominal/tsquery";
 import * as ts from "typescript/lib/tsserverlibrary";
 import type { NsLanguageService } from "../language-service/ns-language-service";
+import type { Logger } from "../logger";
 
 export type ProviderType = {
 	provide: ts.Expression | ts.StringLiteral;

@@ -1,10 +1,10 @@
 import * as ts from "typescript/lib/tsserverlibrary";
 import { getCompletionInfoActions } from "./actions/get-completion-info.actions";
 import { getSemanticDiagnosticsActions } from "./actions/get-semantic-diagnostics.actions";
+import { goToDependencyDefinitionActions } from "./actions/go-to-dependency-definition.actions";
 import { findNodeAtPosition } from "./helpers/find-node-at-position.helper";
 import { NsLanguageService } from "./language-service/ns-language-service";
 import { Logger } from "./logger";
-import { goToDependencyDefinitionActions } from "./actions/go-to-dependency-definition.actions";
 
 type PluginConfig = {
 	debug?: boolean;
@@ -94,27 +94,35 @@ const plugin: ts.server.PluginModuleFactory = () => {
 						};
 					}
 
-					if (property === "getDefinitionAndBoundSpan") {
+					if (property === "getDefinitionAtPosition") {
 						return (
 							fileName: string,
 							position: number,
-							options?: ts.GetCompletionsAtPositionOptions,
-						): ts.DefinitionInfoAndBoundSpan | undefined => {
+						): readonly ts.DefinitionInfo[] | undefined => {
 							const program = pluginCreateInfo.languageService.getProgram();
 							const sourceFile = program?.getSourceFile(fileName);
-							const defaultDefinitionAtPosition =
-								target.getDefinitionAndBoundSpan(fileName, position);
 
-							if (!sourceFile || !program || defaultDefinitionAtPosition) {
-								return defaultDefinitionAtPosition;
+							if (!program || !sourceFile) {
+								return target.getDefinitionAtPosition(fileName, position);
 							}
 
 							const node = findNodeAtPosition(sourceFile, position);
 							if (!node || !ts.isCallExpression(node.parent)) {
-								return defaultDefinitionAtPosition;
+								return target.getDefinitionAtPosition(fileName, position);
 							}
 
-							return goToDependencyDefinitionActions(node, tsNsLs);
+							const injectExpressionNode = node.parent;
+							if (
+								ts.isIdentifier(injectExpressionNode.expression) &&
+								injectExpressionNode.expression.text === "Inject"
+							) {
+								const result = goToDependencyDefinitionActions(node, tsNsLs);
+								if (result?.definitions && result.definitions.length > 0) {
+									return result.definitions;
+								}
+							}
+
+							return target.getDefinitionAtPosition(fileName, position);
 						};
 					}
 
