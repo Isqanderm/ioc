@@ -1,4 +1,4 @@
-import type { TSESTree } from "@typescript-eslint/utils";
+import type { TSESLint, TSESTree } from "@typescript-eslint/utils";
 import { ESLintUtils } from "@typescript-eslint/utils";
 import * as ts from "typescript";
 import type { TypedRuleContext } from "../types/rule-context.interface";
@@ -6,7 +6,9 @@ import type { TypedRuleContext } from "../types/rule-context.interface";
 /**
  * Get TypeScript program and type checker from ESLint rule context
  */
-export function getTypeScriptContext(context: any): TypedRuleContext | null {
+export function getTypeScriptContext(
+	context: Readonly<TSESLint.RuleContext<string, readonly unknown[]>>,
+): TypedRuleContext | null {
 	try {
 		const parserServices = ESLintUtils.getParserServices(context);
 
