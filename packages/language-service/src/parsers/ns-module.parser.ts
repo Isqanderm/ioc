@@ -6,6 +6,8 @@ export type ProviderType = {
 	provide: ts.Expression | ts.StringLiteral;
 	provideType: "class" | "useClass" | "useValue" | "useFactory";
 	declaration: ts.Expression | ts.Identifier;
+	/** For useFactory providers, this contains the inject array */
+	inject?: (ts.Expression | ts.StringLiteral)[];
 	start: number;
 	end: number;
 	length: number;
@@ -34,6 +36,7 @@ export type NsModuleDeclaration = {
 	providers: ProviderType[];
 	imports: ImportType[];
 	exports: ExportType[];
+	isGlobal: boolean;
 	start: number;
 	end: number;
 	length: number;
@@ -41,18 +44,16 @@ export type NsModuleDeclaration = {
 };
 
 const findPropertyInObject = (obj: ts.ObjectLiteralExpression, key: string) =>
-	obj.properties.find((_property) => {
-		return obj.properties.find((property) => {
-			if (ts.isPropertyAssignment(property) && ts.isIdentifier(property.name)) {
-				return property.name.text === key;
-			}
+	obj.properties.find((property) => {
+		if (ts.isPropertyAssignment(property) && ts.isIdentifier(property.name)) {
+			return property.name.text === key;
+		}
 
-			if (ts.isMethodDeclaration(property) && ts.isIdentifier(property.name)) {
-				return property.name.text === key;
-			}
+		if (ts.isMethodDeclaration(property) && ts.isIdentifier(property.name)) {
+			return property.name.text === key;
+		}
 
-			return false;
-		});
+		return false;
 	});
 
 /**
@@ -89,6 +90,7 @@ export class NsModuleParser {
 			const length = end - start;
 			const { providers, imports, exports } =
 				NsModuleParser.getNsModuleDecoratorValue(module, typeChecker, tsNsLs);
+			const isGlobal = NsModuleParser.hasGlobalDecorator(module);
 			const sourceFile = module.getSourceFile();
 
 			result.push({
@@ -96,6 +98,7 @@ export class NsModuleParser {
 				providers,
 				imports,
 				exports,
+				isGlobal,
 				start,
 				end,
 				length,
@@ -108,6 +111,42 @@ export class NsModuleParser {
 
 	private static getNsModuleName(classDeclaration: ts.ClassDeclaration) {
 		return classDeclaration.name?.getText() as string;
+	}
+
+	/**
+	 * Checks if a class has the @Global() decorator
+	 *
+	 * @param classDeclaration - The class declaration to check
+	 * @returns true if the class has @Global() or @Global decorator
+	 */
+	private static hasGlobalDecorator(
+		classDeclaration: ts.ClassDeclaration,
+	): boolean {
+		if (!classDeclaration.modifiers) {
+			return false;
+		}
+
+		for (const modifier of classDeclaration.modifiers) {
+			if (ts.isDecorator(modifier)) {
+				const expression = modifier.expression;
+				// Handle @Global() - call expression
+				if (ts.isCallExpression(expression)) {
+					const identifier = expression.expression;
+					if (ts.isIdentifier(identifier) && identifier.text === "Global") {
+						return true;
+					}
+				}
+				// Handle @Global - identifier (without parentheses)
+				else if (
+					ts.isIdentifier(expression) &&
+					expression.text === "Global"
+				) {
+					return true;
+				}
+			}
+		}
+
+		return false;
 	}
 
 	private static getNsModuleDecoratorValue(
@@ -339,6 +378,7 @@ export class NsModuleParser {
 		const provideUseClassNode = findPropertyInObject(provider, "useClass");
 		const provideUseValueNode = findPropertyInObject(provider, "useValue");
 		const provideUseFactoryNode = findPropertyInObject(provider, "useFactory");
+		const provideInjectNode = findPropertyInObject(provider, "inject");
 		const providerNode =
 			provideUseClassNode || provideUseValueNode || provideUseFactoryNode;
 
@@ -386,10 +426,31 @@ export class NsModuleParser {
 			return null;
 		}
 
+		// Parse inject array for factory providers
+		let inject: (ts.Expression | ts.StringLiteral)[] | undefined = undefined;
+		if (
+			provideType === "useFactory" &&
+			provideInjectNode &&
+			ts.isPropertyAssignment(provideInjectNode) &&
+			ts.isArrayLiteralExpression(provideInjectNode.initializer)
+		) {
+			const injectArray: (ts.Expression | ts.StringLiteral)[] = [];
+			provideInjectNode.initializer.elements.forEach((element) => {
+				if (ts.isStringLiteral(element) || ts.isIdentifier(element)) {
+					injectArray.push(element);
+				}
+			});
+			// Only set inject if we found elements
+			if (injectArray.length > 0) {
+				inject = injectArray;
+			}
+		}
+
 		return {
 			provide,
 			provideType,
 			declaration: providerTypeLink,
+			inject,
 			start,
 			end,
 			length,

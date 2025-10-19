@@ -54,8 +54,17 @@ export function getTypeOfNode(
 		}
 	}
 
+	// 6) Если это arrow function или function expression (для useFactory)
+	if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) {
+		const signature = checker.getSignatureFromDeclaration(node);
+		if (signature) {
+			// Return the return type of the function
+			return checker.getReturnTypeOfSignature(signature);
+		}
+	}
+
 	// ... при необходимости обрабатываем другие случаи (EnumDeclaration, etc.)
 
-	// 6) По умолчанию берём тип текущего узла
+	// 7) По умолчанию берём тип текущего узла
 	return checker.getTypeAtLocation(node);
 }

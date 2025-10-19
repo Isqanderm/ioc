@@ -103,7 +103,7 @@ describe("NsModuleParser", () => {
 			expect(appModule.moduleName).toBe("AppModule");
 			expect(appModule.imports).toHaveLength(1);
 			expect(appModule.providers).toHaveLength(5);
-			expect(appModule.exports).toHaveLength(3);
+			expect(appModule.exports).toHaveLength(4); // AppService, "secret", "foo", UserModule
 
 			// Test EmptyModule
 			expect(emptyModule.moduleName).toBe("EmptyModule");
