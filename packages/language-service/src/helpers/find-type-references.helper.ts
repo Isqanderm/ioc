@@ -1,5 +1,4 @@
 import * as ts from "typescript/lib/tsserverlibrary";
-import type { Logger } from "../logger";
 import type { NsLanguageService } from "../language-service/ns-language-service";
 
 export type TypeReference = {

@@ -91,7 +91,7 @@ export const getSemanticDiagnosticsActions = (
 					});
 
 				if (!dependencyDeclare) {
-					referenceModule.imports.map((module) => {
+					referenceModule.imports.forEach((module) => {
 						if (ts.isIdentifier(module.declaration)) {
 							const references =
 								findTypeReferences(module.declaration, tsNsLs) || [];

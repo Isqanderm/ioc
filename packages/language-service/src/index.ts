@@ -15,10 +15,10 @@ const plugin: ts.server.PluginModuleFactory = () => {
 	return {
 		create: (pluginCreateInfo) => {
 			const config = pluginCreateInfo.config as PluginConfig;
-			const tsConfigDirectory =
+			const _tsConfigDirectory =
 				pluginCreateInfo.languageServiceHost.getCurrentDirectory();
 
-			// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+			// biome-ignore lint/suspicious/noExplicitAny: Logger constructor accepts any config type for flexibility
 			const logger = new Logger(config as any);
 
 			const tsNsLs = new NsLanguageService(

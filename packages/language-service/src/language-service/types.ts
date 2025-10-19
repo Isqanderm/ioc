@@ -30,7 +30,6 @@ export interface PathManipulation {
 	isRoot(path: AbsoluteFsPath): boolean;
 	isRooted(path: string): boolean;
 	dirname<T extends PathString>(file: T): T;
-	extname(path: AbsoluteFsPath | PathSegment): string;
 	join<T extends PathString>(basePath: T, ...paths: string[]): T;
 	/**
 	 * Compute the relative path between `from` and `to`.

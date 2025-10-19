@@ -13,7 +13,7 @@ export type InjectParameterDeclaration = {
 	parameterType?: ts.TypeReferenceType | ts.Node;
 };
 
-// biome-ignore lint/complexity/noStaticOnlyClass: <explanation>
+// biome-ignore lint/complexity/noStaticOnlyClass: static-only class provides namespace for related parsing methods
 export class InjectParser {
 	public static execute(classDeclaration: ts.ClassDeclaration, logger: Logger) {
 		const params: InjectParameterDeclaration[] = [];

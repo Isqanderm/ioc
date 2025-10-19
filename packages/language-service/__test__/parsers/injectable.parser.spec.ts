@@ -1,5 +1,5 @@
-import { mkdtempSync, rmdirSync, unlinkSync, writeFileSync } from "fs";
-import { join } from "path";
+import { mkdtempSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import * as ts from "typescript";
 import { InjectableParser } from "../../src/parsers/injectable.parser";
 
@@ -48,9 +48,10 @@ class NonInjectableClass {
 
 		// Ensure source file exists
 		expect(sourceFile).toBeDefined();
+		if (!sourceFile) return;
 
 		// Execute the InjectableParser
-		const injectableClasses = InjectableParser.execute(sourceFile!);
+		const injectableClasses = InjectableParser.execute(sourceFile);
 
 		// Assertions
 		expect(injectableClasses).toHaveLength(1);
@@ -81,9 +82,10 @@ function someFunction() {}
 
 		// Ensure source file exists
 		expect(sourceFile).toBeDefined();
+		if (!sourceFile) return;
 
 		// Execute the InjectableParser
-		const injectableClasses = InjectableParser.execute(sourceFile!);
+		const injectableClasses = InjectableParser.execute(sourceFile);
 
 		// Assertions
 		expect(injectableClasses).toHaveLength(0);

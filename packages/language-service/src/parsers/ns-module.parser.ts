@@ -1,7 +1,6 @@
 import { tsquery } from "@phenomnomnominal/tsquery";
 import * as ts from "typescript/lib/tsserverlibrary";
 import type { NsLanguageService } from "../language-service/ns-language-service";
-import type { Logger } from "../logger";
 
 export type ProviderType = {
 	provide: ts.Expression | ts.StringLiteral;
@@ -42,7 +41,7 @@ export type NsModuleDeclaration = {
 };
 
 const findPropertyInObject = (obj: ts.ObjectLiteralExpression, key: string) =>
-	obj.properties.find((property) => {
+	obj.properties.find((_property) => {
 		return obj.properties.find((property) => {
 			if (ts.isPropertyAssignment(property) && ts.isIdentifier(property.name)) {
 				return property.name.text === key;
@@ -56,7 +55,7 @@ const findPropertyInObject = (obj: ts.ObjectLiteralExpression, key: string) =>
 		});
 	});
 
-// biome-ignore lint/complexity/noStaticOnlyClass: <explanation>
+// biome-ignore lint/complexity/noStaticOnlyClass: static-only class provides namespace for related parsing methods
 export class NsModuleParser {
 	public static execute(
 		modules: ts.ClassDeclaration[],
@@ -149,7 +148,7 @@ export class NsModuleParser {
 
 	private static parseImports(
 		imports: ts.ArrayLiteralExpression,
-		tsNsLs: NsLanguageService,
+		_tsNsLs: NsLanguageService,
 	) {
 		const result: ImportType[] = [];
 
@@ -213,7 +212,7 @@ export class NsModuleParser {
 		exports: ts.ArrayLiteralExpression,
 		providers: ProviderType[],
 		typeChecker: ts.TypeChecker,
-		tsNsLs: NsLanguageService,
+		_tsNsLs: NsLanguageService,
 	) {
 		const result: ExportType[] = [];
 
@@ -321,7 +320,7 @@ export class NsModuleParser {
 
 	private static parseUseProvider(
 		provider: ts.ObjectLiteralExpression,
-		tsNsLs: NsLanguageService,
+		_tsNsLs: NsLanguageService,
 	): ProviderType | null {
 		const provideNameNode = findPropertyInObject(provider, "provide");
 		const provideUseClassNode = findPropertyInObject(provider, "useClass");

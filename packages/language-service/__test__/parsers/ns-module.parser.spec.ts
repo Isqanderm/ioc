@@ -76,7 +76,7 @@ describe("NsModuleParser", () => {
 			host: compilerHost,
 		});
 
-		// biome-ignore lint/style/noNonNullAssertion: <explanation>
+		// biome-ignore lint/style/noNonNullAssertion: test file is guaranteed to exist in test setup
 		sourceFile = program.getSourceFile("test.ts")!;
 		typeChecker = program.getTypeChecker();
 

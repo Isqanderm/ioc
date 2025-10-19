@@ -19,10 +19,10 @@ export class NsLanguageService {
 	private options: CompilerOptions;
 
 	constructor(
-		private readonly project: ts.server.Project,
-		private readonly host: ts.server.ServerHost,
+		readonly project: ts.server.Project,
+		readonly _host: ts.server.ServerHost,
 		private readonly _tsLS: ts.LanguageService,
-		private readonly config: PluginConfig,
+		readonly config: PluginConfig,
 		private readonly _logger: Logger,
 	) {
 		this.options = parseNsCompilerOptions(config);

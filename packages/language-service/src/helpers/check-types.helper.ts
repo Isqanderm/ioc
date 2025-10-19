@@ -5,7 +5,7 @@ export const checkTypesHelper = (
 	type1: ts.Node,
 	type2: ts.Node,
 	typeChecker: ts.TypeChecker,
-	tsNsLs: NsLanguageService,
+	_tsNsLs: NsLanguageService,
 ): boolean => {
 	// Получаем символы для type1 и type2
 	const symbol1 = ts.isIdentifier(type1)

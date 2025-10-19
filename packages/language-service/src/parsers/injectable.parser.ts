@@ -3,7 +3,7 @@ import type * as ts from "typescript/lib/tsserverlibrary";
 
 const selector = `ClassDeclaration:has(Decorator > CallExpression > Identifier[name="Injectable"])`;
 
-// biome-ignore lint/complexity/noStaticOnlyClass: <explanation>
+// biome-ignore lint/complexity/noStaticOnlyClass: static-only class provides namespace for related parsing methods
 export class InjectableParser {
 	public static execute(sourceFile: SourceFile) {
 		return tsquery.query<ts.ClassDeclaration>(sourceFile, selector);

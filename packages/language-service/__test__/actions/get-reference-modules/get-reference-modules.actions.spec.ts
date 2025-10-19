@@ -67,9 +67,10 @@ describe("getReferenceModules", () => {
 		const typeChecker = program.getTypeChecker();
 
 		expect(sourceFile).toBeDefined();
+		if (!sourceFile) return;
 
 		const [appServiceClass] = tsquery.query<ts.ClassDeclaration>(
-			sourceFile!,
+			sourceFile,
 			"ClassDeclaration[name.text='AppService']",
 		);
 
@@ -92,8 +93,11 @@ describe("getReferenceModules", () => {
 		const sourceFile = program.getSourceFile("app.service.ts");
 		const typeChecker = program.getTypeChecker();
 
+		expect(sourceFile).toBeDefined();
+		if (!sourceFile) return;
+
 		const appServiceClass = tsquery.query<ts.ClassDeclaration>(
-			sourceFile!,
+			sourceFile,
 			"ClassDeclaration[name.text='AppService']",
 		)[0];
 

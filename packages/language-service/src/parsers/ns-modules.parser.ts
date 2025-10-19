@@ -3,7 +3,7 @@ import type * as ts from "typescript/lib/tsserverlibrary";
 import { checkTypesHelper } from "../helpers/check-types.helper";
 import type { NsLanguageService } from "../language-service/ns-language-service";
 
-// biome-ignore lint/complexity/noStaticOnlyClass: <explanation>
+// biome-ignore lint/complexity/noStaticOnlyClass: static-only class provides namespace for related parsing methods
 export class NsModulesParser {
 	public static execute(sourceFile: ts.SourceFile): ts.ClassDeclaration[] {
 		return tsquery.query<ts.ClassDeclaration>(
@@ -15,7 +15,7 @@ export class NsModulesParser {
 	public static executeByClassDependency(
 		sourceFile: ts.SourceFile,
 		classDependency: ts.ClassDeclaration,
-		tsNsLs: NsLanguageService,
+		_tsNsLs: NsLanguageService,
 	) {
 		const modules = NsModulesParser.execute(sourceFile);
 		const result: ts.ClassDeclaration[] = [];
