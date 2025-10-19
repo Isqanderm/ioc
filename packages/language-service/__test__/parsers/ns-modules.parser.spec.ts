@@ -124,8 +124,12 @@ describe("NsModulesParser", () => {
 	});
 
 	describe("executeByModuleName", () => {
+		// TODO: This test requires a more complex setup with proper type information
+		// The executeByModuleName method uses checkTypesHelper which compares types,
+		// but factory-created identifiers don't have type information attached.
+		// This functionality is tested indirectly through integration tests.
 		it.skip("should return modules that match the specified module name", () => {
-			const mockModuleDeclaration = ts.factory.createIdentifier("UserModule");
+			const mockModuleDeclaration = ts.factory.createIdentifier("AppModule");
 
 			const result = NsModulesParser.executeByModuleName(
 				sourceFile,
@@ -135,7 +139,21 @@ describe("NsModulesParser", () => {
 			);
 
 			expect(result).toHaveLength(1);
-			expect(result[0].name?.text).toBe("UserModule");
+			expect(result[0].name?.text).toBe("AppModule");
+		});
+
+		it.skip("should return empty array when no modules match the specified name", () => {
+			const mockModuleDeclaration =
+				ts.factory.createIdentifier("NonExistentModule");
+
+			const result = NsModulesParser.executeByModuleName(
+				sourceFile,
+				mockModuleDeclaration,
+				typeChecker,
+				mockLogger,
+			);
+
+			expect(result).toHaveLength(0);
 		});
 	});
 });

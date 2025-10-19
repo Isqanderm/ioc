@@ -31,7 +31,14 @@
 // Helpers
 export { checkTypesHelper } from "./helpers/check-types.helper";
 export { CircularDependencyDetectorHelper } from "./helpers/circular-dependency-detector.helper";
-export { compareTypes } from "./helpers/compare-types.helper";
+export {
+	compareBigIntTypes,
+	compareBooleanTypes,
+	compareNumberTypes,
+	compareStringTypes,
+	compareSymbolTypes,
+	compareTypes,
+} from "./helpers/compare-types.helper";
 export { findNodeAtPosition } from "./helpers/find-node-at-position.helper";
 export {
 	findTypeReferences,

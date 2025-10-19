@@ -1,27 +1,10 @@
-import { mkdtempSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { InjectableParser } from "@nexus-ioc/type-checker";
 import * as ts from "typescript";
 
 describe("InjectableParser", () => {
-	let tempDir: string;
-	let tempFilePath: string;
-
-	beforeEach(() => {
-		// Create a temporary directory and file for testing
-		tempDir = mkdtempSync("injectable-parser-test-");
-		tempFilePath = join(tempDir, "test.ts");
-	});
-
-	afterEach(() => {
-		// Clean up temporary file and directory
-		unlinkSync(tempFilePath);
-		rmdirSync(tempDir);
-	});
-
-	it.skip("should find injectable classes in a source file", () => {
+	it("should find injectable classes in a source file", () => {
 		// Create a sample source code with an injectable class
-		const sourceCode = `
+		const sourceText = `
 import { Injectable } from '@nexus-ioc/core';
 
 @Injectable()
@@ -34,21 +17,13 @@ class NonInjectableClass {
 }
 `;
 
-		// Write the source code to a temporary file
-		writeFileSync(tempFilePath, sourceCode);
-
-		// Create a program with the source file
-		const program = ts.createProgram([tempFilePath], {
-			target: ts.ScriptTarget.Latest,
-			module: ts.ModuleKind.CommonJS,
-		});
-
-		// Get the source file from the program
-		const sourceFile = program.getSourceFile(tempFilePath);
-
-		// Ensure source file exists
-		expect(sourceFile).toBeDefined();
-		if (!sourceFile) return;
+		// Create source file directly (tsquery works with source files, not programs)
+		const sourceFile = ts.createSourceFile(
+			"test.ts",
+			sourceText,
+			ts.ScriptTarget.Latest,
+			true, // setParentNodes
+		);
 
 		// Execute the InjectableParser
 		const injectableClasses = InjectableParser.execute(sourceFile);
@@ -60,7 +35,7 @@ class NonInjectableClass {
 
 	it("should return an empty array when no injectable classes are found", () => {
 		// Create a source code without any injectable classes
-		const sourceCode = `
+		const sourceText = `
 class NonInjectableClass {
   constructor() {}
 }
@@ -68,21 +43,13 @@ class NonInjectableClass {
 function someFunction() {}
 `;
 
-		// Write the source code to a temporary file
-		writeFileSync(tempFilePath, sourceCode);
-
-		// Create a program with the source file
-		const program = ts.createProgram([tempFilePath], {
-			target: ts.ScriptTarget.Latest,
-			module: ts.ModuleKind.CommonJS,
-		});
-
-		// Get the source file from the program
-		const sourceFile = program.getSourceFile(tempFilePath);
-
-		// Ensure source file exists
-		expect(sourceFile).toBeDefined();
-		if (!sourceFile) return;
+		// Create source file directly (tsquery works with source files, not programs)
+		const sourceFile = ts.createSourceFile(
+			"test.ts",
+			sourceText,
+			ts.ScriptTarget.Latest,
+			true, // setParentNodes
+		);
 
 		// Execute the InjectableParser
 		const injectableClasses = InjectableParser.execute(sourceFile);

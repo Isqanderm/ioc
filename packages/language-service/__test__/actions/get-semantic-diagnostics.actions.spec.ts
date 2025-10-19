@@ -127,6 +127,9 @@ describe("getSemanticDiagnosticsActions", () => {
 		expect(missingDepDiagnostic?.category).toBe(ts.DiagnosticCategory.Error);
 	});
 
+	// TODO: Type mismatch detection is not yet fully implemented
+	// This test expects diagnostics for type mismatches which requires
+	// additional logic in getSemanticDiagnosticsActions
 	it.skip("should create diagnostic for type mismatches", () => {
 		const result = getSemanticDiagnosticsActions("test.ts", tsNsLs);
 
@@ -140,6 +143,9 @@ describe("getSemanticDiagnosticsActions", () => {
 		expect(typeMismatchDiagnostic?.category).toBe(ts.DiagnosticCategory.Error);
 	});
 
+	// TODO: Orphan service detection is not yet fully implemented
+	// This test expects diagnostics for services not connected to any module
+	// which requires additional logic in getSemanticDiagnosticsActions
 	it.skip("should create diagnostic for service not connected to any module", () => {
 		const result = getSemanticDiagnosticsActions("test.ts", tsNsLs);
 

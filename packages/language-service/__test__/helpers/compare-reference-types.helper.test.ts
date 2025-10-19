@@ -220,6 +220,9 @@ describe("Compare Reference Types", () => {
 	});
 
 	describe("Generic type comparisons", () => {
+		// TODO: Generic type instantiation comparison is not yet supported
+		// This would require comparing GenericClass<T> with GenericClass<string>
+		// which is an advanced feature not critical for basic DI functionality
 		it.skip("should handle generic classes", () => {
 			const sourceText = `
         class GenericClass<T> {
@@ -254,6 +257,7 @@ describe("Compare Reference Types", () => {
 			expect(compareTypes(classDecl, numberInstance, typeChecker)).toBe(true);
 		});
 
+		// TODO: Generic type instantiation comparison is not yet supported
 		it.skip("should handle generic interfaces", () => {
 			const sourceText = `
         interface GenericInterface<T> {
@@ -353,6 +357,8 @@ describe("Compare Reference Types", () => {
 			);
 		});
 
+		// TODO: Structural typing with extra properties is not yet supported
+		// This is an edge case not critical for DI functionality
 		it.skip("should handle extra properties", () => {
 			const sourceText = `
         interface TestInterface {

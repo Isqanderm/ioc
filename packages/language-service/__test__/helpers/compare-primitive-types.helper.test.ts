@@ -103,7 +103,7 @@ describe("Compare Primitive Types", () => {
 		return result;
 	}
 
-	describe.skip("String type comparisons", () => {
+	describe("String type comparisons", () => {
 		it("should return true when comparing string type with string literal", () => {
 			const stringTypeNode = findNode("string");
 			const stringLiteralNode = findNode('"hello"');
@@ -144,7 +144,7 @@ describe("Compare Primitive Types", () => {
 		});
 	});
 
-	describe.skip("Number type comparisons", () => {
+	describe("Number type comparisons", () => {
 		it("should handle various number literals", () => {
 			const numberTypeNode = findNode("number");
 			const cases = [
@@ -173,7 +173,7 @@ describe("Compare Primitive Types", () => {
 		});
 	});
 
-	describe.skip("Boolean type comparisons", () => {
+	describe("Boolean type comparisons", () => {
 		it("should handle both boolean literals", () => {
 			const booleanTypeNode = findNode("boolean");
 			const trueLiteralNode = findNode("true");
@@ -197,7 +197,7 @@ describe("Compare Primitive Types", () => {
 		});
 	});
 
-	describe.skip("BigInt type comparisons", () => {
+	describe("BigInt type comparisons", () => {
 		it("should handle various bigint literals", () => {
 			const bigintTypeNode = findNode("bigint");
 			const cases = [findNode("123n"), findNode("-1n"), findNode("0n")];
@@ -210,7 +210,7 @@ describe("Compare Primitive Types", () => {
 		});
 	});
 
-	describe.skip("Symbol type comparisons", () => {
+	describe("Symbol type comparisons", () => {
 		it("should handle various symbol expressions", () => {
 			const symbolTypeNode = findNode("symbol");
 			const cases = [
