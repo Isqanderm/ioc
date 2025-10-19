@@ -41,7 +41,6 @@ export function getProviderType(
 					provider.declaration,
 				);
 				if (signature) {
-					const returnType = typeChecker.getReturnTypeOfSignature(signature);
 					// Try to get a node that represents this type
 					// This is tricky because we have a Type but need a Node
 					// We'll return the function itself and handle it specially in compareTypes
@@ -53,7 +52,6 @@ export function getProviderType(
 					provider.declaration,
 				);
 				if (signature) {
-					const returnType = typeChecker.getReturnTypeOfSignature(signature);
 					return provider.declaration;
 				}
 			}
@@ -64,4 +62,3 @@ export function getProviderType(
 			return undefined;
 	}
 }
-

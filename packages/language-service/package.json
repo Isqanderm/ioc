@@ -44,7 +44,10 @@
 		"vitest": "^2.1.8"
 	},
 	"dependencies": {
+		"@nexus-ioc/type-checker": "*",
 		"@phenomnomnominal/tsquery": "^6.1.3",
+		"@types/tmp": "^0.2.6",
+		"tmp": "^0.2.5",
 		"tslib": "^2.6.3"
 	},
 	"scripts": {

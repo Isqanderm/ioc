@@ -1,6 +1,6 @@
 import { tsquery } from "@phenomnomnominal/tsquery";
 import * as ts from "typescript/lib/tsserverlibrary";
-import type { Logger } from "../logger";
+import type { ILogger } from "../types/logger.interface";
 
 export type InjectParameterDeclaration = {
 	name: ts.Identifier | ts.StringLiteral;
@@ -23,7 +23,10 @@ export class InjectParser {
 	 * @param logger - Logger instance for debugging
 	 * @returns Array of inject parameter/property declarations with metadata
 	 */
-	public static execute(classDeclaration: ts.ClassDeclaration, logger: Logger) {
+	public static execute(
+		classDeclaration: ts.ClassDeclaration,
+		logger: ILogger,
+	) {
 		const params: InjectParameterDeclaration[] = [];
 		const className = classDeclaration.name?.text || "AnonymousClass";
 		logger.log(`[InjectParser][execute] ${className}`);
@@ -102,12 +105,10 @@ export class InjectParser {
 			const start = injectPropertyParam.getStart();
 			const end = injectPropertyParam.getEnd();
 			const parameterName = injectPropertyParam.name.getText();
-			const parameterType = InjectParser.getPropertyTypeNode(
-				injectPropertyParam,
-			);
-			const isOptional = InjectParser.hasOptionalDecoratorOnProperty(
-				injectPropertyParam,
-			);
+			const parameterType =
+				InjectParser.getPropertyTypeNode(injectPropertyParam);
+			const isOptional =
+				InjectParser.hasOptionalDecoratorOnProperty(injectPropertyParam);
 
 			params.push({
 				name: dependencyName,

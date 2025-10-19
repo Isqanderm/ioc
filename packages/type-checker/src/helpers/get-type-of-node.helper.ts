@@ -69,13 +69,21 @@ export function getTypeOfNode(
 		const parent = node.parent;
 
 		// If the parent is a parameter declaration with a question token
-		if (ts.isParameter(parent) && parent.questionToken && parent.type === node) {
+		if (
+			ts.isParameter(parent) &&
+			parent.questionToken &&
+			parent.type === node
+		) {
 			// Get the type from the parameter declaration, which includes the | undefined
 			return checker.getTypeAtLocation(parent);
 		}
 
 		// If the parent is a property declaration with a question token
-		if (ts.isPropertyDeclaration(parent) && parent.questionToken && parent.type === node) {
+		if (
+			ts.isPropertyDeclaration(parent) &&
+			parent.questionToken &&
+			parent.type === node
+		) {
 			// Get the type from the property declaration, which includes the | undefined
 			return checker.getTypeAtLocation(parent);
 		}
@@ -96,7 +104,11 @@ export function getTypeOfNode(
 	}
 
 	// If the parent is a property declaration with a question token
-	if (ts.isPropertyDeclaration(parent) && parent.questionToken && parent.type === node) {
+	if (
+		ts.isPropertyDeclaration(parent) &&
+		parent.questionToken &&
+		parent.type === node
+	) {
 		// Get the type from the property declaration, which includes the | undefined
 		return checker.getTypeAtLocation(parent);
 	}

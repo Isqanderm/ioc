@@ -1,11 +1,11 @@
 import * as ts from "typescript/lib/tsserverlibrary";
-import type { NsLanguageService } from "../language-service/ns-language-service";
+import type { ILanguageServiceLike } from "../types/language-service.interface";
 
 export const checkTypesHelper = (
 	type1: ts.Node,
 	type2: ts.Node,
 	typeChecker: ts.TypeChecker,
-	_tsNsLs: NsLanguageService,
+	_tsNsLs: ILanguageServiceLike,
 ): boolean => {
 	// Получаем символы для type1 и type2
 	const symbol1 = ts.isIdentifier(type1)

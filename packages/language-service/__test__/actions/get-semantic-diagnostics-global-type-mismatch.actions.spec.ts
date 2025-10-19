@@ -1,6 +1,5 @@
 import { writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import * as tmp from "tmp";
 import * as ts from "typescript/lib/tsserverlibrary";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getSemanticDiagnosticsActions } from "../../src/actions/get-semantic-diagnostics.actions";
@@ -8,17 +7,22 @@ import type { NsLanguageService } from "../../src/language-service/ns-language-s
 import type { Logger } from "../../src/logger";
 
 describe("getSemanticDiagnosticsActions - Global Module Type Mismatch", () => {
+	let tempFile1: tmp.FileResult;
+	let tempFile2: tmp.FileResult;
+	let tempFile3: tmp.FileResult;
 	let tempFilePath1: string;
-	let tempFilePath2: string;
-	let tempFilePath3: string;
+	let _tempFilePath2: string;
+	let _tempFilePath3: string;
 	let mockLogger: Logger;
 	let tsNsLs: NsLanguageService;
 
 	beforeEach(() => {
-		const timestamp = Date.now();
-		tempFilePath1 = join(tmpdir(), `test-global-config-${timestamp}.ts`);
-		tempFilePath2 = join(tmpdir(), `test-global-module-${timestamp}.ts`);
-		tempFilePath3 = join(tmpdir(), `test-service-${timestamp}.ts`);
+		tempFile1 = tmp.fileSync({ postfix: ".ts" });
+		tempFile2 = tmp.fileSync({ postfix: ".ts" });
+		tempFile3 = tmp.fileSync({ postfix: ".ts" });
+		tempFilePath1 = tempFile1.name;
+		_tempFilePath2 = tempFile2.name;
+		_tempFilePath3 = tempFile3.name;
 		mockLogger = {
 			log: vi.fn(),
 		} as unknown as Logger;
@@ -26,12 +30,9 @@ describe("getSemanticDiagnosticsActions - Global Module Type Mismatch", () => {
 
 	afterEach(() => {
 		try {
-			const fs = require("node:fs");
-			[tempFilePath1, tempFilePath2, tempFilePath3].forEach((path) => {
-				if (fs.existsSync(path)) {
-					fs.unlinkSync(path);
-				}
-			});
+			if (tempFile1) tempFile1.removeCallback();
+			if (tempFile2) tempFile2.removeCallback();
+			if (tempFile3) tempFile3.removeCallback();
 		} catch {
 			// Ignore cleanup errors
 		}
@@ -66,14 +67,11 @@ class FeatureService {
 
 		writeFileSync(tempFilePath1, sourceCode);
 
-		const program = ts.createProgram(
-			[tempFilePath1],
-			{
-				target: ts.ScriptTarget.Latest,
-				module: ts.ModuleKind.CommonJS,
-				experimentalDecorators: true,
-			},
-		);
+		const program = ts.createProgram([tempFilePath1], {
+			target: ts.ScriptTarget.Latest,
+			module: ts.ModuleKind.CommonJS,
+			experimentalDecorators: true,
+		});
 
 		const languageService = ts.createLanguageService(
 			{
@@ -147,14 +145,11 @@ class FeatureService {
 
 		writeFileSync(tempFilePath1, sourceCode);
 
-		const program = ts.createProgram(
-			[tempFilePath1],
-			{
-				target: ts.ScriptTarget.Latest,
-				module: ts.ModuleKind.CommonJS,
-				experimentalDecorators: true,
-			},
-		);
+		const program = ts.createProgram([tempFilePath1], {
+			target: ts.ScriptTarget.Latest,
+			module: ts.ModuleKind.CommonJS,
+			experimentalDecorators: true,
+		});
 
 		const languageService = ts.createLanguageService(
 			{
@@ -197,4 +192,3 @@ class FeatureService {
 		expect(typeMismatchErrors).toHaveLength(0);
 	});
 });
-

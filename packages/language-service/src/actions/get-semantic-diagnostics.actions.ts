@@ -1,18 +1,19 @@
-import * as ts from "typescript/lib/tsserverlibrary";
-import { CircularDependencyDetectorHelper } from "../helpers/circular-dependency-detector.helper";
-import { checkTypesHelper } from "../helpers/check-types.helper";
-import { compareTypes } from "../helpers/compare-types.helper";
-import { findTypeReferences } from "../helpers/find-type-references.helper";
-import type { NsLanguageService } from "../language-service/ns-language-service";
-import { type InjectParameterDeclaration, InjectParser } from "../parsers/inject.parser";
-import { InjectableParser } from "../parsers/injectable.parser";
 import {
+	CircularDependencyDetectorHelper,
+	checkTypesHelper,
+	compareTypes,
 	type ExportType,
+	findTypeReferences,
+	InjectableParser,
+	type InjectParameterDeclaration,
+	InjectParser,
 	type NsModuleDeclaration,
 	NsModuleParser,
+	NsModulesParser,
 	type ProviderType,
-} from "../parsers/ns-module.parser";
-import { NsModulesParser } from "../parsers/ns-modules.parser";
+} from "@nexus-ioc/type-checker";
+import * as ts from "typescript/lib/tsserverlibrary";
+import type { NsLanguageService } from "../language-service/ns-language-service";
 
 /**
  * Generates semantic diagnostics for Nexus IoC dependency injection
@@ -79,7 +80,9 @@ export const getSemanticDiagnosticsActions = (
 					code: 9998,
 					file: sourceFile,
 					start: circular.classDeclaration.getStart(),
-					length: circular.classDeclaration.getEnd() - circular.classDeclaration.getStart(),
+					length:
+						circular.classDeclaration.getEnd() -
+						circular.classDeclaration.getStart(),
 					messageText: `Circular dependency path: ${circular.cycle.join(" -> ")}`,
 				},
 			],
@@ -102,14 +105,24 @@ export const getSemanticDiagnosticsActions = (
 					for (const moduleProvider of module.providers) {
 						if (ts.isStringLiteral(injectToken)) {
 							if (
-								moduleProvider.provide.getText().replaceAll('"', "").replaceAll("'", "") ===
+								moduleProvider.provide
+									.getText()
+									.replaceAll('"', "")
+									.replaceAll("'", "") ===
 								tokenText.replaceAll('"', "").replaceAll("'", "")
 							) {
 								found = true;
 								break;
 							}
 						} else if (ts.isIdentifier(injectToken)) {
-							if (checkTypesHelper(moduleProvider.declaration, injectToken, typeChecker, tsNsLs)) {
+							if (
+								checkTypesHelper(
+									moduleProvider.declaration,
+									injectToken,
+									typeChecker,
+									tsNsLs,
+								)
+							) {
 								found = true;
 								break;
 							}
@@ -120,7 +133,8 @@ export const getSemanticDiagnosticsActions = (
 					if (!found) {
 						for (const importedModule of module.imports) {
 							if (ts.isIdentifier(importedModule.declaration)) {
-								const references = findTypeReferences(importedModule.declaration, tsNsLs) || [];
+								const references =
+									findTypeReferences(importedModule.declaration, tsNsLs) || [];
 
 								for (const reference of references) {
 									const importedSourceFile = tsNsLs.tsLS
@@ -463,7 +477,11 @@ export const getSemanticDiagnosticsActions = (
 
 				// Perform type checking for dependencies found in global modules
 				// Skip type checking for optional dependencies - they can accept the provider type or undefined
-				if (globalDependencyDeclare && param.parameterType && !param.isOptional) {
+				if (
+					globalDependencyDeclare &&
+					param.parameterType &&
+					!param.isOptional
+				) {
 					const isEqual = compareTypes(
 						param.parameterType,
 						globalDependencyDeclare.declaration,
@@ -525,7 +543,10 @@ function findGlobalModules(
 
 	for (const sourceFile of sourceFiles) {
 		// Skip declaration files and node_modules
-		if (sourceFile.isDeclarationFile || sourceFile.fileName.includes("node_modules")) {
+		if (
+			sourceFile.isDeclarationFile ||
+			sourceFile.fileName.includes("node_modules")
+		) {
 			continue;
 		}
 

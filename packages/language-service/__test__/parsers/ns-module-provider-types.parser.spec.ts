@@ -1,7 +1,7 @@
+import { NsModuleParser } from "@nexus-ioc/type-checker";
 import { tsquery } from "@phenomnomnominal/tsquery";
 import * as ts from "typescript/lib/tsserverlibrary";
-import { describe, expect, it, beforeEach } from "vitest";
-import { NsModuleParser } from "../../src/parsers/ns-module.parser";
+import { beforeEach, describe, expect, it } from "vitest";
 
 describe("NsModuleParser - Provider Types", () => {
 	let sourceFile: ts.SourceFile;
@@ -134,7 +134,8 @@ describe("NsModuleParser - Provider Types", () => {
 		);
 
 		const classProvider = providers.find(
-			(p) => p.provideType === "class" && p.provide.getText() === "DatabaseService",
+			(p) =>
+				p.provideType === "class" && p.provide.getText() === "DatabaseService",
 		);
 
 		expect(classProvider).toBeDefined();
@@ -157,7 +158,8 @@ describe("NsModuleParser - Provider Types", () => {
 		);
 
 		const useClassProvider = providers.find(
-			(p) => p.provideType === "useClass" && p.provide.getText() === '"DB_SERVICE"',
+			(p) =>
+				p.provideType === "useClass" && p.provide.getText() === '"DB_SERVICE"',
 		);
 
 		expect(useClassProvider).toBeDefined();
@@ -180,7 +182,8 @@ describe("NsModuleParser - Provider Types", () => {
 		);
 
 		const useValueProvider = providers.find(
-			(p) => p.provideType === "useValue" && p.provide.getText() === '"API_KEY"',
+			(p) =>
+				p.provideType === "useValue" && p.provide.getText() === '"API_KEY"',
 		);
 
 		expect(useValueProvider).toBeDefined();
@@ -226,7 +229,8 @@ describe("NsModuleParser - Provider Types", () => {
 		);
 
 		const useFactoryProvider = providers.find(
-			(p) => p.provideType === "useFactory" && p.provide.getText() === '"TIMESTAMP"',
+			(p) =>
+				p.provideType === "useFactory" && p.provide.getText() === '"TIMESTAMP"',
 		);
 
 		expect(useFactoryProvider).toBeDefined();
@@ -316,4 +320,3 @@ describe("NsModuleParser - Provider Types", () => {
 		expect(useFactoryProvider?.inject?.[1].getText()).toBe("DatabaseService");
 	});
 });
-

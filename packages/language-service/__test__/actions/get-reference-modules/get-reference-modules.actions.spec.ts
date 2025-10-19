@@ -1,7 +1,7 @@
 import { tsquery } from "@phenomnomnominal/tsquery";
 import * as ts from "typescript/lib/tsserverlibrary";
 import { vi } from "vitest";
-import { getReferenceModules } from "../../../src/actions/get-semantic-diagnostics.actions";
+import { getReferenceModules } from "../../../src/actions/get-reference-modules.actions";
 import type { NsLanguageService } from "../../../src/language-service/ns-language-service";
 import type { Logger } from "../../../src/logger";
 

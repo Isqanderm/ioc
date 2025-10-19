@@ -1,4 +1,3 @@
-import * as ts from "typescript/lib/tsserverlibrary";
 import {
 	compareBigIntTypes,
 	compareBooleanTypes,
@@ -6,7 +5,8 @@ import {
 	compareStringTypes,
 	compareSymbolTypes,
 	compareTypes,
-} from "../../src/helpers/compare-types.helper";
+} from "@nexus-ioc/type-checker";
+import * as ts from "typescript/lib/tsserverlibrary";
 
 describe("Compare Primitive Types", () => {
 	let program: ts.Program;

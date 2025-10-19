@@ -24,7 +24,7 @@ export class FeatureWithGlobalDepsService {
 
 	async fetchData(): Promise<string> {
 		const apiUrl = this.config.getApiUrl();
-		const apiKey = this.config.getApiKey();
+		const _apiKey = this.config.getApiKey();
 
 		this.logger.log(`Fetching data from ${apiUrl}`);
 
@@ -32,7 +32,7 @@ export class FeatureWithGlobalDepsService {
 		return new Promise((resolve) => {
 			setTimeout(() => {
 				this.logger.log("Data fetched successfully");
-				resolve(`Data from ${apiUrl} with key ${apiKey}`);
+				resolve(`Data from ${apiUrl} with key [REDACTED]`);
 			}, 100);
 		});
 	}
@@ -42,4 +42,3 @@ export class FeatureWithGlobalDepsService {
 		return this.config.getFullConfig();
 	}
 }
-

@@ -1,7 +1,7 @@
+import { InjectParser } from "@nexus-ioc/type-checker";
 import * as ts from "typescript/lib/tsserverlibrary";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Logger } from "../../src/logger";
-import { InjectParser } from "../../src/parsers/inject.parser";
 
 describe("InjectParser - @Optional() Decorator Support", () => {
 	let mockLogger: Logger;

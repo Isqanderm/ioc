@@ -1,0 +1,10 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"declaration": false,
+		"declarationMap": false,
+		"sourceMap": false,
+		"types": ["vitest/globals", "node"]
+	},
+	"include": ["src/**/*", "__test__/**/*"]
+}

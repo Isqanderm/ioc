@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { InjectParser } from "@nexus-ioc/type-checker";
 import * as ts from "typescript/lib/tsserverlibrary";
-import { InjectParser } from "../../src/parsers/inject.parser";
+import { describe, expect, it } from "vitest";
 import { Logger } from "../../src/logger";
 
 describe("InjectParser - Property Injection", () => {
@@ -10,12 +10,7 @@ describe("InjectParser - Property Injection", () => {
 	 * Helper function to create a TypeScript source file from code string
 	 */
 	function createSourceFile(code: string): ts.SourceFile {
-		return ts.createSourceFile(
-			"test.ts",
-			code,
-			ts.ScriptTarget.Latest,
-			true,
-		);
+		return ts.createSourceFile("test.ts", code, ts.ScriptTarget.Latest, true);
 	}
 
 	/**
@@ -263,7 +258,9 @@ class TestService {
 
 		expect(params).toHaveLength(3);
 
-		const constructorParams = params.filter((p) => p.location === "constructor");
+		const constructorParams = params.filter(
+			(p) => p.location === "constructor",
+		);
 		const propertyParams = params.filter((p) => p.location === "property");
 
 		expect(constructorParams).toHaveLength(2);
@@ -297,4 +294,3 @@ class TestService {
 		expect(params).toHaveLength(0);
 	});
 });
-

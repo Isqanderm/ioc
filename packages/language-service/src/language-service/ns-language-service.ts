@@ -1,3 +1,4 @@
+import type { ILanguageServiceLike } from "@nexus-ioc/type-checker";
 import type ts from "typescript/lib/tsserverlibrary";
 import type { Logger } from "../logger";
 import type { CompilerOptions } from "./types";
@@ -15,7 +16,7 @@ export type PluginConfig = {
 	logPath?: string;
 };
 
-export class NsLanguageService {
+export class NsLanguageService implements ILanguageServiceLike {
 	private options: CompilerOptions;
 
 	constructor(

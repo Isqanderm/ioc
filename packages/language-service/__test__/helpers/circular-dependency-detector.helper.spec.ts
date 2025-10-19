@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
+import {
+	CircularDependencyDetectorHelper,
+	type InjectParameterDeclaration,
+} from "@nexus-ioc/type-checker";
 import * as ts from "typescript/lib/tsserverlibrary";
-import { CircularDependencyDetectorHelper } from "../../src/helpers/circular-dependency-detector.helper";
-import type { InjectParameterDeclaration } from "../../src/parsers/inject.parser";
+import { describe, expect, it } from "vitest";
 
 describe("CircularDependencyDetectorHelper", () => {
 	// Helper function to create a mock InjectParameterDeclaration
@@ -90,7 +92,12 @@ describe("CircularDependencyDetectorHelper", () => {
 		expect(analysis.circularDependencies).toHaveLength(1);
 
 		const cycle = analysis.circularDependencies[0];
-		expect(cycle.cycle).toEqual(["ServiceA", "ServiceB", "ServiceC", "ServiceA"]);
+		expect(cycle.cycle).toEqual([
+			"ServiceA",
+			"ServiceB",
+			"ServiceC",
+			"ServiceA",
+		]);
 	});
 
 	it("should detect self-referencing dependency (A -> A)", () => {
@@ -215,7 +222,11 @@ describe("CircularDependencyDetectorHelper", () => {
 		expect(analysis.circularDependencies).toHaveLength(1);
 
 		const cycle = analysis.circularDependencies[0];
-		expect(cycle.cycle).toEqual(["ServiceA", "ServiceB", "ServiceC", "ServiceA"]);
+		expect(cycle.cycle).toEqual([
+			"ServiceA",
+			"ServiceB",
+			"ServiceC",
+			"ServiceA",
+		]);
 	});
 });
-

@@ -1,6 +1,6 @@
 import { tsquery } from "@phenomnomnominal/tsquery";
 import * as ts from "typescript/lib/tsserverlibrary";
-import type { NsLanguageService } from "../language-service/ns-language-service";
+import type { ILanguageServiceLike } from "../types/language-service.interface";
 
 export type ProviderType = {
 	provide: ts.Expression | ts.StringLiteral;
@@ -74,7 +74,7 @@ export class NsModuleParser {
 	public static execute(
 		modules: ts.ClassDeclaration[],
 		typeChecker: ts.TypeChecker,
-		tsNsLs: NsLanguageService,
+		tsNsLs: ILanguageServiceLike,
 	): NsModuleDeclaration[] {
 		const result: NsModuleDeclaration[] = [];
 
@@ -137,10 +137,7 @@ export class NsModuleParser {
 					}
 				}
 				// Handle @Global - identifier (without parentheses)
-				else if (
-					ts.isIdentifier(expression) &&
-					expression.text === "Global"
-				) {
+				else if (ts.isIdentifier(expression) && expression.text === "Global") {
 					return true;
 				}
 			}
@@ -152,7 +149,7 @@ export class NsModuleParser {
 	private static getNsModuleDecoratorValue(
 		classDeclaration: ts.ClassDeclaration,
 		typeChecker: ts.TypeChecker,
-		tsNsLs: NsLanguageService,
+		tsNsLs: ILanguageServiceLike,
 	) {
 		const [decoratorValue] =
 			tsquery.query<ts.ObjectLiteralExpression>(
@@ -200,7 +197,7 @@ export class NsModuleParser {
 
 	private static parseImports(
 		imports: ts.ArrayLiteralExpression,
-		_tsNsLs: NsLanguageService,
+		_tsNsLs: ILanguageServiceLike,
 	) {
 		const result: ImportType[] = [];
 
@@ -264,7 +261,7 @@ export class NsModuleParser {
 		exports: ts.ArrayLiteralExpression,
 		providers: ProviderType[],
 		typeChecker: ts.TypeChecker,
-		_tsNsLs: NsLanguageService,
+		_tsNsLs: ILanguageServiceLike,
 	) {
 		const result: ExportType[] = [];
 
@@ -335,7 +332,7 @@ export class NsModuleParser {
 
 	private static parseProviders(
 		providers: ts.ArrayLiteralExpression,
-		tsNsLs: NsLanguageService,
+		tsNsLs: ILanguageServiceLike,
 	) {
 		const result: ProviderType[] = [];
 
@@ -372,7 +369,7 @@ export class NsModuleParser {
 
 	private static parseUseProvider(
 		provider: ts.ObjectLiteralExpression,
-		_tsNsLs: NsLanguageService,
+		_tsNsLs: ILanguageServiceLike,
 	): ProviderType | null {
 		const provideNameNode = findPropertyInObject(provider, "provide");
 		const provideUseClassNode = findPropertyInObject(provider, "useClass");
@@ -427,7 +424,7 @@ export class NsModuleParser {
 		}
 
 		// Parse inject array for factory providers
-		let inject: (ts.Expression | ts.StringLiteral)[] | undefined = undefined;
+		let inject: (ts.Expression | ts.StringLiteral)[] | undefined;
 		if (
 			provideType === "useFactory" &&
 			provideInjectNode &&

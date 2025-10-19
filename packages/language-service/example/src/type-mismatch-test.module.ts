@@ -1,11 +1,13 @@
-import { Injectable, Inject, NsModule } from "@nexus-ioc/core";
+import { Inject, Injectable, NsModule } from "@nexus-ioc/core";
+import { DatabaseService } from "./database.service";
+import { TypeMismatchTestService } from "./type-mismatch-test.service";
 
 /**
  * Test service that expects a string
  */
 @Injectable()
 export class ServiceExpectingString {
-	constructor(@Inject("CONFIG_VALUE") private config: string) {}
+	constructor(@Inject("CONFIG_VALUE") _config: string) {}
 }
 
 /**
@@ -13,7 +15,7 @@ export class ServiceExpectingString {
  */
 @Injectable()
 export class ServiceExpectingNumber {
-	constructor(@Inject("PORT") private port: number) {}
+	constructor(@Inject("PORT") _port: number) {}
 }
 
 /**
@@ -21,12 +23,12 @@ export class ServiceExpectingNumber {
  */
 @Injectable()
 export class ServiceExpectingObject {
-	constructor(@Inject("DB_CONFIG") private dbConfig: { host: string; port: number }) {}
+	constructor(@Inject("DB_CONFIG") _dbConfig: { host: string; port: number }) {}
 }
 
 /**
  * Test module with intentional type mismatches
- * 
+ *
  * This module should show type mismatch errors:
  * - CONFIG_VALUE is provided as number but expected as string
  * - PORT is provided as string but expected as number
@@ -49,10 +51,11 @@ export class ServiceExpectingObject {
 			provide: "DB_CONFIG",
 			useValue: "localhost:5432", // Should be object, but is string
 		},
+		DatabaseService,
+		TypeMismatchTestService,
 		ServiceExpectingString,
 		ServiceExpectingNumber,
 		ServiceExpectingObject,
 	],
 })
 export class TypeMismatchTestModule {}
-

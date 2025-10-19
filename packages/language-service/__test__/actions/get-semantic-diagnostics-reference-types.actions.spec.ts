@@ -1,6 +1,5 @@
 import { writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import * as tmp from "tmp";
 import * as ts from "typescript/lib/tsserverlibrary";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getSemanticDiagnosticsActions } from "../../src/actions/get-semantic-diagnostics.actions";
@@ -8,12 +7,14 @@ import type { NsLanguageService } from "../../src/language-service/ns-language-s
 import type { Logger } from "../../src/logger";
 
 describe("getSemanticDiagnosticsActions - Reference Types", () => {
+	let tmpFileObj: tmp.FileResult;
 	let tempFilePath: string;
 	let mockLogger: Logger;
 	let tsNsLs: NsLanguageService;
 
 	beforeEach(() => {
-		tempFilePath = join(tmpdir(), `test-reference-types-${Date.now()}.ts`);
+		tmpFileObj = tmp.fileSync({ postfix: ".ts" });
+		tempFilePath = tmpFileObj.name;
 		mockLogger = {
 			log: vi.fn(),
 		} as unknown as Logger;
@@ -21,9 +22,8 @@ describe("getSemanticDiagnosticsActions - Reference Types", () => {
 
 	afterEach(() => {
 		try {
-			const fs = require("node:fs");
-			if (fs.existsSync(tempFilePath)) {
-				fs.unlinkSync(tempFilePath);
+			if (tmpFileObj && typeof tmpFileObj.removeCallback === "function") {
+				tmpFileObj.removeCallback();
 			}
 		} catch {
 			// Ignore cleanup errors
@@ -281,4 +281,3 @@ describe("getSemanticDiagnosticsActions - Reference Types", () => {
 		expect(typeMismatchError).toBeUndefined();
 	});
 });
-

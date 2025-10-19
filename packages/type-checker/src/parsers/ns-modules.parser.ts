@@ -1,7 +1,7 @@
 import { tsquery } from "@phenomnomnominal/tsquery";
 import type * as ts from "typescript/lib/tsserverlibrary";
 import { checkTypesHelper } from "../helpers/check-types.helper";
-import type { NsLanguageService } from "../language-service/ns-language-service";
+import type { ILanguageServiceLike } from "../types/language-service.interface";
 
 // biome-ignore lint/complexity/noStaticOnlyClass: static-only class provides namespace for related parsing methods
 export class NsModulesParser {
@@ -15,7 +15,7 @@ export class NsModulesParser {
 	public static executeByClassDependency(
 		sourceFile: ts.SourceFile,
 		classDependency: ts.ClassDeclaration,
-		_tsNsLs: NsLanguageService,
+		_tsNsLs: ILanguageServiceLike,
 	) {
 		const modules = NsModulesParser.execute(sourceFile);
 		const result: ts.ClassDeclaration[] = [];
@@ -39,7 +39,7 @@ export class NsModulesParser {
 		sourceFile: ts.SourceFile,
 		moduleDeclaration: ts.Identifier,
 		typeChecker: ts.TypeChecker,
-		tsNsLs: NsLanguageService,
+		tsNsLs: ILanguageServiceLike,
 	): ts.ClassDeclaration[] {
 		const modules = NsModulesParser.execute(sourceFile);
 		const result: ts.ClassDeclaration[] = [];

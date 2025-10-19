@@ -1,8 +1,8 @@
+import { findNodeAtPosition } from "@nexus-ioc/type-checker";
 import * as ts from "typescript/lib/tsserverlibrary";
 import { getCompletionInfoActions } from "./actions/get-completion-info.actions";
 import { getSemanticDiagnosticsActions } from "./actions/get-semantic-diagnostics.actions";
 import { goToDependencyDefinitionActions } from "./actions/go-to-dependency-definition.actions";
-import { findNodeAtPosition } from "./helpers/find-node-at-position.helper";
 import { NsLanguageService } from "./language-service/ns-language-service";
 import { Logger } from "./logger";
 

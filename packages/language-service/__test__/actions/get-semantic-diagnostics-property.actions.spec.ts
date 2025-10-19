@@ -1,6 +1,5 @@
 import { writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import * as tmp from "tmp";
 import * as ts from "typescript/lib/tsserverlibrary";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getSemanticDiagnosticsActions } from "../../src/actions/get-semantic-diagnostics.actions";
@@ -8,12 +7,14 @@ import type { NsLanguageService } from "../../src/language-service/ns-language-s
 import type { Logger } from "../../src/logger";
 
 describe("getSemanticDiagnosticsActions - Property Injection", () => {
+	let tempFileObj: tmp.FileResult;
 	let tempFilePath: string;
 	let mockLogger: Logger;
 	let tsNsLs: NsLanguageService;
 
 	beforeEach(() => {
-		tempFilePath = join(tmpdir(), `test-property-${Date.now()}.ts`);
+		tempFileObj = tmp.fileSync({ postfix: ".ts" });
+		tempFilePath = tempFileObj.name;
 		mockLogger = {
 			log: vi.fn(),
 		} as unknown as Logger;
@@ -21,9 +22,8 @@ describe("getSemanticDiagnosticsActions - Property Injection", () => {
 
 	afterEach(() => {
 		try {
-			const fs = require("node:fs");
-			if (fs.existsSync(tempFilePath)) {
-				fs.unlinkSync(tempFilePath);
+			if (tempFileObj && typeof tempFileObj.removeCallback === "function") {
+				tempFileObj.removeCallback();
 			}
 		} catch {
 			// Ignore cleanup errors
@@ -490,4 +490,3 @@ class AppModule {}
 		expect(typeMismatchErrors[0].messageText).toContain("DatabaseService");
 	});
 });
-

@@ -1,0 +1,67 @@
+{
+	"name": "@nexus-ioc/eslint-plugin",
+	"version": "0.1.0",
+	"description": "ESLint plugin for Nexus IoC dependency injection - provides linting rules for type safety and best practices",
+	"author": "Isqanderm <aleksandr.melnik.personal@gmail.com> (https://www.linkedin.com/in/isqander-melnik)",
+	"homepage": "https://github.com/Isqanderm/ioc#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Isqanderm/ioc.git"
+	},
+	"bugs": {
+		"url": "https://github.com/Isqanderm/ioc/issues"
+	},
+	"keywords": [
+		"eslint",
+		"eslintplugin",
+		"eslint-plugin",
+		"typescript",
+		"dependency-injection",
+		"IoC",
+		"nexus-ioc",
+		"linting",
+		"static-analysis"
+	],
+	"files": [
+		"dist",
+		"package.json",
+		"LICENSE",
+		"README.md"
+	],
+	"main": "./dist/index.js",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"license": "MIT",
+	"scripts": {
+		"build": "tsc -p tsconfig.build.json",
+		"dev": "tsc -p tsconfig.build.json --watch",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:coverage": "vitest run --coverage",
+		"clean": "rm -rf ./dist",
+		"code:format": "npx @biomejs/biome format --write",
+		"code:lint": "npx @biomejs/biome lint --write",
+		"code:check": "npx @biomejs/biome check",
+		"code:check:ci": "npx @biomejs/biome ci",
+		"code:check:apply": "npx @biomejs/biome check --write",
+		"test:ready": "echo 0"
+	},
+	"dependencies": {
+		"@nexus-ioc/type-checker": "*",
+		"@typescript-eslint/utils": "^8.0.0"
+	},
+	"devDependencies": {
+		"@types/eslint": "^9.6.0",
+		"@types/node": "^22.5.4",
+		"@typescript-eslint/rule-tester": "^8.0.0",
+		"@vitest/coverage-v8": "^2.1.8",
+		"eslint": "^9.0.0",
+		"typescript": "^5.8.3",
+		"vitest": "^2.1.8"
+	},
+	"peerDependencies": {
+		"@typescript-eslint/parser": "^8.0.0",
+		"eslint": "^8.0.0 || ^9.0.0",
+		"typescript": ">=4.0.0"
+	}
+}

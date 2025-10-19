@@ -1,9 +1,8 @@
+import { NsModuleParser } from "@nexus-ioc/type-checker";
 import { tsquery } from "@phenomnomnominal/tsquery";
 import * as ts from "typescript/lib/tsserverlibrary";
 import { describe, expect, it, vi } from "vitest";
-import type { NsLanguageService } from "../../src/language-service/ns-language-service";
 import type { Logger } from "../../src/logger";
-import { NsModuleParser } from "../../src/parsers/ns-module.parser";
 
 describe("NsModuleParser - @Global() Decorator", () => {
 	let mockLogger: Logger;
@@ -11,12 +10,7 @@ describe("NsModuleParser - @Global() Decorator", () => {
 	let typeChecker: ts.TypeChecker;
 
 	function createSourceFile(code: string): ts.SourceFile {
-		return ts.createSourceFile(
-			"test.ts",
-			code,
-			ts.ScriptTarget.Latest,
-			true,
-		);
+		return ts.createSourceFile("test.ts", code, ts.ScriptTarget.Latest, true);
 	}
 
 	beforeEach(() => {
@@ -84,11 +78,7 @@ export class GlobalWithoutParentheses {}
 				`ClassDeclaration[name.text="GlobalConfigModule"]`,
 			);
 
-			const [result] = NsModuleParser.execute(
-				modules,
-				typeChecker,
-				mockLogger,
-			);
+			const [result] = NsModuleParser.execute(modules, typeChecker, mockLogger);
 
 			expect(result.isGlobal).toBe(true);
 			expect(result.moduleName).toBe("GlobalConfigModule");
@@ -104,11 +94,7 @@ export class GlobalWithoutParentheses {}
 				`ClassDeclaration[name.text="GlobalWithoutParentheses"]`,
 			);
 
-			const [result] = NsModuleParser.execute(
-				modules,
-				typeChecker,
-				mockLogger,
-			);
+			const [result] = NsModuleParser.execute(modules, typeChecker, mockLogger);
 
 			expect(result.isGlobal).toBe(true);
 			expect(result.moduleName).toBe("GlobalWithoutParentheses");
@@ -124,11 +110,7 @@ export class GlobalWithoutParentheses {}
 				`ClassDeclaration[name.text="RegularModule"]`,
 			);
 
-			const [result] = NsModuleParser.execute(
-				modules,
-				typeChecker,
-				mockLogger,
-			);
+			const [result] = NsModuleParser.execute(modules, typeChecker, mockLogger);
 
 			expect(result.isGlobal).toBe(false);
 			expect(result.moduleName).toBe("RegularModule");
@@ -152,11 +134,7 @@ export class TestModule {}
 			);
 
 			// Use the existing program's type checker
-			const [result] = NsModuleParser.execute(
-				modules,
-				typeChecker,
-				mockLogger,
-			);
+			const [result] = NsModuleParser.execute(modules, typeChecker, mockLogger);
 
 			expect(result.isGlobal).toBe(true);
 		});
@@ -179,11 +157,7 @@ export class TestModule {}
 			);
 
 			// Use the existing program's type checker
-			const [result] = NsModuleParser.execute(
-				modules,
-				typeChecker,
-				mockLogger,
-			);
+			const [result] = NsModuleParser.execute(modules, typeChecker, mockLogger);
 
 			expect(result.isGlobal).toBe(true);
 		});
@@ -203,4 +177,3 @@ export class PlainClass {}
 		});
 	});
 });
-

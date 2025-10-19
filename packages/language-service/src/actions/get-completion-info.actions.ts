@@ -1,9 +1,11 @@
+import {
+	findTypeReferences,
+	NsModuleParser,
+	NsModulesParser,
+} from "@nexus-ioc/type-checker";
 import type { CompletionEntry } from "typescript";
 import ts from "typescript/lib/tsserverlibrary";
-import { findTypeReferences } from "../helpers/find-type-references.helper";
 import type { NsLanguageService } from "../language-service/ns-language-service";
-import { NsModuleParser } from "../parsers/ns-module.parser";
-import { NsModulesParser } from "../parsers/ns-modules.parser";
 
 export const getCompletionInfoActions = (
 	classDeclaration: ts.ClassDeclaration,

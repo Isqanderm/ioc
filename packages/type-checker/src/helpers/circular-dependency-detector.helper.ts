@@ -218,4 +218,3 @@ export class CircularDependencyDetectorHelper {
 		return ts.isClassDeclaration(node) ? node : undefined;
 	}
 }
-

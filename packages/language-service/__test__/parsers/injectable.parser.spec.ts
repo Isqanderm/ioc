@@ -1,7 +1,7 @@
 import { mkdtempSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { InjectableParser } from "@nexus-ioc/type-checker";
 import * as ts from "typescript";
-import { InjectableParser } from "../../src/parsers/injectable.parser";
 
 describe("InjectableParser", () => {
 	let tempDir: string;

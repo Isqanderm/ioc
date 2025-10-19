@@ -1,12 +1,12 @@
-import * as ts from "typescript/lib/tsserverlibrary";
-import { findTypeReferences } from "../helpers/find-type-references.helper";
-import type { NsLanguageService } from "../language-service/ns-language-service";
 import {
+	findTypeReferences,
 	type NsModuleDeclaration,
 	NsModuleParser,
+	NsModulesParser,
 	type ProviderType,
-} from "../parsers/ns-module.parser";
-import { NsModulesParser } from "../parsers/ns-modules.parser";
+} from "@nexus-ioc/type-checker";
+import * as ts from "typescript/lib/tsserverlibrary";
+import type { NsLanguageService } from "../language-service/ns-language-service";
 
 /**
  * Finds the definition location for a dependency token used in an @Inject decorator

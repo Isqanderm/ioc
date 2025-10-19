@@ -1,7 +1,7 @@
+import { NsModulesParser } from "@nexus-ioc/type-checker";
 import * as ts from "typescript/lib/tsserverlibrary";
 import { vi } from "vitest";
 import type { Logger } from "../../src/logger";
-import { NsModulesParser } from "../../src/parsers/ns-modules.parser";
 
 describe("NsModulesParser", () => {
 	let sourceFile: ts.SourceFile;

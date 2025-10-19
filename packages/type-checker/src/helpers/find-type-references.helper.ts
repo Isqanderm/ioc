@@ -1,5 +1,5 @@
 import * as ts from "typescript/lib/tsserverlibrary";
-import type { NsLanguageService } from "../language-service/ns-language-service";
+import type { ILanguageServiceLike } from "../types/language-service.interface";
 
 export type TypeReference = {
 	fileName: string;
@@ -9,7 +9,7 @@ export type TypeReference = {
 
 export const findTypeReferences = (
 	typeNode: ts.ClassDeclaration | ts.TypeReferenceNode | ts.Identifier,
-	tsNsLs: NsLanguageService,
+	tsNsLs: ILanguageServiceLike,
 ): TypeReference[] => {
 	const languageService = tsNsLs.tsLS;
 	const typeChecker = languageService.getProgram()?.getTypeChecker();

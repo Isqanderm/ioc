@@ -1,6 +1,6 @@
+import { compareTypes } from "@nexus-ioc/type-checker";
 import { tsquery } from "@phenomnomnominal/tsquery";
 import * as ts from "typescript/lib/tsserverlibrary";
-import { compareTypes } from "../../src/helpers/compare-types.helper";
 
 function findNodeInSF<T = ts.Node>(
 	sourceFile: ts.SourceFile,
