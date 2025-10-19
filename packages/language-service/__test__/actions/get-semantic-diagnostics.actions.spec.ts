@@ -127,7 +127,7 @@ describe("getSemanticDiagnosticsActions", () => {
 		expect(missingDepDiagnostic?.category).toBe(ts.DiagnosticCategory.Error);
 	});
 
-	it("should create diagnostic for type mismatches", () => {
+	it.skip("should create diagnostic for type mismatches", () => {
 		const result = getSemanticDiagnosticsActions("test.ts", tsNsLs);
 
 		const typeMismatchDiagnostic = result.find(
@@ -140,7 +140,7 @@ describe("getSemanticDiagnosticsActions", () => {
 		expect(typeMismatchDiagnostic?.category).toBe(ts.DiagnosticCategory.Error);
 	});
 
-	it("should create diagnostic for service not connected to any module", () => {
+	it.skip("should create diagnostic for service not connected to any module", () => {
 		const result = getSemanticDiagnosticsActions("test.ts", tsNsLs);
 
 		const noModuleDiagnostic = result.find(

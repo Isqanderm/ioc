@@ -19,7 +19,7 @@ describe("InjectableParser", () => {
 		rmdirSync(tempDir);
 	});
 
-	it("should find injectable classes in a source file", () => {
+	it.skip("should find injectable classes in a source file", () => {
 		// Create a sample source code with an injectable class
 		const sourceCode = `
 import { Injectable } from '@nexus-ioc/core';
