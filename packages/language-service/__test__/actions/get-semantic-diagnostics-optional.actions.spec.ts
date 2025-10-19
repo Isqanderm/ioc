@@ -324,4 +324,87 @@ describe("getSemanticDiagnosticsActions - @Optional() Support", () => {
 
 		expect(missingDepErrors).toHaveLength(0);
 	});
+
+	it("should NOT report type mismatch error for optional dependency with correct type", () => {
+		const sourceCode = `
+      import { Injectable, Inject, Optional, NsModule } from '@nexus-ioc/core';
+
+      @Injectable()
+      class LoggerService {
+        log(message: string) {}
+      }
+
+      @Injectable()
+      class UserService {
+        constructor(
+          @Inject(LoggerService)
+          @Optional()
+          private logger?: LoggerService  // Type is LoggerService | undefined
+        ) {}
+      }
+
+      @NsModule({
+        providers: [
+          LoggerService,  // Provides LoggerService (not LoggerService | undefined)
+          UserService,
+        ],
+      })
+      class AppModule {}
+    `;
+
+		writeFileSync(tempFilePath, sourceCode);
+
+		const program = ts.createProgram([tempFilePath], {
+			target: ts.ScriptTarget.Latest,
+			module: ts.ModuleKind.CommonJS,
+			experimentalDecorators: true,
+		});
+
+		const languageService = ts.createLanguageService(
+			{
+				getCompilationSettings: () => program.getCompilerOptions(),
+				getScriptFileNames: () => [tempFilePath],
+				getScriptVersion: () => "1",
+				getScriptSnapshot: (fileName) => {
+					const sourceFile = program.getSourceFile(fileName);
+					return sourceFile
+						? ts.ScriptSnapshot.fromString(sourceFile.getFullText())
+						: undefined;
+				},
+				getCurrentDirectory: () => process.cwd(),
+				getDefaultLibFileName: (options) => ts.getDefaultLibFilePath(options),
+				fileExists: (fileName) => fileName === tempFilePath,
+				readFile: (fileName) => {
+					if (fileName === tempFilePath) {
+						const fs = require("node:fs");
+						return fs.readFileSync(fileName, "utf-8");
+					}
+					return undefined;
+				},
+			},
+			ts.createDocumentRegistry(),
+		);
+
+		tsNsLs = {
+			tsLS: languageService,
+			logger: mockLogger,
+		} as unknown as NsLanguageService;
+
+		const diagnostics = getSemanticDiagnosticsActions(tempFilePath, tsNsLs);
+
+		// Filter out original TypeScript diagnostics
+		const customDiagnostics = diagnostics.filter((d) => d.code === 9999);
+
+		// Should NOT have any type mismatch errors
+		// LoggerService (provider) IS assignable to LoggerService | undefined (optional parameter)
+		const typeMismatchError = customDiagnostics.find(
+			(d) =>
+				d.messageText &&
+				typeof d.messageText === "string" &&
+				d.messageText.includes("Type mismatch") &&
+				d.messageText.includes("LoggerService"),
+		);
+
+		expect(typeMismatchError).toBeUndefined();
+	});
 });

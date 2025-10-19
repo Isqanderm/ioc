@@ -385,7 +385,8 @@ export const getSemanticDiagnosticsActions = (
 				}
 
 				// Perform type checking for found dependencies
-				if (dependencyDeclare && param.parameterType) {
+				// Skip type checking for optional dependencies - they can accept the provider type or undefined
+				if (dependencyDeclare && param.parameterType && !param.isOptional) {
 					let declarationNode: ts.Node | undefined;
 
 					// For ProviderType (has 'provide' property), use the declaration
@@ -461,7 +462,8 @@ export const getSemanticDiagnosticsActions = (
 				}
 
 				// Perform type checking for dependencies found in global modules
-				if (globalDependencyDeclare && param.parameterType) {
+				// Skip type checking for optional dependencies - they can accept the provider type or undefined
+				if (globalDependencyDeclare && param.parameterType && !param.isOptional) {
 					const isEqual = compareTypes(
 						param.parameterType,
 						globalDependencyDeclare.declaration,

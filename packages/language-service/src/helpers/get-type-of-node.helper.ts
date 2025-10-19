@@ -63,8 +63,26 @@ export function getTypeOfNode(
 		}
 	}
 
+	// 7) Special handling for type nodes from optional parameters/properties
+	// For optional parameters like `logger?: LoggerService`, the type annotation is just `LoggerService`
+	// But we need to check the parent to see if it's an optional parameter/property
+	// This applies to any type node (TypeReferenceNode, KeywordTypeNode, etc.)
+	const parent = node.parent;
+
+	// If the parent is a parameter declaration with a question token
+	if (ts.isParameter(parent) && parent.questionToken && parent.type === node) {
+		// Get the type from the parameter declaration, which includes the | undefined
+		return checker.getTypeAtLocation(parent);
+	}
+
+	// If the parent is a property declaration with a question token
+	if (ts.isPropertyDeclaration(parent) && parent.questionToken && parent.type === node) {
+		// Get the type from the property declaration, which includes the | undefined
+		return checker.getTypeAtLocation(parent);
+	}
+
 	// ... при необходимости обрабатываем другие случаи (EnumDeclaration, etc.)
 
-	// 7) По умолчанию берём тип текущего узла
+	// 8) По умолчанию берём тип текущего узла
 	return checker.getTypeAtLocation(node);
 }

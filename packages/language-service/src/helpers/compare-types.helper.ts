@@ -17,10 +17,31 @@ export function compareTypes(
 		return false;
 	}
 
-	// Проверяем специальные случаи для null и undefined
+	// Reject if the provider type (literalType) is null or undefined
+	// This prevents providers from providing null/undefined values
 	if (
 		literalType.flags & ts.TypeFlags.Null ||
-		literalType.flags & ts.TypeFlags.Undefined ||
+		literalType.flags & ts.TypeFlags.Undefined
+	) {
+		return false;
+	}
+
+	// For optional parameters (Type | undefined), we need to handle union types
+	// The parameter type might be a union type like "LoggerService | undefined"
+	// The provider type should be just "LoggerService"
+	// TypeScript's isTypeAssignableTo handles this correctly:
+	// LoggerService IS assignable to LoggerService | undefined
+
+	// Check if the parameter type is a union type (e.g., Type | undefined for optional params)
+	if (keywordType.flags & ts.TypeFlags.Union) {
+		// For union types, check if the provider type is assignable to the union
+		// This handles cases like: LoggerService (provider) -> LoggerService | undefined (parameter)
+		return typeChecker.isTypeAssignableTo(literalType, keywordType);
+	}
+
+	// For non-union types, reject if the parameter type is null or undefined
+	// This prevents parameters from being typed as just null or undefined
+	if (
 		keywordType.flags & ts.TypeFlags.Null ||
 		keywordType.flags & ts.TypeFlags.Undefined
 	) {
