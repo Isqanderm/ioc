@@ -414,5 +414,80 @@ class AppModule {}
 		// Should NOT have any type mismatch errors
 		expect(typeMismatchErrors).toHaveLength(0);
 	});
+
+	it("should report type mismatch when property type is incompatible with provider type", () => {
+		const sourceCode = `
+import { Injectable, Inject, NsModule } from '@nexus-ioc/core';
+
+@Injectable()
+class DatabaseService {
+  connect() { return 'connected'; }
+}
+
+@Injectable()
+class UserService {
+  @Inject(DatabaseService)
+  private db!: string;  // Type mismatch: DatabaseService is not assignable to string
+
+  getUsers() {
+    return this.db;
+  }
+}
+
+@NsModule({
+  providers: [DatabaseService, UserService]
+})
+class AppModule {}
+`;
+
+		writeFileSync(tempFilePath, sourceCode);
+
+		const program = ts.createProgram([tempFilePath], {
+			target: ts.ScriptTarget.Latest,
+			module: ts.ModuleKind.CommonJS,
+			experimentalDecorators: true,
+		});
+
+		const languageService = ts.createLanguageService(
+			{
+				getCompilationSettings: () => program.getCompilerOptions(),
+				getScriptFileNames: () => [tempFilePath],
+				getScriptVersion: () => "1",
+				getScriptSnapshot: (fileName) => {
+					const sourceFile = program.getSourceFile(fileName);
+					return sourceFile
+						? ts.ScriptSnapshot.fromString(sourceFile.getFullText())
+						: undefined;
+				},
+				getCurrentDirectory: () => process.cwd(),
+				getDefaultLibFileName: (options) => ts.getDefaultLibFilePath(options),
+				fileExists: (fileName) => fileName === tempFilePath,
+				readFile: (fileName) => {
+					if (fileName === tempFilePath) {
+						const fs = require("node:fs");
+						return fs.readFileSync(fileName, "utf-8");
+					}
+					return undefined;
+				},
+			},
+			ts.createDocumentRegistry(),
+		);
+
+		tsNsLs = {
+			tsLS: languageService,
+			logger: mockLogger,
+		} as unknown as NsLanguageService;
+
+		const diagnostics = getSemanticDiagnosticsActions(tempFilePath, tsNsLs);
+
+		// Filter for type mismatch errors
+		const typeMismatchErrors = diagnostics.filter((d) =>
+			d.messageText.toString().includes("Type mismatch"),
+		);
+
+		// SHOULD have a type mismatch error
+		expect(typeMismatchErrors.length).toBeGreaterThan(0);
+		expect(typeMismatchErrors[0].messageText).toContain("DatabaseService");
+	});
 });
 
