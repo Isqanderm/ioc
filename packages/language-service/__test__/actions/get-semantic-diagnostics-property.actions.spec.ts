@@ -331,5 +331,88 @@ class AppModule {}
 
 		expect(missingDepErrors).toHaveLength(0);
 	});
+
+	it("should NOT report type mismatch for property injection with class reference types", () => {
+		const sourceCode = `
+import { Injectable, Inject, NsModule } from '@nexus-ioc/core';
+
+@Injectable()
+class DatabaseService {
+  connect() { return 'connected'; }
+}
+
+@Injectable()
+class LoggerService {
+  log(msg: string) { console.log(msg); }
+}
+
+@Injectable()
+class UserService {
+  @Inject(DatabaseService)
+  private database!: DatabaseService;
+
+  @Inject(LoggerService)
+  private logger!: LoggerService;
+
+  getUsers() {
+    this.logger.log('Getting users');
+    return this.database.connect();
+  }
+}
+
+@NsModule({
+  providers: [DatabaseService, LoggerService, UserService]
+})
+class AppModule {}
+`;
+
+		writeFileSync(tempFilePath, sourceCode);
+
+		const program = ts.createProgram([tempFilePath], {
+			target: ts.ScriptTarget.Latest,
+			module: ts.ModuleKind.CommonJS,
+			experimentalDecorators: true,
+		});
+
+		const languageService = ts.createLanguageService(
+			{
+				getCompilationSettings: () => program.getCompilerOptions(),
+				getScriptFileNames: () => [tempFilePath],
+				getScriptVersion: () => "1",
+				getScriptSnapshot: (fileName) => {
+					const sourceFile = program.getSourceFile(fileName);
+					return sourceFile
+						? ts.ScriptSnapshot.fromString(sourceFile.getFullText())
+						: undefined;
+				},
+				getCurrentDirectory: () => process.cwd(),
+				getDefaultLibFileName: (options) => ts.getDefaultLibFilePath(options),
+				fileExists: (fileName) => fileName === tempFilePath,
+				readFile: (fileName) => {
+					if (fileName === tempFilePath) {
+						const fs = require("node:fs");
+						return fs.readFileSync(fileName, "utf-8");
+					}
+					return undefined;
+				},
+			},
+			ts.createDocumentRegistry(),
+		);
+
+		tsNsLs = {
+			tsLS: languageService,
+			logger: mockLogger,
+		} as unknown as NsLanguageService;
+
+		const diagnostics = getSemanticDiagnosticsActions(tempFilePath, tsNsLs);
+
+		// Filter for type mismatch errors
+		const typeMismatchErrors = diagnostics.filter((d) =>
+			d.messageText.toString().includes("Type mismatch"),
+		);
+
+		// Should NOT have any type mismatch errors
+		expect(typeMismatchErrors).toHaveLength(0);
+	});
 });
 
