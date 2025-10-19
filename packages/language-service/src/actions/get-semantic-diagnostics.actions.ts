@@ -13,6 +13,19 @@ import {
 } from "../parsers/ns-module.parser";
 import { NsModulesParser } from "../parsers/ns-modules.parser";
 
+/**
+ * Generates semantic diagnostics for Nexus IoC dependency injection
+ *
+ * Analyzes @Injectable classes and their @Inject decorators to detect:
+ * - Missing dependencies (not provided in any module)
+ * - Type mismatches between injected and provided types
+ * - Services not connected to any module
+ * - Circular dependencies
+ *
+ * @param fileName - The source file to analyze
+ * @param tsNsLs - The Nexus IoC Language Service instance
+ * @returns Array of TypeScript diagnostics including original diagnostics and DI-specific errors
+ */
 export const getSemanticDiagnosticsActions = (
 	fileName: string,
 	tsNsLs: NsLanguageService,

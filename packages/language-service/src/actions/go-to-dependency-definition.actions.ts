@@ -9,9 +9,19 @@ import {
 import { NsModulesParser } from "../parsers/ns-modules.parser";
 
 /**
- * Данный метод нужен для поиска объявлений для зависимости и формирования
- * @param focusNode {ts.Node}
- * @param tsNsLs
+ * Finds the definition location for a dependency token used in an @Inject decorator
+ *
+ * This function analyzes the AST to locate where a dependency is provided in NsModule declarations.
+ * It searches through all modules that reference the class containing the @Inject decorator and
+ * returns the provider definition locations.
+ *
+ * @param focusNode - The AST node representing the dependency token (identifier or string literal)
+ * @param tsNsLs - The Nexus IoC Language Service instance
+ * @returns Definition info with text span and provider locations, or undefined if not in @Inject decorator
+ *
+ * @example
+ * // For @Inject(AppService), returns the location of AppService in the providers array
+ * // For @Inject("TOKEN"), returns the location of { provide: "TOKEN", ... } in the providers array
  */
 export const goToDependencyDefinitionActions = (
 	focusNode: ts.Node,

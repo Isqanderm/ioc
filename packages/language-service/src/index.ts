@@ -6,11 +6,26 @@ import { findNodeAtPosition } from "./helpers/find-node-at-position.helper";
 import { NsLanguageService } from "./language-service/ns-language-service";
 import { Logger } from "./logger";
 
+/**
+ * Configuration options for the Nexus IoC Language Service Plugin
+ */
 type PluginConfig = {
+	/** Enable debug logging */
 	debug?: boolean;
+	/** Custom path configuration */
 	path?: string;
 };
 
+/**
+ * TypeScript Language Service Plugin for Nexus IoC
+ *
+ * Provides enhanced IDE features for Nexus IoC dependency injection:
+ * - IntelliSense and auto-completion for @Inject decorators
+ * - Go-to-definition for dependency tokens
+ * - Semantic diagnostics for missing or mismatched dependencies
+ *
+ * @returns Plugin module factory that creates the language service proxy
+ */
 const plugin: ts.server.PluginModuleFactory = () => {
 	return {
 		create: (pluginCreateInfo) => {

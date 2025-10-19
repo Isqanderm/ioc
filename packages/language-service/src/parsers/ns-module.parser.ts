@@ -55,8 +55,21 @@ const findPropertyInObject = (obj: ts.ObjectLiteralExpression, key: string) =>
 		});
 	});
 
+/**
+ * Parser for @NsModule decorator metadata
+ *
+ * Extracts and analyzes module declarations including providers, imports, and exports.
+ */
 // biome-ignore lint/complexity/noStaticOnlyClass: static-only class provides namespace for related parsing methods
 export class NsModuleParser {
+	/**
+	 * Parses @NsModule decorators from class declarations
+	 *
+	 * @param modules - Array of class declarations with @NsModule decorators
+	 * @param typeChecker - TypeScript type checker for type analysis
+	 * @param tsNsLs - The Nexus IoC Language Service instance
+	 * @returns Array of parsed module declarations with providers, imports, and exports
+	 */
 	public static execute(
 		modules: ts.ClassDeclaration[],
 		typeChecker: ts.TypeChecker,
