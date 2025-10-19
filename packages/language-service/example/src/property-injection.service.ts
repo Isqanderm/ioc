@@ -1,10 +1,10 @@
-import { Injectable, Inject } from "@nexus-ioc/core";
+import { Inject, Injectable } from "@nexus-ioc/core";
 import { DatabaseService } from "./database.service";
 import { LoggerService } from "./logger.service";
 
 /**
  * Service demonstrating property injection
- * 
+ *
  * This demonstrates:
  * - Property injection using @Inject decorator
  * - Mixed constructor and property injection
@@ -34,17 +34,15 @@ export class PropertyInjectionService {
 	 * Constructor injection for comparison
 	 * Both constructor and property injection work together
 	 */
-	constructor(
-		@Inject("API_KEY") private apiKey: string,
-	) {}
+	constructor(@Inject("API_KEY") private apiKey: string) {}
 
 	async fetchData(): Promise<string> {
 		this.logger.log("Fetching data with property-injected dependencies");
-		
+
 		const connection = await this.database.connect();
 		this.logger.log(`Database connection: ${connection}`);
-		
-		return `Data fetched using API key: ${this.apiKey}`;
+
+		return "Data fetched using API key: [REDACTED]";
 	}
 
 	getInjectionInfo(): string {
@@ -56,4 +54,3 @@ export class PropertyInjectionService {
 		`;
 	}
 }
-
