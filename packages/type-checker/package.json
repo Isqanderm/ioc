@@ -1,0 +1,61 @@
+{
+	"name": "@nexus-ioc/type-checker",
+	"version": "0.1.0",
+	"description": "Framework-agnostic type-checking logic for Nexus IoC dependency injection - shared by language service plugins, ESLint plugins, and CLI tools",
+	"author": "Isqanderm <aleksandr.melnik.personal@gmail.com> (https://www.linkedin.com/in/isqander-melnik)",
+	"homepage": "https://github.com/Isqanderm/ioc#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Isqanderm/ioc.git"
+	},
+	"bugs": {
+		"url": "https://github.com/Isqanderm/ioc/issues"
+	},
+	"keywords": [
+		"typescript",
+		"type-checking",
+		"dependency-injection",
+		"IoC",
+		"nexus-ioc",
+		"static-analysis",
+		"ast",
+		"compiler-api"
+	],
+	"files": [
+		"dist",
+		"package.json",
+		"LICENSE",
+		"README.md"
+	],
+	"main": "./dist/index.js",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"license": "MIT",
+	"scripts": {
+		"build": "tsc -p tsconfig.build.json",
+		"dev": "tsc -p tsconfig.build.json --watch",
+		"test": "echo 'No tests for type-checker package yet'",
+		"test:watch": "echo 'No tests for type-checker package yet'",
+		"test:coverage": "echo 'No tests for type-checker package yet'",
+		"clean": "rm -rf ./dist",
+		"code:format": "npx @biomejs/biome format --write",
+		"code:lint": "npx @biomejs/biome lint --write",
+		"code:check": "npx @biomejs/biome check",
+		"code:check:ci": "npx @biomejs/biome ci",
+		"code:check:apply": "npx @biomejs/biome check --write",
+		"test:ready": "echo 0"
+	},
+	"dependencies": {
+		"@phenomnomnominal/tsquery": "^6.1.3",
+		"tslib": "^2.6.3"
+	},
+	"devDependencies": {
+		"@types/node": "^22.5.4",
+		"@vitest/coverage-v8": "^2.1.8",
+		"typescript": "^5.8.3",
+		"vitest": "^2.1.8"
+	},
+	"peerDependencies": {
+		"typescript": ">=4.0.0"
+	}
+}

@@ -1,0 +1,456 @@
+import { tsquery } from "@phenomnomnominal/tsquery";
+import * as ts from "typescript/lib/tsserverlibrary";
+import type { ILanguageServiceLike } from "../types/language-service.interface";
+
+export type ProviderType = {
+	provide: ts.Expression | ts.StringLiteral;
+	provideType: "class" | "useClass" | "useValue" | "useFactory";
+	declaration: ts.Expression | ts.Identifier;
+	/** For useFactory providers, this contains the inject array */
+	inject?: (ts.Expression | ts.StringLiteral)[];
+	start: number;
+	end: number;
+	length: number;
+};
+
+export type ImportType = {
+	importType: "local" | "feature" | "global";
+	declaration: ts.Expression;
+	start: number;
+	end: number;
+	length: number;
+};
+
+export type ExportType = {
+	name?: string;
+	scope: "internal" | "external";
+	declaration: ts.Identifier | ts.StringLiteral;
+	start: number;
+	end: number;
+	length: number;
+	illegal: boolean;
+};
+
+export type NsModuleDeclaration = {
+	moduleName: string;
+	providers: ProviderType[];
+	imports: ImportType[];
+	exports: ExportType[];
+	isGlobal: boolean;
+	start: number;
+	end: number;
+	length: number;
+	sourceFile: ts.SourceFile;
+};
+
+const findPropertyInObject = (obj: ts.ObjectLiteralExpression, key: string) =>
+	obj.properties.find((property) => {
+		if (ts.isPropertyAssignment(property) && ts.isIdentifier(property.name)) {
+			return property.name.text === key;
+		}
+
+		if (ts.isMethodDeclaration(property) && ts.isIdentifier(property.name)) {
+			return property.name.text === key;
+		}
+
+		return false;
+	});
+
+/**
+ * Parser for @NsModule decorator metadata
+ *
+ * Extracts and analyzes module declarations including providers, imports, and exports.
+ */
+// biome-ignore lint/complexity/noStaticOnlyClass: static-only class provides namespace for related parsing methods
+export class NsModuleParser {
+	/**
+	 * Parses @NsModule decorators from class declarations
+	 *
+	 * @param modules - Array of class declarations with @NsModule decorators
+	 * @param typeChecker - TypeScript type checker for type analysis
+	 * @param tsNsLs - The Nexus IoC Language Service instance
+	 * @returns Array of parsed module declarations with providers, imports, and exports
+	 */
+	public static execute(
+		modules: ts.ClassDeclaration[],
+		typeChecker: ts.TypeChecker,
+		tsNsLs: ILanguageServiceLike,
+	): NsModuleDeclaration[] {
+		const result: NsModuleDeclaration[] = [];
+
+		for (const module of modules) {
+			const moduleName = NsModuleParser.getNsModuleName(module);
+
+			if (!NsModuleParser) {
+				continue;
+			}
+
+			const start = module.getStart();
+			const end = module.getEnd();
+			const length = end - start;
+			const { providers, imports, exports } =
+				NsModuleParser.getNsModuleDecoratorValue(module, typeChecker, tsNsLs);
+			const isGlobal = NsModuleParser.hasGlobalDecorator(module);
+			const sourceFile = module.getSourceFile();
+
+			result.push({
+				moduleName,
+				providers,
+				imports,
+				exports,
+				isGlobal,
+				start,
+				end,
+				length,
+				sourceFile,
+			});
+		}
+
+		return result;
+	}
+
+	private static getNsModuleName(classDeclaration: ts.ClassDeclaration) {
+		return classDeclaration.name?.getText() as string;
+	}
+
+	/**
+	 * Checks if a class has the @Global() decorator
+	 *
+	 * @param classDeclaration - The class declaration to check
+	 * @returns true if the class has @Global() or @Global decorator
+	 */
+	private static hasGlobalDecorator(
+		classDeclaration: ts.ClassDeclaration,
+	): boolean {
+		if (!classDeclaration.modifiers) {
+			return false;
+		}
+
+		for (const modifier of classDeclaration.modifiers) {
+			if (ts.isDecorator(modifier)) {
+				const expression = modifier.expression;
+				// Handle @Global() - call expression
+				if (ts.isCallExpression(expression)) {
+					const identifier = expression.expression;
+					if (ts.isIdentifier(identifier) && identifier.text === "Global") {
+						return true;
+					}
+				}
+				// Handle @Global - identifier (without parentheses)
+				else if (ts.isIdentifier(expression) && expression.text === "Global") {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	private static getNsModuleDecoratorValue(
+		classDeclaration: ts.ClassDeclaration,
+		typeChecker: ts.TypeChecker,
+		tsNsLs: ILanguageServiceLike,
+	) {
+		const [decoratorValue] =
+			tsquery.query<ts.ObjectLiteralExpression>(
+				classDeclaration,
+				`CallExpression:has(Identifier[name="NsModule"]) > ObjectLiteralExpression`,
+			) || [];
+
+		const providersRaw = decoratorValue.properties.find(
+			(item) => item.name?.getText() === "providers",
+		) as ts.PropertyAssignment;
+		const importsRaw = decoratorValue.properties.find(
+			(item) => item.name?.getText() === "imports",
+		) as ts.PropertyAssignment;
+		const exportsRaw = decoratorValue.properties.find(
+			(item) => item.name?.getText() === "exports",
+		) as ts.PropertyAssignment;
+
+		const providers = providersRaw?.initializer
+			? NsModuleParser.parseProviders(
+					providersRaw.initializer as ts.ArrayLiteralExpression,
+					tsNsLs,
+				)
+			: [];
+		const imports = importsRaw?.initializer
+			? NsModuleParser.parseImports(
+					importsRaw.initializer as ts.ArrayLiteralExpression,
+					tsNsLs,
+				)
+			: [];
+		const exports = exportsRaw?.initializer
+			? NsModuleParser.parseExports(
+					exportsRaw.initializer as ts.ArrayLiteralExpression,
+					providers,
+					typeChecker,
+					tsNsLs,
+				)
+			: [];
+
+		return {
+			imports,
+			exports,
+			providers,
+		};
+	}
+
+	private static parseImports(
+		imports: ts.ArrayLiteralExpression,
+		_tsNsLs: ILanguageServiceLike,
+	) {
+		const result: ImportType[] = [];
+
+		imports.forEachChild((child) => {
+			if (ts.isIdentifier(child) || ts.isCallExpression(child)) {
+				const start = child.getStart();
+				const end = child.getEnd();
+				const length = end - start;
+				let importType: ImportType["importType"] | null = null;
+				let type: ts.Identifier | null = ts.isIdentifier(child) ? child : null;
+
+				if (ts.isIdentifier(child)) {
+					importType = "local";
+				} else if (ts.isCallExpression(child)) {
+					const [typeNode] = tsquery<ts.Identifier>(
+						child,
+						"PropertyAccessExpression Identifier",
+					);
+
+					type = typeNode;
+
+					const isFeature = Boolean(
+						tsquery(
+							child,
+							`PropertyAccessExpression Identifier[name="forFeature"]`,
+						)?.length,
+					);
+					const isRoot = Boolean(
+						tsquery(
+							child,
+							`PropertyAccessExpression Identifier[name="forRoot"]`,
+						)?.length,
+					);
+
+					if (isFeature) {
+						importType = "feature";
+					} else if (isRoot) {
+						importType = "global";
+					}
+				}
+
+				if (!importType || !type) {
+					return;
+				}
+
+				result.push({
+					importType,
+					start,
+					end,
+					length,
+					declaration: type,
+				});
+				return;
+			}
+		});
+
+		return result;
+	}
+
+	private static parseExports(
+		exports: ts.ArrayLiteralExpression,
+		providers: ProviderType[],
+		typeChecker: ts.TypeChecker,
+		_tsNsLs: ILanguageServiceLike,
+	) {
+		const result: ExportType[] = [];
+
+		exports.forEachChild((child) => {
+			if (ts.isIdentifier(child)) {
+				const type = child;
+				const start = child.getStart();
+				const end = child.getEnd();
+				const length = end - start;
+				let importType = "external";
+
+				for (const provider of providers) {
+					const type1 = typeChecker.getTypeAtLocation(provider.declaration);
+					const type2 = typeChecker.getTypeAtLocation(type);
+					if (
+						typeChecker.isTypeAssignableTo(type1, type2) &&
+						typeChecker.isTypeAssignableTo(type2, type1) &&
+						child.getText() === provider.provide.getText()
+					) {
+						importType = "internal";
+					}
+				}
+
+				result.push({
+					scope: importType as ExportType["scope"],
+					declaration: type,
+					start,
+					end,
+					length,
+					illegal: false,
+				});
+				return;
+			}
+
+			if (ts.isStringLiteral(child)) {
+				const type = child;
+				const start = child.getStart();
+				const end = child.getEnd();
+				const length = end - start;
+				let depType = "external";
+
+				for (const provider of providers) {
+					if (
+						provider.provide
+							?.getText()
+							.replaceAll('"', "")
+							.replaceAll("'", "") === type.text
+					) {
+						depType = "internal";
+					}
+				}
+
+				result.push({
+					name: type.getText(),
+					scope: depType as ExportType["scope"],
+					start,
+					end,
+					length,
+					declaration: type,
+					illegal: depType === "external",
+				});
+				return;
+			}
+		});
+
+		return result;
+	}
+
+	private static parseProviders(
+		providers: ts.ArrayLiteralExpression,
+		tsNsLs: ILanguageServiceLike,
+	) {
+		const result: ProviderType[] = [];
+
+		providers.forEachChild((child) => {
+			if (ts.isIdentifier(child)) {
+				const start = child.getStart();
+				const end = child.getEnd();
+				const length = end - start;
+
+				result.push({
+					provide: child,
+					provideType: "class",
+					start,
+					end,
+					length,
+					declaration: child,
+				});
+				return;
+			}
+
+			if (ts.isObjectLiteralExpression(child)) {
+				const provider = NsModuleParser.parseUseProvider(child, tsNsLs);
+
+				if (provider) {
+					result.push(provider);
+				}
+
+				return;
+			}
+		});
+
+		return result;
+	}
+
+	private static parseUseProvider(
+		provider: ts.ObjectLiteralExpression,
+		_tsNsLs: ILanguageServiceLike,
+	): ProviderType | null {
+		const provideNameNode = findPropertyInObject(provider, "provide");
+		const provideUseClassNode = findPropertyInObject(provider, "useClass");
+		const provideUseValueNode = findPropertyInObject(provider, "useValue");
+		const provideUseFactoryNode = findPropertyInObject(provider, "useFactory");
+		const provideInjectNode = findPropertyInObject(provider, "inject");
+		const providerNode =
+			provideUseClassNode || provideUseValueNode || provideUseFactoryNode;
+
+		if (!provideNameNode || !providerNode) {
+			return null;
+		}
+
+		let provide: null | ts.StringLiteral | ts.Expression = null;
+
+		if (
+			ts.isPropertyAssignment(provideNameNode) &&
+			ts.isStringLiteral(provideNameNode.initializer)
+		) {
+			provide = provideNameNode.initializer;
+		} else if (
+			ts.isPropertyAssignment(provideNameNode) &&
+			ts.isExpression(provideNameNode.initializer)
+		) {
+			provide = provideNameNode.initializer;
+		}
+
+		const providerTypeLink = ts.isPropertyAssignment(providerNode)
+			? providerNode.initializer
+			: null;
+
+		if (!provide || !providerTypeLink) {
+			return null;
+		}
+
+		const start = provideNameNode.getStart();
+		const end = provideNameNode.getEnd();
+		const length = end - start;
+
+		let provideType: ProviderType["provideType"] | null = null;
+
+		if (provideUseClassNode) {
+			provideType = "useClass";
+		} else if (provideUseValueNode) {
+			provideType = "useValue";
+		} else if (provideUseFactoryNode) {
+			provideType = "useFactory";
+		}
+
+		if (!provideType) {
+			return null;
+		}
+
+		// Parse inject array for factory providers
+		let inject: (ts.Expression | ts.StringLiteral)[] | undefined;
+		if (
+			provideType === "useFactory" &&
+			provideInjectNode &&
+			ts.isPropertyAssignment(provideInjectNode) &&
+			ts.isArrayLiteralExpression(provideInjectNode.initializer)
+		) {
+			const injectArray: (ts.Expression | ts.StringLiteral)[] = [];
+			provideInjectNode.initializer.elements.forEach((element) => {
+				if (ts.isStringLiteral(element) || ts.isIdentifier(element)) {
+					injectArray.push(element);
+				}
+			});
+			// Only set inject if we found elements
+			if (injectArray.length > 0) {
+				inject = injectArray;
+			}
+		}
+
+		return {
+			provide,
+			provideType,
+			declaration: providerTypeLink,
+			inject,
+			start,
+			end,
+			length,
+		};
+	}
+}
