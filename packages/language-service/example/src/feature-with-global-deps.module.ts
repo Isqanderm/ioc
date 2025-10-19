@@ -15,4 +15,3 @@ import { FeatureWithGlobalDepsService } from "./feature-with-global-deps.service
 	exports: [FeatureWithGlobalDepsService],
 })
 export class FeatureWithGlobalDepsModule {}
-

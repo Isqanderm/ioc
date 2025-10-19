@@ -35,4 +35,3 @@ export class GlobalConfigService {
 		return { ...this.config };
 	}
 }
-

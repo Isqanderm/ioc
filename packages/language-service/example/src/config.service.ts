@@ -1,8 +1,8 @@
-import { Injectable, Inject } from "@nexus-ioc/core";
+import { Inject, Injectable } from "@nexus-ioc/core";
 
 /**
  * Configuration service that uses string token injection
- * 
+ *
  * This demonstrates:
  * - Injecting string tokens
  * - Auto-completion should suggest 'API_KEY' and 'DATABASE_CONFIG'
@@ -31,4 +31,3 @@ export interface DatabaseConfig {
 	username: string;
 	password: string;
 }
-

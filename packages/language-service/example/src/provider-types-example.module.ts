@@ -1,18 +1,18 @@
 import { NsModule } from "@nexus-ioc/core";
 import {
-	DatabaseService,
-	MockDatabaseService,
 	ConfigService,
+	DatabaseService,
 	LoggerService,
+	MockDatabaseService,
 	ServiceUsingClassProvider,
 	ServiceUsingUseClassProvider,
-	ServiceUsingUseValueString,
-	ServiceUsingUseValueNumber,
-	ServiceUsingUseValueObject,
-	ServiceUsingUseFactoryNoInject,
-	ServiceUsingUseFactoryStringInject,
 	ServiceUsingUseFactoryClassInject,
 	ServiceUsingUseFactoryMixedInject,
+	ServiceUsingUseFactoryNoInject,
+	ServiceUsingUseFactoryStringInject,
+	ServiceUsingUseValueNumber,
+	ServiceUsingUseValueObject,
+	ServiceUsingUseValueString,
 } from "./provider-types-example.service";
 
 /**
@@ -145,4 +145,3 @@ import {
 	],
 })
 export class ProviderTypesExampleModule {}
-

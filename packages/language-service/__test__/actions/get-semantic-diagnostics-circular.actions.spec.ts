@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import * as ts from "typescript/lib/tsserverlibrary";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as ts from "typescript/lib/tsserverlibrary";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getSemanticDiagnosticsActions } from "../../src/actions/get-semantic-diagnostics.actions";
 import type { NsLanguageService } from "../../src/language-service/ns-language-service";
 
@@ -81,7 +81,9 @@ export class ServiceB {
 		);
 
 		expect(circularErrors).toHaveLength(1);
-		expect(circularErrors[0].messageText).toContain("ServiceA -> ServiceB -> ServiceA");
+		expect(circularErrors[0].messageText).toContain(
+			"ServiceA -> ServiceB -> ServiceA",
+		);
 		expect(circularErrors[0].messageText).toContain("forwardRef()");
 		expect(circularErrors[0].code).toBe(9998);
 	});
@@ -150,7 +152,9 @@ export class ServiceC {
 		);
 
 		expect(circularErrors).toHaveLength(1);
-		expect(circularErrors[0].messageText).toContain("ServiceA -> ServiceB -> ServiceC -> ServiceA");
+		expect(circularErrors[0].messageText).toContain(
+			"ServiceA -> ServiceB -> ServiceC -> ServiceA",
+		);
 	});
 
 	it("should NOT detect circular dependency when optional dependency breaks the cycle", () => {
@@ -284,4 +288,3 @@ export class ServiceC {
 		expect(circularErrors).toHaveLength(0);
 	});
 });
-

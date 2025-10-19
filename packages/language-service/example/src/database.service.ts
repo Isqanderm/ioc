@@ -25,4 +25,3 @@ export class DatabaseService {
 		this.connected = false;
 	}
 }
-

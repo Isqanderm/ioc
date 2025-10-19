@@ -39,4 +39,3 @@ export class GlobalLoggerService {
 		this.logs = [];
 	}
 }
-

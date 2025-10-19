@@ -1,12 +1,12 @@
-import { Injectable, Inject, Optional } from "@nexus-ioc/core";
+import { Inject, Injectable, Optional } from "@nexus-ioc/core";
 import { CircularFixedOptionalAService } from "./circular-fixed-optional-a.service";
 
 /**
  * This service is part of a circular dependency that is fixed using @Optional()
- * 
+ *
  * Expected Behavior:
  * - NO error (the @Optional() decorator breaks the circular dependency)
- * 
+ *
  * Note:
  * - The serviceA dependency is optional, so it might be undefined
  * - We need to check if it exists before using it
@@ -28,4 +28,3 @@ export class CircularFixedOptionalBService {
 		return "B (without A)";
 	}
 }
-

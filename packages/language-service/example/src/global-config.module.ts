@@ -20,4 +20,3 @@ import { GlobalConfigService } from "./global-config.service";
 	exports: [GlobalConfigService],
 })
 export class GlobalConfigModule {}
-

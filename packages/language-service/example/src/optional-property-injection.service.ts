@@ -1,10 +1,10 @@
-import { Injectable, Inject, Optional } from "@nexus-ioc/core";
+import { Inject, Injectable, Optional } from "@nexus-ioc/core";
 import { CacheService } from "./cache.service";
 import { GlobalLoggerService } from "./global-logger.service";
 
 /**
  * Service demonstrating optional property injection
- * 
+ *
  * This demonstrates:
  * - Optional property injection using @Optional() decorator
  * - Properties that may or may not be provided
@@ -62,4 +62,3 @@ export class OptionalPropertyInjectionService {
 		`;
 	}
 }
-

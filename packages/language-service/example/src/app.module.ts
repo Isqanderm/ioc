@@ -1,12 +1,12 @@
 import { NsModule } from "@nexus-ioc/core";
-import { UserModule } from "./user.module";
-import { PostModule } from "./post.module";
-import { OptionalExampleModule } from "./optional-example.module";
+import { ConfigService, type DatabaseConfig } from "./config.service";
 import { FeatureWithGlobalDepsModule } from "./feature-with-global-deps.module";
 import { GlobalConfigModule } from "./global-config.module";
 import { GlobalLoggerModule } from "./global-logger.module";
+import { OptionalExampleModule } from "./optional-example.module";
+import { PostModule } from "./post.module";
 import { PropertyInjectionModule } from "./property-injection.module";
-import { ConfigService, type DatabaseConfig } from "./config.service";
+import { UserModule } from "./user.module";
 
 /**
  * Root application module
@@ -48,4 +48,3 @@ import { ConfigService, type DatabaseConfig } from "./config.service";
 	],
 })
 export class AppModule {}
-

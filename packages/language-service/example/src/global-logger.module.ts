@@ -14,4 +14,3 @@ import { GlobalLoggerService } from "./global-logger.service";
 	exports: [GlobalLoggerService],
 })
 export class GlobalLoggerModule {}
-

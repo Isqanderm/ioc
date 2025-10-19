@@ -1,4 +1,4 @@
-import { Injectable } from '@nexus-ioc/core';
+import { Injectable } from "@nexus-ioc/core";
 
 /**
  * Simple cache service for demonstration purposes
@@ -6,24 +6,23 @@ import { Injectable } from '@nexus-ioc/core';
  */
 @Injectable()
 export class CacheService {
-  private cache = new Map<string, unknown>();
+	private cache = new Map<string, unknown>();
 
-  public set(key: string, value: unknown): void {
-    this.cache.set(key, value);
-    console.log(`[CacheService] Set ${key}`);
-  }
+	public set(key: string, value: unknown): void {
+		this.cache.set(key, value);
+		console.log(`[CacheService] Set ${key}`);
+	}
 
-  public get<T>(key: string): T | undefined {
-    return this.cache.get(key) as T | undefined;
-  }
+	public get<T>(key: string): T | undefined {
+		return this.cache.get(key) as T | undefined;
+	}
 
-  public has(key: string): boolean {
-    return this.cache.has(key);
-  }
+	public has(key: string): boolean {
+		return this.cache.has(key);
+	}
 
-  public clear(): void {
-    this.cache.clear();
-    console.log('[CacheService] Cache cleared');
-  }
+	public clear(): void {
+		this.cache.clear();
+		console.log("[CacheService] Cache cleared");
+	}
 }
-

@@ -1,19 +1,18 @@
 {
-  "name": "@nexus-ioc/language-service-example",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Manual testing example for TypeScript Language Service Plugin",
-  "scripts": {
-    "build": "tsc",
-    "clean": "rm -rf dist"
-  },
-  "dependencies": {
-    "@nexus-ioc/core": "file:../../ioc",
-    "reflect-metadata": "^0.2.2"
-  },
-  "devDependencies": {
-    "@nexus-ioc/language-service": "file:..",
-    "typescript": "^5.7.2"
-  }
+	"name": "@nexus-ioc/language-service-example",
+	"version": "1.0.0",
+	"private": true,
+	"description": "Manual testing example for TypeScript Language Service Plugin",
+	"scripts": {
+		"build": "tsc",
+		"clean": "rm -rf dist"
+	},
+	"dependencies": {
+		"@nexus-ioc/core": "file:../../ioc",
+		"reflect-metadata": "^0.2.2"
+	},
+	"devDependencies": {
+		"@nexus-ioc/language-service": "file:..",
+		"typescript": "^5.7.2"
+	}
 }
-

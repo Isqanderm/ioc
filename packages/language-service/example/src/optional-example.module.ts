@@ -1,7 +1,7 @@
-import { NsModule } from '@nexus-ioc/core';
-import { ConfigService } from './config.service';
-import { LoggerService } from './logger.service';
-import { OptionalDependenciesService } from './optional-dependencies.service';
+import { NsModule } from "@nexus-ioc/core";
+import { ConfigService } from "./config.service";
+import { LoggerService } from "./logger.service";
+import { OptionalDependenciesService } from "./optional-dependencies.service";
 
 /**
  * Example module demonstrating optional dependencies
@@ -20,28 +20,27 @@ import { OptionalDependenciesService } from './optional-dependencies.service';
  * 3. Add CacheService to providers - service will use it
  */
 @NsModule({
-  providers: [
-    // String token providers for ConfigService
-    {
-      provide: "API_KEY",
-      useValue: "my-secret-api-key-123",
-    },
-    {
-      provide: "DATABASE_CONFIG",
-      useValue: {
-        host: "localhost",
-        port: 5432,
-        database: "mydb",
-        username: "user",
-        password: "pass",
-      },
-    },
-    ConfigService,
-    LoggerService,
-    // CacheService is intentionally NOT provided to demonstrate optional dependencies
-    OptionalDependenciesService,
-  ],
-  exports: [OptionalDependenciesService],
+	providers: [
+		// String token providers for ConfigService
+		{
+			provide: "API_KEY",
+			useValue: "my-secret-api-key-123",
+		},
+		{
+			provide: "DATABASE_CONFIG",
+			useValue: {
+				host: "localhost",
+				port: 5432,
+				database: "mydb",
+				username: "user",
+				password: "pass",
+			},
+		},
+		ConfigService,
+		LoggerService,
+		// CacheService is intentionally NOT provided to demonstrate optional dependencies
+		OptionalDependenciesService,
+	],
+	exports: [OptionalDependenciesService],
 })
 export class OptionalExampleModule {}
-

@@ -21,4 +21,3 @@ export class LoggerService {
 		console.debug(`[DEBUG] ${new Date().toISOString()} - ${message}`);
 	}
 }
-

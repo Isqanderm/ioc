@@ -1,5 +1,5 @@
 import * as ts from "typescript/lib/tsserverlibrary";
-import { describe, expect, it, beforeEach, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getSemanticDiagnosticsActions } from "../../src/actions/get-semantic-diagnostics.actions";
 import type { NsLanguageService } from "../../src/language-service/ns-language-service";
 import type { Logger } from "../../src/logger";
@@ -404,7 +404,7 @@ describe("getSemanticDiagnostics - Provider Type Errors", () => {
 			);
 		};
 
-		const program = ts.createProgram(
+		const _program = ts.createProgram(
 			Array.from(testFiles.keys()),
 			compilerOptions,
 			compilerHost,
@@ -450,4 +450,3 @@ describe("getSemanticDiagnostics - Provider Type Errors", () => {
 		expect(typeMismatchError).toBeDefined();
 	});
 });
-

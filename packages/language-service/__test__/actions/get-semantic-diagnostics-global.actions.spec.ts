@@ -71,7 +71,10 @@ describe("getSemanticDiagnosticsActions - @Global() Modules", () => {
 			getDirectories: ts.sys.getDirectories,
 		};
 
-		languageService = ts.createLanguageService(host, ts.createDocumentRegistry());
+		languageService = ts.createLanguageService(
+			host,
+			ts.createDocumentRegistry(),
+		);
 
 		tsNsLs = {
 			tsLS: languageService,
@@ -278,7 +281,10 @@ export class OrphanService {
 		setupLanguageService(filePaths);
 
 		const orphanServicePath = path.join(tempDir, "orphan.service.ts");
-		const diagnostics = getSemanticDiagnosticsActions(orphanServicePath, tsNsLs);
+		const diagnostics = getSemanticDiagnosticsActions(
+			orphanServicePath,
+			tsNsLs,
+		);
 
 		// Should NOT have error about ConfigService (provided by global module)
 		const missingDependencyError = diagnostics.find(
@@ -370,4 +376,3 @@ export class UserModule {}
 		expect(missingDependencyErrors).toHaveLength(0);
 	});
 });
-

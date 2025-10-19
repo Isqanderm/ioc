@@ -1,4 +1,4 @@
-import { Injectable, Inject } from "@nexus-ioc/core";
+import { Inject, Injectable } from "@nexus-ioc/core";
 
 /**
  * Example demonstrating different provider types in Nexus IoC
@@ -107,7 +107,9 @@ export class ServiceUsingUseValueNumber {
  */
 @Injectable()
 export class ServiceUsingUseValueObject {
-	constructor(@Inject("CONFIG") private config: { debug: boolean; timeout: number }) {}
+	constructor(
+		@Inject("CONFIG") private config: { debug: boolean; timeout: number },
+	) {}
 
 	getConfig() {
 		return this.config;
@@ -175,4 +177,3 @@ export class ServiceUsingUseFactoryMixedInject {
 		return this.mixed;
 	}
 }
-
