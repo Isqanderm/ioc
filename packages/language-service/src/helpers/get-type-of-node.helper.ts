@@ -63,10 +63,30 @@ export function getTypeOfNode(
 		}
 	}
 
-	// 7) Special handling for type nodes from optional parameters/properties
-	// For optional parameters like `logger?: LoggerService`, the type annotation is just `LoggerService`
-	// But we need to check the parent to see if it's an optional parameter/property
-	// This applies to any type node (TypeReferenceNode, KeywordTypeNode, etc.)
+	// 7) Special handling for TypeReferenceNode (e.g., DatabaseService, LoggerService)
+	// This is important for comparing reference types between providers and parameters
+	if (ts.isTypeReferenceNode(node)) {
+		const parent = node.parent;
+
+		// If the parent is a parameter declaration with a question token
+		if (ts.isParameter(parent) && parent.questionToken && parent.type === node) {
+			// Get the type from the parameter declaration, which includes the | undefined
+			return checker.getTypeAtLocation(parent);
+		}
+
+		// If the parent is a property declaration with a question token
+		if (ts.isPropertyDeclaration(parent) && parent.questionToken && parent.type === node) {
+			// Get the type from the property declaration, which includes the | undefined
+			return checker.getTypeAtLocation(parent);
+		}
+
+		// For non-optional type references, get the type from the type reference node
+		// This ensures we get the correct instance type for class references
+		return checker.getTypeAtLocation(node);
+	}
+
+	// 8) Special handling for other type nodes from optional parameters/properties
+	// This applies to any type node (KeywordTypeNode, etc.)
 	const parent = node.parent;
 
 	// If the parent is a parameter declaration with a question token
@@ -83,6 +103,23 @@ export function getTypeOfNode(
 
 	// ... при необходимости обрабатываем другие случаи (EnumDeclaration, etc.)
 
-	// 8) По умолчанию берём тип текущего узла
+	// 9) Special handling for Identifier nodes (e.g., DatabaseService in providers array)
+	// When an identifier references a class, we need to get the instance type, not the constructor type
+	if (ts.isIdentifier(node)) {
+		const symbol = checker.getSymbolAtLocation(node);
+		if (symbol) {
+			// Check if this symbol represents a class
+			const declarations = symbol.getDeclarations();
+			if (declarations && declarations.length > 0) {
+				const firstDecl = declarations[0];
+				// If it's a class declaration, return the instance type
+				if (ts.isClassDeclaration(firstDecl)) {
+					return checker.getDeclaredTypeOfSymbol(symbol);
+				}
+			}
+		}
+	}
+
+	// 10) По умолчанию берём тип текущего узла
 	return checker.getTypeAtLocation(node);
 }
