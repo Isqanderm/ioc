@@ -34,9 +34,9 @@
 	"scripts": {
 		"build": "tsc -p tsconfig.build.json",
 		"dev": "tsc -p tsconfig.build.json --watch",
-		"test": "vitest run",
-		"test:watch": "vitest",
-		"test:coverage": "vitest run --coverage",
+		"test": "echo 'No tests for type-checker package yet'",
+		"test:watch": "echo 'No tests for type-checker package yet'",
+		"test:coverage": "echo 'No tests for type-checker package yet'",
 		"clean": "rm -rf ./dist",
 		"code:format": "npx @biomejs/biome format --write",
 		"code:lint": "npx @biomejs/biome lint --write",
