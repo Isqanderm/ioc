@@ -5,15 +5,15 @@ import { OptionalDependenciesService } from './optional-dependencies.service';
 
 /**
  * Example module demonstrating optional dependencies
- * 
+ *
  * This module provides:
  * - ConfigService (required by OptionalDependenciesService)
  * - LoggerService (optional dependency)
  * - OptionalDependenciesService
- * 
+ *
  * Notice that CacheService is NOT provided, but OptionalDependenciesService
  * won't show an error because it's marked as @Optional()
- * 
+ *
  * Try these experiments in VS Code:
  * 1. Remove LoggerService from providers - no error (it's optional)
  * 2. Remove ConfigService from providers - ERROR (it's required)
@@ -21,6 +21,21 @@ import { OptionalDependenciesService } from './optional-dependencies.service';
  */
 @NsModule({
   providers: [
+    // String token providers for ConfigService
+    {
+      provide: "API_KEY",
+      useValue: "my-secret-api-key-123",
+    },
+    {
+      provide: "DATABASE_CONFIG",
+      useValue: {
+        host: "localhost",
+        port: 5432,
+        database: "mydb",
+        username: "user",
+        password: "pass",
+      },
+    },
     ConfigService,
     LoggerService,
     // CacheService is intentionally NOT provided to demonstrate optional dependencies

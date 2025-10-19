@@ -346,5 +346,108 @@ describe("getSemanticDiagnostics - Provider Type Errors", () => {
 		expect(factoryErrors.length).toBeGreaterThan(0);
 		expect(factoryErrors[0].messageText).toContain("not provided");
 	});
+
+	it("should report error for type mismatch with useValue provider", () => {
+		// Create a test file with type mismatch
+		const testFiles = new Map([
+			[
+				"type-mismatch-test.ts",
+				`
+      function NsModule(metadata: any) {
+        return function (target: any) {};
+      }
+      function Injectable() {
+        return function (target: any) {};
+      }
+      function Inject(token?: any) {
+        return function (target: any, propertyKey: string | symbol, parameterIndex?: number) {};
+      }
+
+      @Injectable()
+      class ServiceExpectingString {
+        constructor(@Inject("CONFIG_VALUE") private config: string) {}
+      }
+
+      @NsModule({
+        providers: [
+          {
+            provide: "CONFIG_VALUE",
+            useValue: 12345, // Type mismatch: number instead of string
+          },
+          ServiceExpectingString,
+        ],
+      })
+      class TypeMismatchModule {}
+      `,
+			],
+		]);
+
+		const compilerOptions: ts.CompilerOptions = {
+			target: ts.ScriptTarget.ES2020,
+			module: ts.ModuleKind.CommonJS,
+			experimentalDecorators: true,
+			emitDecoratorMetadata: true,
+		};
+
+		const compilerHost = ts.createCompilerHost(compilerOptions);
+		const originalGetSourceFile = compilerHost.getSourceFile;
+
+		compilerHost.getSourceFile = (fileName, languageVersion) => {
+			const fileContent = testFiles.get(fileName);
+			if (fileContent) {
+				return ts.createSourceFile(fileName, fileContent, languageVersion);
+			}
+			return originalGetSourceFile.call(
+				compilerHost,
+				fileName,
+				languageVersion,
+			);
+		};
+
+		const program = ts.createProgram(
+			Array.from(testFiles.keys()),
+			compilerOptions,
+			compilerHost,
+		);
+
+		const languageService = ts.createLanguageService({
+			getCompilationSettings: () => compilerOptions,
+			getScriptFileNames: () => Array.from(testFiles.keys()),
+			getScriptVersion: () => "1",
+			getScriptSnapshot: (fileName) => {
+				const content = testFiles.get(fileName);
+				return content ? ts.ScriptSnapshot.fromString(content) : undefined;
+			},
+			getCurrentDirectory: () => "",
+			getDefaultLibFileName: (options) => ts.getDefaultLibFilePath(options),
+			fileExists: (fileName) => testFiles.has(fileName),
+			readFile: (fileName) => testFiles.get(fileName),
+		});
+
+		const testTsNsLs = {
+			tsLS: languageService,
+			logger: mockLogger,
+		} as unknown as NsLanguageService;
+
+		const diagnostics = getSemanticDiagnosticsActions(
+			"type-mismatch-test.ts",
+			testTsNsLs,
+		);
+
+		// Filter out original TypeScript diagnostics
+		const customDiagnostics = diagnostics.filter((d) => d.code === 9999);
+
+		// Check for type mismatch error
+		const typeMismatchError = customDiagnostics.find(
+			(d) =>
+				d.messageText &&
+				typeof d.messageText === "string" &&
+				d.messageText.includes("Type mismatch") &&
+				d.messageText.includes("CONFIG_VALUE"),
+		);
+
+		// The type mismatch should be detected
+		expect(typeMismatchError).toBeDefined();
+	});
 });
 

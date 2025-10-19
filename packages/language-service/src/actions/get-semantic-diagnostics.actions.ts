@@ -384,38 +384,46 @@ export const getSemanticDiagnosticsActions = (
 					});
 				}
 
-				// Check if dependencyDeclare is a ProviderType (has 'provide' property)
-				if (
-					dependencyDeclare &&
-					"provide" in dependencyDeclare &&
-					dependencyDeclare.provide &&
-					param.parameterType
-				) {
-					const isEqual = compareTypes(
-						param.parameterType,
-						dependencyDeclare.declaration,
-						typeChecker,
-					);
+				// Perform type checking for found dependencies
+				if (dependencyDeclare && param.parameterType) {
+					let declarationNode: ts.Node | undefined;
 
-					if (!isEqual) {
-						diagnostic.push({
-							file: sourceFile,
-							start: param.start,
-							length: param.length,
-							messageText: `Type mismatch for dependency '${param.name.getText()}'`,
-							category: ts.DiagnosticCategory.Error,
-							code: 9999,
-							relatedInformation: [
-								{
-									category: ts.DiagnosticCategory.Suggestion,
-									code: 9999,
-									file: referenceModule.sourceFile,
-									start: referenceModule.start,
-									length: referenceModule.length,
-									messageText: `Module: ${referenceModule.moduleName}`,
-								},
-							],
-						});
+					// For ProviderType (has 'provide' property), use the declaration
+					if ("provide" in dependencyDeclare) {
+						declarationNode = dependencyDeclare.declaration;
+					}
+					// For ExportType (no 'provide' property), use the declaration directly
+					else {
+						declarationNode = dependencyDeclare.declaration;
+					}
+
+					if (declarationNode) {
+						const isEqual = compareTypes(
+							param.parameterType,
+							declarationNode,
+							typeChecker,
+						);
+
+						if (!isEqual) {
+							diagnostic.push({
+								file: sourceFile,
+								start: param.start,
+								length: param.length,
+								messageText: `Type mismatch for dependency '${param.name.getText()}'`,
+								category: ts.DiagnosticCategory.Error,
+								code: 9999,
+								relatedInformation: [
+									{
+										category: ts.DiagnosticCategory.Suggestion,
+										code: 9999,
+										file: referenceModule.sourceFile,
+										start: referenceModule.start,
+										length: referenceModule.length,
+										messageText: `Module: ${referenceModule.moduleName}`,
+									},
+								],
+							});
+						}
 					}
 				}
 			}
@@ -424,6 +432,7 @@ export const getSemanticDiagnosticsActions = (
 			if (!referenceModules.length && !param.isOptional) {
 				// Check global modules before reporting error for orphan services
 				let foundInGlobalModule = false;
+				let globalDependencyDeclare: ExportType | undefined;
 				const globalModules = findGlobalModules(tsNsLs, typeChecker);
 
 				for (const globalModule of globalModules) {
@@ -446,7 +455,28 @@ export const getSemanticDiagnosticsActions = (
 
 					if (dependencyDeclare) {
 						foundInGlobalModule = true;
+						globalDependencyDeclare = dependencyDeclare;
 						break;
+					}
+				}
+
+				// Perform type checking for dependencies found in global modules
+				if (globalDependencyDeclare && param.parameterType) {
+					const isEqual = compareTypes(
+						param.parameterType,
+						globalDependencyDeclare.declaration,
+						typeChecker,
+					);
+
+					if (!isEqual) {
+						diagnostic.push({
+							file: sourceFile,
+							start: param.start,
+							length: param.length,
+							messageText: `Type mismatch for dependency '${param.name.getText()}' (found in global module)`,
+							category: ts.DiagnosticCategory.Error,
+							code: 9999,
+						});
 					}
 				}
 
