@@ -1,4 +1,4 @@
-import type * as ts from "typescript/lib/tsserverlibrary";
+import * as ts from "typescript/lib/tsserverlibrary";
 import type { InjectParameterDeclaration } from "../parsers/inject.parser";
 
 /**

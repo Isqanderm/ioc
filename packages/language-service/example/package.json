@@ -8,11 +8,11 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@nexus-ioc/core": "workspace:*",
+    "@nexus-ioc/core": "file:../../ioc",
     "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {
-    "@nexus-ioc/language-service": "workspace:*",
+    "@nexus-ioc/language-service": "file:..",
     "typescript": "^5.7.2"
   }
 }

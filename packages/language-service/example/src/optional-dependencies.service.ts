@@ -36,13 +36,13 @@ export class OptionalDependenciesService {
 
   private initialize(): void {
     // Always safe to use required dependencies
-    const appName = this.config.get('APP_NAME');
-    
+    const apiKey = this.config.getApiKey();
+
     // Check if optional dependencies are available before using them
     if (this.logger) {
-      this.logger.log(`Initializing ${appName} with logger support`);
+      this.logger.log(`Initializing with API key: ${apiKey.substring(0, 10)}...`);
     } else {
-      console.log(`Initializing ${appName} without logger`);
+      console.log(`Initializing without logger`);
     }
 
     if (this.cache) {
@@ -62,8 +62,8 @@ export class OptionalDependenciesService {
     }
 
     // Required config is always available
-    const timeout = this.config.get('OPERATION_TIMEOUT');
-    console.log(`Operation timeout: ${timeout}`);
+    const dbConfig = this.config.getDatabaseConfig();
+    console.log(`Database host: ${dbConfig.host}`);
   }
 
   public getStatus(): string {

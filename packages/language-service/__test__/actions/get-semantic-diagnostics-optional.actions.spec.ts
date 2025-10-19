@@ -4,8 +4,8 @@ import { join } from "node:path";
 import * as ts from "typescript/lib/tsserverlibrary";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getSemanticDiagnosticsActions } from "../../src/actions/get-semantic-diagnostics.actions";
-import type { Logger } from "../../src/logger";
 import type { NsLanguageService } from "../../src/language-service/ns-language-service";
+import type { Logger } from "../../src/logger";
 
 describe("getSemanticDiagnosticsActions - @Optional() Support", () => {
 	let tempFilePath: string;
@@ -73,6 +73,14 @@ describe("getSemanticDiagnosticsActions - @Optional() Support", () => {
 				},
 				getCurrentDirectory: () => process.cwd(),
 				getDefaultLibFileName: (options) => ts.getDefaultLibFilePath(options),
+				fileExists: (fileName) => fileName === tempFilePath,
+				readFile: (fileName) => {
+					if (fileName === tempFilePath) {
+						const fs = require("node:fs");
+						return fs.readFileSync(fileName, "utf-8");
+					}
+					return undefined;
+				},
 			},
 			ts.createDocumentRegistry(),
 		);
@@ -134,6 +142,14 @@ describe("getSemanticDiagnosticsActions - @Optional() Support", () => {
 				},
 				getCurrentDirectory: () => process.cwd(),
 				getDefaultLibFileName: (options) => ts.getDefaultLibFilePath(options),
+				fileExists: (fileName) => fileName === tempFilePath,
+				readFile: (fileName) => {
+					if (fileName === tempFilePath) {
+						const fs = require("node:fs");
+						return fs.readFileSync(fileName, "utf-8");
+					}
+					return undefined;
+				},
 			},
 			ts.createDocumentRegistry(),
 		);
@@ -207,6 +223,14 @@ describe("getSemanticDiagnosticsActions - @Optional() Support", () => {
 				},
 				getCurrentDirectory: () => process.cwd(),
 				getDefaultLibFileName: (options) => ts.getDefaultLibFilePath(options),
+				fileExists: (fileName) => fileName === tempFilePath,
+				readFile: (fileName) => {
+					if (fileName === tempFilePath) {
+						const fs = require("node:fs");
+						return fs.readFileSync(fileName, "utf-8");
+					}
+					return undefined;
+				},
 			},
 			ts.createDocumentRegistry(),
 		);
@@ -274,6 +298,14 @@ describe("getSemanticDiagnosticsActions - @Optional() Support", () => {
 				},
 				getCurrentDirectory: () => process.cwd(),
 				getDefaultLibFileName: (options) => ts.getDefaultLibFilePath(options),
+				fileExists: (fileName) => fileName === tempFilePath,
+				readFile: (fileName) => {
+					if (fileName === tempFilePath) {
+						const fs = require("node:fs");
+						return fs.readFileSync(fileName, "utf-8");
+					}
+					return undefined;
+				},
 			},
 			ts.createDocumentRegistry(),
 		);
@@ -293,4 +325,3 @@ describe("getSemanticDiagnosticsActions - @Optional() Support", () => {
 		expect(missingDepErrors).toHaveLength(0);
 	});
 });
-

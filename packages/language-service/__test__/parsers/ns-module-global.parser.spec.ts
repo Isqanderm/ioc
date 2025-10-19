@@ -151,25 +151,10 @@ export class TestModule {}
 				`ClassDeclaration[name.text="TestModule"]`,
 			);
 
-			const compilerHost: ts.CompilerHost = {
-				getSourceFile: () => sourceFile,
-				writeFile: () => {},
-				getCurrentDirectory: () => "",
-				getDirectories: () => [],
-				fileExists: () => true,
-				readFile: () => "",
-				getCanonicalFileName: (fileName) => fileName,
-				useCaseSensitiveFileNames: () => true,
-				getNewLine: () => "\n",
-				getDefaultLibFileName: () => "lib.d.ts",
-			};
-
-			const tempProgram = ts.createProgram(["test.ts"], {}, compilerHost);
-			const tempTypeChecker = tempProgram.getTypeChecker();
-
+			// Use the existing program's type checker
 			const [result] = NsModuleParser.execute(
 				modules,
-				tempTypeChecker,
+				typeChecker,
 				mockLogger,
 			);
 
@@ -193,25 +178,10 @@ export class TestModule {}
 				`ClassDeclaration[name.text="TestModule"]`,
 			);
 
-			const compilerHost: ts.CompilerHost = {
-				getSourceFile: () => sourceFile,
-				writeFile: () => {},
-				getCurrentDirectory: () => "",
-				getDirectories: () => [],
-				fileExists: () => true,
-				readFile: () => "",
-				getCanonicalFileName: (fileName) => fileName,
-				useCaseSensitiveFileNames: () => true,
-				getNewLine: () => "\n",
-				getDefaultLibFileName: () => "lib.d.ts",
-			};
-
-			const tempProgram = ts.createProgram(["test.ts"], {}, compilerHost);
-			const tempTypeChecker = tempProgram.getTypeChecker();
-
+			// Use the existing program's type checker
 			const [result] = NsModuleParser.execute(
 				modules,
-				tempTypeChecker,
+				typeChecker,
 				mockLogger,
 			);
 

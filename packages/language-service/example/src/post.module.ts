@@ -1,12 +1,12 @@
 import { NsModule } from "@nexus-ioc/core";
-import { PostService } from "./post.service";
 import { DatabaseService } from "./database.service";
 import { LoggerService } from "./logger.service";
+import { PostService } from "./post.service";
 import { UserModule } from "./user.module";
 
 /**
  * Post module that imports UserModule
- * 
+ *
  * This demonstrates:
  * - Importing other modules to access their exported providers
  * - PostService can inject UserService because UserModule exports it
@@ -17,4 +17,3 @@ import { UserModule } from "./user.module";
 	exports: [PostService],
 })
 export class PostModule {}
-

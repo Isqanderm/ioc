@@ -11,6 +11,8 @@
 - [Features](#features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Example Project](#example-project)
+- [Roadmap](#roadmap)
 - [License](#license)
 - [Author](#author)
 - [Contributing](#contributing)
@@ -43,6 +45,44 @@ npm install @nexus-ioc/language-service
 }
 
 ```
+
+## Example Project
+
+A comprehensive example project is available in the `example/` directory that demonstrates all plugin features:
+
+- ✅ Auto-completion for `@Inject()` decorators
+- ✅ Go-to-definition for dependency tokens
+- ✅ Semantic diagnostics for DI errors
+- ✅ Working examples with proper module configuration
+- ✅ Error examples showing common mistakes
+
+**Quick Start**:
+```bash
+# From monorepo root
+cd packages/language-service/example
+npm install
+npm run build
+
+# Open in your IDE
+code .
+```
+
+See [`example/README.md`](./example/README.md) for detailed setup instructions and [`example/TESTING_GUIDE.md`](./example/TESTING_GUIDE.md) for comprehensive testing procedures.
+
+## Roadmap
+
+See [`ROADMAP.md`](./ROADMAP.md) for the complete feature roadmap including:
+- Current capabilities and limitations
+- Planned enhancements (Phases 2-6)
+- Effort estimates and prioritization
+- Success metrics
+
+**Highlights**:
+- **Phase 2**: Support for `@Optional()`, `@Global()`, property injection, circular dependency detection
+- **Phase 3**: Quick fixes (auto-add providers, import modules, fix type mismatches)
+- **Phase 4**: Refactoring support (rename tokens, extract to module)
+- **Phase 5**: Performance optimizations, hover info, inlay hints
+- **Phase 6**: Dependency graph visualization, testing support
 
 ## License
 

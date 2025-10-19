@@ -52,7 +52,7 @@ export const findTypeReferences = (
 		for (const refDetail of ref.references) {
 			const typeReference = result[refDetail.fileName] || {
 				fileName: refDetail.fileName,
-				textSpan: refDetail.textSpan,
+				textSpan: [],
 				isDefinition: refDetail.isDefinition || false,
 			};
 

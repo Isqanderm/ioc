@@ -1,10 +1,10 @@
-import { Injectable, Inject } from "@nexus-ioc/core";
+import { Inject, Injectable } from "@nexus-ioc/core";
 import { DatabaseService } from "./database.service";
 import { LoggerService } from "./logger.service";
 
 /**
  * User service that demonstrates class token injection
- * 
+ *
  * This demonstrates:
  * - Injecting class tokens (DatabaseService, LoggerService)
  * - Auto-completion inside @Inject() should show available providers
@@ -20,7 +20,9 @@ export class UserService {
 
 	async findById(id: number): Promise<User | null> {
 		this.logger.log(`Finding user by id: ${id}`);
-		const users = await this.db.query<User>(`SELECT * FROM users WHERE id = ${id}`);
+		const users = await this.db.query<User>(
+			`SELECT * FROM users WHERE id = ${id}`,
+		);
 		return users[0] || null;
 	}
 
@@ -52,4 +54,3 @@ export interface User {
 	name: string;
 	createdAt: Date;
 }
-

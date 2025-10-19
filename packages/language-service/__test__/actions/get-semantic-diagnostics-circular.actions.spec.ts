@@ -56,6 +56,16 @@ export class ServiceB {
 			},
 			getCurrentDirectory: () => process.cwd(),
 			getDefaultLibFileName: (options) => ts.getDefaultLibFilePath(options),
+			fileExists: (fileName) => fs.existsSync(fileName),
+			readFile: (fileName) => {
+				if (!fs.existsSync(fileName)) {
+					return undefined;
+				}
+				return fs.readFileSync(fileName, "utf8");
+			},
+			readDirectory: () => [],
+			directoryExists: (dirName) => fs.existsSync(dirName),
+			getDirectories: () => [],
 		});
 
 		tsNsLs = {
@@ -115,6 +125,16 @@ export class ServiceC {
 			},
 			getCurrentDirectory: () => process.cwd(),
 			getDefaultLibFileName: (options) => ts.getDefaultLibFilePath(options),
+			fileExists: (fileName) => fs.existsSync(fileName),
+			readFile: (fileName) => {
+				if (!fs.existsSync(fileName)) {
+					return undefined;
+				}
+				return fs.readFileSync(fileName, "utf8");
+			},
+			readDirectory: () => [],
+			directoryExists: (dirName) => fs.existsSync(dirName),
+			getDirectories: () => [],
 		});
 
 		tsNsLs = {
@@ -171,6 +191,16 @@ export class ServiceB {
 			},
 			getCurrentDirectory: () => process.cwd(),
 			getDefaultLibFileName: (options) => ts.getDefaultLibFilePath(options),
+			fileExists: (fileName) => fs.existsSync(fileName),
+			readFile: (fileName) => {
+				if (!fs.existsSync(fileName)) {
+					return undefined;
+				}
+				return fs.readFileSync(fileName, "utf8");
+			},
+			readDirectory: () => [],
+			directoryExists: (dirName) => fs.existsSync(dirName),
+			getDirectories: () => [],
 		});
 
 		tsNsLs = {
@@ -227,6 +257,16 @@ export class ServiceC {
 			},
 			getCurrentDirectory: () => process.cwd(),
 			getDefaultLibFileName: (options) => ts.getDefaultLibFilePath(options),
+			fileExists: (fileName) => fs.existsSync(fileName),
+			readFile: (fileName) => {
+				if (!fs.existsSync(fileName)) {
+					return undefined;
+				}
+				return fs.readFileSync(fileName, "utf8");
+			},
+			readDirectory: () => [],
+			directoryExists: (dirName) => fs.existsSync(dirName),
+			getDirectories: () => [],
 		});
 
 		tsNsLs = {

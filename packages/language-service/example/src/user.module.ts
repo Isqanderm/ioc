@@ -1,11 +1,11 @@
 import { NsModule } from "@nexus-ioc/core";
-import { UserService } from "./user.service";
 import { DatabaseService } from "./database.service";
 import { LoggerService } from "./logger.service";
+import { UserService } from "./user.service";
 
 /**
  * User module that provides and exports UserService
- * 
+ *
  * This demonstrates:
  * - Module with providers array
  * - Exporting services to make them available to other modules
@@ -15,4 +15,3 @@ import { LoggerService } from "./logger.service";
 	exports: [UserService],
 })
 export class UserModule {}
-

@@ -1,11 +1,11 @@
-import { Injectable, Inject } from "@nexus-ioc/core";
+import { Inject, Injectable } from "@nexus-ioc/core";
 import { DatabaseService } from "./database.service";
 import { LoggerService } from "./logger.service";
 import { UserService } from "./user.service";
 
 /**
  * Post service that demonstrates importing services from other modules
- * 
+ *
  * This demonstrates:
  * - Injecting UserService which is exported from UserModule
  * - PostModule imports UserModule, so UserService is available
@@ -37,13 +37,17 @@ export class PostService {
 
 	async findById(id: number): Promise<Post | null> {
 		this.logger.log(`Finding post by id: ${id}`);
-		const posts = await this.db.query<Post>(`SELECT * FROM posts WHERE id = ${id}`);
+		const posts = await this.db.query<Post>(
+			`SELECT * FROM posts WHERE id = ${id}`,
+		);
 		return posts[0] || null;
 	}
 
 	async findByAuthor(authorId: number): Promise<Post[]> {
 		this.logger.log(`Finding posts by author: ${authorId}`);
-		return this.db.query<Post>(`SELECT * FROM posts WHERE authorId = ${authorId}`);
+		return this.db.query<Post>(
+			`SELECT * FROM posts WHERE authorId = ${authorId}`,
+		);
 	}
 }
 
@@ -54,4 +58,3 @@ export interface Post {
 	authorId: number;
 	createdAt: Date;
 }
-

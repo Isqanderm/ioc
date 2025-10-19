@@ -33,7 +33,7 @@ export class OptionalPropertyInjectionService {
 	async processData(key: string, value: string): Promise<string> {
 		// Try to get from cache first
 		if (this.cache) {
-			const cached = this.cache.get(key);
+			const cached = this.cache.get<string>(key);
 			if (cached) {
 				this.logger?.log(`Cache hit for key: ${key}`);
 				return cached;
