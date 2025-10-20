@@ -51,7 +51,7 @@
   "sideEffects": false,
   "license": "MIT",
   "devDependencies": {
-    "@nexus-ioc/core": "^0.6.1",
+    "@nexus-ioc/core": "^0.6.2",
     "@nexus-ioc/testing": "^0.6.1",
     "@types/node": "^24.8.1",
     "@vitest/coverage-v8": "^3.2.4",
