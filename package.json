@@ -22,7 +22,7 @@
 		"prettier": "^3.6.2",
 		"typescript": "^5.9.3",
 		"vite": "^7.1.10",
-		"vitest": "^3.2.4"
+		"vitest": "^4.0.3"
 	},
 	"scripts": {
 		"test:ready": "npx lerna exec --since origin/main -- npm run test:ready",
