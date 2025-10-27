@@ -63,7 +63,7 @@ jobs:
 
       - name: Archive test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-results
           path: |
@@ -72,7 +72,7 @@ jobs:
           retention-days: 7
 
       - name: Upload build artifacts for coverage-check
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: build-artifacts
           path: |
@@ -547,7 +547,7 @@ jobs:
 
       - name: Upload build artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: build-artifacts-node-${{ matrix.node-version }}
           path: |
