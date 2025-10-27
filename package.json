@@ -10,7 +10,7 @@
 		"@commitlint/cli": "^20.1.0",
 		"@commitlint/config-conventional": "^20.0.0",
 		"@vitest/coverage-v8": "^3.2.4",
-		"@vitest/ui": "^3.2.4",
+		"@vitest/ui": "^4.0.3",
 		"commitizen": "^4.3.0",
 		"conventional-changelog": "^7.1.1",
 		"conventional-changelog-cli": "^5.0.0",
