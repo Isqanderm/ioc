@@ -60,7 +60,7 @@
     "sinon": "^21.0.0",
     "typescript": "^5.9.3",
     "vite": "^7.0.0",
-    "vitest": "^3.0.0"
+    "vitest": "^4.0.8"
   },
   "dependencies": {
     "commander": "^14.0.1",
