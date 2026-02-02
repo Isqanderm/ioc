@@ -63,7 +63,7 @@
     "vitest": "^3.0.0"
   },
   "dependencies": {
-    "commander": "^14.0.1",
+    "commander": "^14.0.3",
     "prettier": "^3.6.2",
     "ts-morph": "^27.0.2",
     "tslib": "^2.6.3"
