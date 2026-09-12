@@ -134,7 +134,7 @@ export class NexusAnalyzer {
 		if (!symbol) return undefined;
 
 		return {
-			kind: "symbol",
+			kind: "reference",
 			symbol,
 			expression,
 		};
