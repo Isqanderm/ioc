@@ -142,7 +142,7 @@ describe("NexusAnalyzer", () => {
 		);
 	});
 
-	it("extracts constructor and property injections with optional metadata", () => {
+	it("extracts constructor and property injections with semantic tokens", () => {
 		const { program, sourceFile } = createProgram();
 		const analyzer = createNexusAnalyzer(program);
 
@@ -152,17 +152,33 @@ describe("NexusAnalyzer", () => {
 		expect(service.dependencies[0]).toMatchObject({
 			location: "constructor",
 			parameterName: "dependency",
-			isOptional: false,
+			optional: false,
 		});
+		expect(service.dependencies[0].token?.kind).toBe("symbol");
+		expect(
+			service.dependencies[0].token?.kind === "symbol"
+				? service.dependencies[0].token.symbol.getName()
+				: undefined,
+		).toBe("DependencyA");
+
 		expect(service.dependencies[1]).toMatchObject({
 			location: "constructor",
 			parameterName: "config",
-			isOptional: true,
+			optional: true,
 		});
+		expect(service.dependencies[1].token).toMatchObject({
+			kind: "string",
+			value: "config",
+		});
+
 		expect(service.dependencies[2]).toMatchObject({
 			location: "property",
 			parameterName: "logger",
-			isOptional: false,
+			optional: false,
+		});
+		expect(service.dependencies[2].token).toMatchObject({
+			kind: "string",
+			value: "logger",
 		});
 	});
 
