@@ -142,7 +142,7 @@ function createProgram(
 		readFile: (fileName) =>
 			fileName === nexusCoreTypes
 				? defaultHost.readFile(fileName)
-				: files.get(fileName) ?? defaultHost.readFile(fileName),
+				: (files.get(fileName) ?? defaultHost.readFile(fileName)),
 		getSourceFile: (fileName, languageVersion) => {
 			const text = files.get(fileName);
 			if (text !== undefined) {
@@ -160,12 +160,8 @@ function createProgram(
 					};
 				}
 
-				return ts.resolveModuleName(
-					moduleName,
-					containingFile,
-					options,
-					host,
-				).resolvedModule;
+				return ts.resolveModuleName(moduleName, containingFile, options, host)
+					.resolvedModule;
 			}),
 	};
 
