@@ -1,41 +1,21 @@
 import * as ts from "typescript";
-import type { ILogger } from "../types/logger.interface";
-import { NoOpLogger } from "../types/logger.interface";
+import type {
+	NexusClassModel,
+	NexusDecorator,
+	NexusDecoratorKind,
+	NexusDependency,
+	NexusSourceSpan,
+	NexusToken,
+} from "./nexus-semantic-model";
 
-export type NexusDecoratorKind =
-	| "Inject"
-	| "Injectable"
-	| "NsModule"
-	| "Optional"
-	| "Global";
-
-export type NexusDecorator = {
-	kind: NexusDecoratorKind;
-	declaration: ts.Decorator;
-	expression: ts.Expression;
-};
-
-export type NexusClassModel = {
-	node: ts.ClassDeclaration;
-	name?: string;
-	decorators: NexusDecorator[];
-	isInjectable: boolean;
-	isModule: boolean;
-	isGlobal: boolean;
-	dependencies: InjectParameterDeclaration[];
-};
-
-export type InjectParameterDeclaration = {
-	name: ts.Identifier | ts.StringLiteral;
-	location: "constructor" | "property";
-	declaration: ts.ParameterDeclaration | ts.PropertyDeclaration;
-	start: number;
-	end: number;
-	length: number;
-	parameterName: string;
-	parameterType?: ts.TypeNode;
-	isOptional: boolean;
-};
+export type {
+	NexusClassModel,
+	NexusDecorator,
+	NexusDecoratorKind,
+	NexusDependency,
+	NexusSourceSpan,
+	NexusToken,
+} from "./nexus-semantic-model";
 
 const NEXUS_CORE_PACKAGE = "@nexus-ioc/core";
 
@@ -43,10 +23,7 @@ const NEXUS_CORE_PACKAGE = "@nexus-ioc/core";
 export class NexusAnalyzer {
 	private readonly checker: ts.TypeChecker;
 
-	public constructor(
-		private readonly program: ts.Program,
-		private readonly logger: ILogger = new NoOpLogger(),
-	) {
+	public constructor(private readonly program: ts.Program) {
 		this.checker = program.getTypeChecker();
 	}
 
@@ -83,7 +60,14 @@ export class NexusAnalyzer {
 		return (ts.getDecorators(node) ?? []).flatMap((declaration) => {
 			const kind = this.resolveDecoratorKind(declaration);
 			return kind
-				? [{ kind, declaration, expression: declaration.expression }]
+				? [
+						{
+							kind,
+							declaration,
+							expression: declaration.expression,
+							source: this.getSourceSpan(declaration),
+						},
+					]
 				: [];
 		});
 	}
@@ -92,10 +76,8 @@ export class NexusAnalyzer {
 		return this.getDecorators(node).some((item) => item.kind === kind);
 	}
 
-	public getInjectedMembers(
-		node: ts.ClassDeclaration,
-	): InjectParameterDeclaration[] {
-		const result: InjectParameterDeclaration[] = [];
+	public getInjectedMembers(node: ts.ClassDeclaration): NexusDependency[] {
+		const result: NexusDependency[] = [];
 		const add = (
 			declaration: ts.ParameterDeclaration | ts.PropertyDeclaration,
 			location: "constructor" | "property",
@@ -107,39 +89,81 @@ export class NexusAnalyzer {
 				return;
 			}
 
-			const token = inject.expression.arguments[0];
-			if (!token || (!ts.isIdentifier(token) && !ts.isStringLiteral(token))) {
-				return;
-			}
+			const tokenExpression = inject.expression.arguments[0];
+			if (!tokenExpression) return;
 
-			const start = declaration.getStart();
-			const end = declaration.getEnd();
-			const isOptional = this.hasDecorator(declaration, "Optional");
+			const token = this.resolveToken(tokenExpression);
+
 			result.push({
-				name: token,
 				location,
-				declaration,
-				start,
-				end,
-				length: end - start,
 				parameterName: declaration.name.getText(),
 				parameterType: declaration.type,
-				isOptional,
+				token,
+				optional: this.hasDecorator(declaration, "Optional"),
+				source: this.getSourceSpan(declaration),
+				declaration,
 			});
 		};
 
 		for (const member of node.members) {
 			if (ts.isConstructorDeclaration(member)) {
-				for (const parameter of member.parameters)
+				for (const parameter of member.parameters) {
 					add(parameter, "constructor");
+				}
 			}
-			if (ts.isPropertyDeclaration(member)) add(member, "property");
+			if (ts.isPropertyDeclaration(member)) {
+				add(member, "property");
+			}
 		}
 
-		this.logger.log(
-			`[NexusAnalyzer] ${node.name?.text ?? "AnonymousClass"}: ${result.length} injected members`,
-		);
 		return result;
+	}
+
+	private resolveToken(expression: ts.Expression): NexusToken {
+		const source = this.getSourceSpan(expression);
+
+		if (ts.isStringLiteral(expression)) {
+			return {
+				kind: "string",
+				value: expression.text,
+				source,
+			};
+		}
+
+		const symbol = this.checker.getSymbolAtLocation(expression);
+		const type = this.checker.getTypeAtLocation(expression);
+
+		if ((type.getFlags() & ts.TypeFlags.ESSymbolLike) !== 0) {
+			return {
+				kind: "symbol",
+				declaration: this.resolveAlias(symbol),
+				source,
+			};
+		}
+
+		if (symbol) {
+			return {
+				kind: "reference",
+				symbol: this.resolveAlias(symbol) ?? symbol,
+				source,
+			};
+		}
+
+		return {
+			kind: "expression",
+			source,
+		};
+	}
+
+	private getSourceSpan(node: ts.Node): NexusSourceSpan {
+		const start = node.getStart();
+		const end = node.getEnd();
+		return {
+			fileName: node.getSourceFile().fileName,
+			start,
+			end,
+			length: end - start,
+		};
 	}
 
 	private resolveDecoratorKind(
@@ -151,7 +175,7 @@ export class NexusAnalyzer {
 		const symbol = this.checker.getSymbolAtLocation(callee);
 		if (!symbol || !this.isNexusCoreSymbol(symbol)) return undefined;
 
-		const name = this.resolveAlias(symbol).getName();
+		const name = this.resolveAlias(symbol)?.getName();
 		return name === "Inject" ||
 			name === "Injectable" ||
 			name === "NsModule" ||
@@ -173,7 +197,9 @@ export class NexusAnalyzer {
 		return undefined;
 	}
 
-	private resolveAlias(symbol: ts.Symbol): ts.Symbol {
+	private resolveAlias(symbol: ts.Symbol | undefined): ts.Symbol | undefined {
+		if (!symbol) return undefined;
+
 		let current = symbol;
 		const visited = new Set<ts.Symbol>();
 		while (
@@ -222,9 +248,6 @@ export class NexusAnalyzer {
 	}
 }
 
-export function createNexusAnalyzer(
-	program: ts.Program,
-	logger?: ILogger,
-): NexusAnalyzer {
-	return new NexusAnalyzer(program, logger);
+export function createNexusAnalyzer(program: ts.Program): NexusAnalyzer {
+	return new NexusAnalyzer(program);
 }
