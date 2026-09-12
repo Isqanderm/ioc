@@ -9,7 +9,7 @@ import {
 const FILES = new Map<string, string>([
 	[
 		"/app/app.module.ts",
-		`import { NsModule } from "@nexus-ioc/core";
+		`import { Inject, NsModule } from "@nexus-ioc/core";
 import { ServiceA } from "../services/service-a";
 import { ServiceB } from "../services/service-b";
 import { UnreachableService } from "../services/unreachable";
@@ -19,8 +19,8 @@ void UnreachableService;
 @NsModule({})
 export class AppModule {
   constructor(
-    @NsModule.Inject(ServiceA) serviceA: ServiceA,
-    @NsModule.Inject(ServiceB) serviceB: ServiceB,
+    @Inject(ServiceA) serviceA: ServiceA,
+    @Inject(ServiceB) serviceB: ServiceB,
   ) {}
 }
 `,
@@ -178,9 +178,7 @@ describe("NexusApplicationAnalyzer", () => {
 		const serviceA = application.classes.find((item) => item.name === "ServiceA");
 		const sharedDependency = serviceA?.dependencies[0];
 
-		expect(sharedDependency?.token).toMatchObject({
-			kind: "reference",
-		});
+		expect(sharedDependency?.token).toMatchObject({ kind: "reference" });
 		if (sharedDependency?.token?.kind !== "reference") {
 			throw new Error("SharedService token was not resolved");
 		}
