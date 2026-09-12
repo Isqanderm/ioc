@@ -7,7 +7,7 @@ type ModuleInfo = {
 	imports: string[];
 	exports: string[];
 	isGlobal: boolean;
-	// biome-ignore lint/suspicious/noExplicitAny: <explanation>
+	// biome-ignore lint/suspicious/noExplicitAny: provider shape comes from generated graph data
 	providers: any[];
 	dependencies: string[];
 };
