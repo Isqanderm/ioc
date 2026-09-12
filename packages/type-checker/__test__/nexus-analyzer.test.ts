@@ -13,13 +13,20 @@ import {
 } from "@nexus-ioc/core";
 import { Inject as ForeignInject, Injectable as ForeignService } from "./foreign";
 
+const SYMBOL_TOKEN = Symbol("symbol");
+
 class DependencyA {}
+abstract class AbstractDependency {}
+function FunctionDependency() {}
 
 @Service()
 class ServiceA {
   constructor(
     @Dependency(DependencyA) dependency: DependencyA,
     @Dependency("config") @Maybe() config: unknown,
+    @Dependency(SYMBOL_TOKEN) symbol: unknown,
+    @Dependency(AbstractDependency) abstractDependency: AbstractDependency,
+    @Dependency(FunctionDependency) functionDependency: typeof FunctionDependency,
   ) {}
 
   @Dependency("logger")
@@ -129,6 +136,16 @@ function getClass(
 	return declaration;
 }
 
+function expectSourceSpan(
+	sourceFile: ts.SourceFile,
+	span: { fileName: string; start: number; end: number; length: number },
+	expectedText: string,
+): void {
+	expect(span.fileName).toBe(sourceFile.fileName);
+	expect(span.end - span.start).toBe(span.length);
+	expect(sourceFile.text.slice(span.start, span.end)).toBe(expectedText);
+}
+
 describe("NexusAnalyzer", () => {
 	it("recognizes aliased Nexus decorators by symbol identity", () => {
 		const { program, sourceFile } = createProgram();
@@ -142,48 +159,94 @@ describe("NexusAnalyzer", () => {
 		);
 	});
 
-	it("extracts constructor and property injections with semantic tokens", () => {
+	it("returns semantic tokens for every InjectionToken variant", () => {
 		const { program, sourceFile } = createProgram();
 		const analyzer = createNexusAnalyzer(program);
 
 		const service = analyzer.getClassModel(getClass(sourceFile, "ServiceA"));
+		const [classDependency, stringDependency, symbolDependency, abstractDependency, functionDependency] =
+			service.dependencies;
 
-		expect(service.dependencies).toHaveLength(3);
-		expect(service.dependencies[0]).toMatchObject({
-			location: "constructor",
-			parameterName: "dependency",
-			optional: false,
+		expect(classDependency.token).toMatchObject({
+			kind: "reference",
 		});
-		expect(service.dependencies[0].token?.kind).toBe("reference");
 		expect(
-			service.dependencies[0].token?.kind === "reference"
-				? service.dependencies[0].token.symbol.getName()
+			classDependency.token?.kind === "reference"
+				? classDependency.token.symbol.getName()
 				: undefined,
 		).toBe("DependencyA");
-		expect(service.dependencies[0].token?.source.fileName).toBe("/nexus-test.ts");
-		expect(service.dependencies[0].token?.source.length).toBeGreaterThan(0);
+		expectSourceSpan(
+			sourceFile,
+			classDependency.token!.source,
+			"DependencyA",
+		);
 
-		expect(service.dependencies[1]).toMatchObject({
-			location: "constructor",
-			parameterName: "config",
-			optional: true,
-		});
-		expect(service.dependencies[1].token).toMatchObject({
+		expect(stringDependency.token).toMatchObject({
 			kind: "string",
 			value: "config",
 		});
-		expect(service.dependencies[1].token?.source.fileName).toBe("/nexus-test.ts");
+		expectSourceSpan(
+			sourceFile,
+			stringDependency.token!.source,
+			'"config"',
+		);
 
-		expect(service.dependencies[2]).toMatchObject({
-			location: "property",
-			parameterName: "logger",
-			optional: false,
+		expect(symbolDependency.token).toMatchObject({
+			kind: "symbol",
 		});
-		expect(service.dependencies[2].token).toMatchObject({
-			kind: "string",
-			value: "logger",
+		expect(symbolDependency.token?.source).toBeDefined();
+	expectSourceSpan(
+			sourceFile,
+			symbolDependency.token!.source,
+			"SYMBOL_TOKEN",
+		);
+
+		expect(abstractDependency.token).toMatchObject({
+			kind: "reference",
 		});
-		expect(service.dependencies[2].token?.source.fileName).toBe("/nexus-test.ts");
+		expect(
+			abstractDependency.token?.kind === "reference"
+				? abstractDependency.token.symbol.getName()
+				: undefined,
+		).toBe("AbstractDependency");
+		expectSourceSpan(
+			sourceFile,
+			abstractDependency.token!.source,
+			"AbstractDependency",
+		);
+
+		expect(functionDependency.token).toMatchObject({
+			kind: "reference",
+		});
+		expect(
+			functionDependency.token?.kind === "reference"
+				? functionDependency.token.symbol.getName()
+				: undefined,
+		).toBe("FunctionDependency");
+		expectSourceSpan(
+			sourceFile,
+			functionDependency.token!.source,
+			"FunctionDependency",
+		);
+	});
+
+	it("preserves source spans for dependencies and decorators", () => {
+		const { program, sourceFile } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+
+		const service = analyzer.getClassModel(getClass(sourceFile, "ServiceA"));
+		const dependency = service.dependencies[0];
+		const injectable = service.decorators.find(
+			(decorator) => decorator.kind === "Injectable",
+		);
+
+		expectSourceSpan(
+			sourceFile,
+			dependency.source,
+			"@Dependency(DependencyA) dependency: DependencyA",
+		);
+		if (!injectable) throw new Error("Injectable decorator not found");
+		expectSourceSpan(sourceFile, injectable.source, "@Service()");
 	});
 
 	it("recognizes modules and global modules", () => {
