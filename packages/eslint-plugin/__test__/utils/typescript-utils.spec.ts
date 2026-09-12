@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import * as ts from "typescript";
+import { describe, expect, it } from "vitest";
 import {
 	getClassName,
 	getDecorators,
