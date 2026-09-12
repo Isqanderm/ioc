@@ -1,5 +1,6 @@
 import type { TSESTree } from "@typescript-eslint/utils";
 import { ESLintUtils } from "@typescript-eslint/utils";
+import * as ts from "typescript";
 import {
 	getTypeScriptContext,
 	isInjectableClass,
@@ -30,29 +31,19 @@ export default createRule<Options, MessageIds>({
 	defaultOptions: [],
 	create(context) {
 		const tsContext = getTypeScriptContext(context);
-
-		if (!tsContext) {
-			return {};
-		}
+		if (!tsContext) return {};
 
 		return {
 			ClassDeclaration(node: TSESTree.ClassDeclaration) {
 				const tsNode = tsContext.getTsNodeAtLocation(node);
-				if (!tsNode || !ts.isClassDeclaration(tsNode)) {
-					return;
-				}
+				if (!tsNode || !ts.isClassDeclaration(tsNode)) return;
 
 				const model = tsContext.analyzer.getClassModel(tsNode);
-				const hasInjectDecorator = model.dependencies.length > 0;
-				const isInjectable = isInjectableClass(tsContext.analyzer, tsNode);
-
-				if (hasInjectDecorator && !isInjectable) {
+				if (model.dependencies.length > 0 && !isInjectableClass(tsContext.analyzer, tsNode)) {
 					context.report({
 						node,
 						messageId: "injectableRequired",
-						data: {
-							className: node.id?.name || "AnonymousClass",
-						},
+						data: { className: node.id?.name || "AnonymousClass" },
 					});
 				}
 			},
