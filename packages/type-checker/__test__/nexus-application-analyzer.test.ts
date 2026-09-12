@@ -6,35 +6,77 @@ import {
 	createNexusApplicationAnalyzer,
 } from "../src";
 
-const SOURCE = `
-import { Inject, Injectable, NsModule } from "@nexus-ioc/core";
+const FILES = new Map<string, string>([
+	[
+		"/app/app.module.ts",
+		`import { NsModule } from "@nexus-ioc/core";
+import { ServiceA } from "../services/service-a";
+import { ServiceB } from "../services/service-b";
+import { UnreachableService } from "../services/unreachable";
 
-class SharedService {}
+void UnreachableService;
 
-@Injectable()
-class ServiceA {
-  constructor(@Inject(SharedService) shared: SharedService) {}
-}
-
-@Injectable()
-class ServiceB {
-  constructor(@Inject(SharedService) shared: SharedService) {}
-}
-
-@Module({})
-class AppModule {
+@NsModule({})
+export class AppModule {
   constructor(
-    @Inject(ServiceA) serviceA: ServiceA,
-    @Inject(ServiceB) serviceB: ServiceB,
+    @NsModule.Inject(ServiceA) serviceA: ServiceA,
+    @NsModule.Inject(ServiceB) serviceB: ServiceB,
   ) {}
 }
+`,
+	],
+	[
+		"/services/service-a.ts",
+		`import { Inject, Injectable } from "@nexus-ioc/core";
+import { SharedService } from "./shared-service";
 
 @Injectable()
-class UnreachableService {}
-`;
+export class ServiceA {
+  constructor(@Inject(SharedService) shared: SharedService) {}
+}
+`,
+	],
+	[
+		"/services/service-b.ts",
+		`import { Inject, Injectable } from "@nexus-ioc/core";
+import { SharedService } from "./shared-service";
 
-function createProgram(): { program: ts.Program; sourceFile: ts.SourceFile } {
-	const files = new Map<string, string>([["/nexus-application-test.ts", SOURCE]]);
+@Injectable()
+export class ServiceB {
+  constructor(@Inject(SharedService) shared: SharedService) {}
+}
+`,
+	],
+	[
+		"/services/shared-service.ts",
+		`import { Inject, Injectable } from "@nexus-ioc/core";
+import { LeafService } from "./leaf-service";
+
+@Injectable()
+export class SharedService {
+  constructor(@Inject(LeafService) leaf: LeafService) {}
+}
+`,
+	],
+	[
+		"/services/leaf-service.ts",
+		`import { Injectable } from "@nexus-ioc/core";
+
+@Injectable()
+export class LeafService {}
+`,
+	],
+	[
+		"/services/unreachable.ts",
+		`import { Injectable } from "@nexus-ioc/core";
+
+@Injectable()
+export class UnreachableService {}
+`,
+	],
+]);
+
+function createProgram(): { program: ts.Program; entryPoint: ts.ClassDeclaration } {
 	const options: ts.CompilerOptions = {
 		target: ts.ScriptTarget.ES2022,
 		module: ts.ModuleKind.CommonJS,
@@ -52,10 +94,15 @@ function createProgram(): { program: ts.Program; sourceFile: ts.SourceFile } {
 	const host: ts.CompilerHost = {
 		...defaultHost,
 		fileExists: (fileName) =>
-			fileName === nexusCoreTypes || files.has(fileName) || defaultHost.fileExists(fileName),
-		readFile: (fileName) => files.get(fileName) ?? defaultHost.readFile(fileName),
+			fileName === nexusCoreTypes ||
+			FILES.has(fileName) ||
+			defaultHost.fileExists(fileName),
+		readFile: (fileName) =>
+			fileName === nexusCoreTypes
+				? defaultHost.readFile(fileName)
+				: FILES.get(fileName) ?? defaultHost.readFile(fileName),
 		getSourceFile: (fileName, languageVersion) => {
-			const text = files.get(fileName);
+			const text = FILES.get(fileName);
 			if (text !== undefined) {
 				return ts.createSourceFile(fileName, text, languageVersion, true);
 			}
@@ -76,23 +123,17 @@ function createProgram(): { program: ts.Program; sourceFile: ts.SourceFile } {
 			}),
 	};
 
-	const program = ts.createProgram(["/nexus-application-test.ts"], options, host);
-	const sourceFile = program.getSourceFile("/nexus-application-test.ts");
-	if (!sourceFile) throw new Error("Test source file was not created");
+	const program = ts.createProgram(["/app/app.module.ts"], options, host);
+	const sourceFile = program.getSourceFile("/app/app.module.ts");
+	if (!sourceFile) throw new Error("Entry point source file was not created");
 
-	return { program, sourceFile };
-}
-
-function getClass(
-	sourceFile: ts.SourceFile,
-	name: string,
-): ts.ClassDeclaration {
-	const declaration = sourceFile.statements.find(
+	const entryPoint = sourceFile.statements.find(
 		(statement): statement is ts.ClassDeclaration =>
-			ts.isClassDeclaration(statement) && statement.name?.text === name,
+			ts.isClassDeclaration(statement) && statement.name?.text === "AppModule",
 	);
-	if (!declaration) throw new Error(`Class ${name} not found`);
-	return declaration;
+	if (!entryPoint) throw new Error("AppModule not found");
+
+	return { program, entryPoint };
 }
 
 function expectSourceSpan(
@@ -105,12 +146,11 @@ function expectSourceSpan(
 }
 
 describe("NexusApplicationAnalyzer", () => {
-	it("discovers reachable Nexus classes from an entry point", () => {
-		const { program, sourceFile } = createProgram();
+	it("discovers reachable Nexus classes across multiple files", () => {
+		const { program, entryPoint } = createProgram();
 		const analyzer = createNexusAnalyzer(program);
 		const applicationAnalyzer = createNexusApplicationAnalyzer(analyzer);
 
-		const entryPoint = getClass(sourceFile, "AppModule");
 		const application = applicationAnalyzer.analyze(entryPoint);
 
 		expect(application.classes.map((item) => item.name)).toEqual([
@@ -118,44 +158,93 @@ describe("NexusApplicationAnalyzer", () => {
 			"ServiceA",
 			"ServiceB",
 			"SharedService",
+			"LeafService",
 		]);
-		expectSourceSpan(sourceFile, application.entryPoint);
-		expect(application.classes).toHaveLength(4);
+		expect(application.classes.map((item) => item.source.fileName)).toEqual([
+			"/app/app.module.ts",
+			"/services/service-a.ts",
+			"/services/service-b.ts",
+			"/services/shared-service.ts",
+			"/services/leaf-service.ts",
+		]);
 	});
 
-	it("deduplicates shared dependencies and excludes unreachable classes", () => {
-		const { program, sourceFile } = createProgram();
+	it("follows semantic references across imported files", () => {
+		const { program, entryPoint } = createProgram();
 		const analyzer = createNexusAnalyzer(program);
 		const applicationAnalyzer = createNexusApplicationAnalyzer(analyzer);
 
-		const application = applicationAnalyzer.analyze(getClass(sourceFile, "AppModule"));
-		const shared = application.classes.filter((item) => item.name === "SharedService");
-		const unreachable = application.classes.filter(
-			(item) => item.name === "UnreachableService",
+		const application = applicationAnalyzer.analyze(entryPoint);
+		const serviceA = application.classes.find((item) => item.name === "ServiceA");
+		const sharedDependency = serviceA?.dependencies[0];
+
+		expect(sharedDependency?.token).toMatchObject({
+			kind: "reference",
+		});
+		if (sharedDependency?.token?.kind !== "reference") {
+			throw new Error("SharedService token was not resolved");
+		}
+		expect(sharedDependency.token.symbol.getName()).toBe("SharedService");
+
+		const sharedService = application.classes.find(
+			(item) => item.name === "SharedService",
 		);
-
-		expect(shared).toHaveLength(1);
-		expect(unreachable).toHaveLength(0);
+		expect(sharedService?.source.fileName).toBe("/services/shared-service.ts");
 	});
 
-	it("keeps traversal deterministic", () => {
-		const { program, sourceFile } = createProgram();
+	it("deduplicates shared classes reached from multiple files and excludes unreachable files", () => {
+		const { program, entryPoint } = createProgram();
 		const analyzer = createNexusAnalyzer(program);
 		const applicationAnalyzer = createNexusApplicationAnalyzer(analyzer);
-		const entryPoint = getClass(sourceFile, "AppModule");
 
-		const first = applicationAnalyzer.analyze(entryPoint).classes.map((item) => item.name);
-		const second = applicationAnalyzer.analyze(entryPoint).classes.map((item) => item.name);
+		const application = applicationAnalyzer.analyze(entryPoint);
+
+		expect(
+			application.classes.filter((item) => item.name === "SharedService"),
+		).toHaveLength(1);
+		expect(
+			application.classes.filter((item) => item.name === "UnreachableService"),
+		).toHaveLength(0);
+	});
+
+	it("preserves the entry point source span from its own file", () => {
+		const { program, entryPoint } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+		const applicationAnalyzer = createNexusApplicationAnalyzer(analyzer);
+
+		const application = applicationAnalyzer.analyze(entryPoint);
+		const entrySourceFile = program.getSourceFile("/app/app.module.ts");
+
+		if (!entrySourceFile) throw new Error("Entry point source file not found");
+		expectSourceSpan(entrySourceFile, application.entryPoint);
+	});
+
+	it("keeps traversal deterministic across files", () => {
+		const firstProgram = createProgram();
+		const firstAnalyzer = createNexusApplicationAnalyzer(
+			createNexusAnalyzer(firstProgram.program),
+		);
+		const first = firstAnalyzer
+			.analyze(firstProgram.entryPoint)
+			.classes.map((item) => item.source.fileName + ":" + item.name);
+
+		const secondProgram = createProgram();
+		const secondAnalyzer = createNexusApplicationAnalyzer(
+			createNexusAnalyzer(secondProgram.program),
+		);
+		const second = secondAnalyzer
+			.analyze(secondProgram.entryPoint)
+			.classes.map((item) => item.source.fileName + ":" + item.name);
 
 		expect(first).toEqual(second);
 	});
 
-	it("returns AST-independent semantic classes", () => {
-		const { program, sourceFile } = createProgram();
+	it("returns AST-independent semantic classes across the application", () => {
+		const { program, entryPoint } = createProgram();
 		const analyzer = createNexusAnalyzer(program);
 		const applicationAnalyzer = createNexusApplicationAnalyzer(analyzer);
 
-		const application = applicationAnalyzer.analyze(getClass(sourceFile, "AppModule"));
+		const application = applicationAnalyzer.analyze(entryPoint);
 
 		for (const nexusClass of application.classes) {
 			expect(nexusClass).not.toHaveProperty("node");
