@@ -119,34 +119,52 @@ function createProgram(
 		process.cwd(),
 		"../ioc/dist/types/index.d.ts",
 	);
+	const normalizePath = (fileName: string): string => path.posix.normalize(fileName);
 
 	const defaultHost = ts.createCompilerHost(options, true);
 	const host: ts.CompilerHost = {
 		...defaultHost,
-		fileExists: (fileName) =>
-			fileName === nexusCoreTypes ||
-			files.has(fileName) ||
-			defaultHost.fileExists(fileName),
-		directoryExists: (directoryName) => {
-			const normalizedDirectory = path.normalize(directoryName);
-
+		getCurrentDirectory: () => "/",
+		fileExists: (fileName) => {
+			const normalizedFileName = normalizePath(fileName);
 			return (
-				normalizedDirectory === "/" ||
-				[...files.keys()].some(
-					(fileName) =>
-						path.dirname(fileName) === normalizedDirectory ||
-						fileName.startsWith(`${normalizedDirectory}/`),
-				)
+				normalizedFileName === normalizePath(nexusCoreTypes) ||
+				files.has(normalizedFileName) ||
+				defaultHost.fileExists(fileName)
 			);
 		},
-		readFile: (fileName) =>
-			fileName === nexusCoreTypes
+		directoryExists: (directoryName) => {
+			const normalizedDirectory = normalizePath(directoryName);
+			if (
+				normalizedDirectory === "/" ||
+				normalizedDirectory === "."
+			) {
+				return true;
+			}
+
+			return (
+				[...files.keys()].some((fileName) => {
+					const normalizedFileName = normalizePath(fileName);
+					return normalizedFileName.startsWith(`${normalizedDirectory}/`);
+				}) || defaultHost.directoryExists(directoryName)
+			);
+		},
+		readFile: (fileName) => {
+			const normalizedFileName = normalizePath(fileName);
+			return normalizedFileName === normalizePath(nexusCoreTypes)
 				? defaultHost.readFile(fileName)
-				: (files.get(fileName) ?? defaultHost.readFile(fileName)),
+				: (files.get(normalizedFileName) ?? defaultHost.readFile(fileName));
+		},
 		getSourceFile: (fileName, languageVersion) => {
-			const text = files.get(fileName);
+			const normalizedFileName = normalizePath(fileName);
+			const text = files.get(normalizedFileName);
 			if (text !== undefined) {
-				return ts.createSourceFile(fileName, text, languageVersion, true);
+				return ts.createSourceFile(
+					normalizedFileName,
+					text,
+					languageVersion,
+					true,
+				);
 			}
 			return defaultHost.getSourceFile(fileName, languageVersion);
 		},
@@ -160,8 +178,12 @@ function createProgram(
 					};
 				}
 
-				return ts.resolveModuleName(moduleName, containingFile, options, host)
-					.resolvedModule;
+				return ts.resolveModuleName(
+					moduleName,
+					containingFile,
+					options,
+					host,
+				).resolvedModule;
 			}),
 	};
 
