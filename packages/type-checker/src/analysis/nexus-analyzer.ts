@@ -1,4 +1,4 @@
-import * as ts from "typescript/lib/tsserverlibrary";
+import * as ts from "typescript";
 import type { ILogger } from "../types/logger.interface";
 import { NoOpLogger } from "../types/logger.interface";
 
