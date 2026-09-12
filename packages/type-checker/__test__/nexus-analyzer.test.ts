@@ -146,6 +146,20 @@ function expectSourceSpan(
 	expect(sourceFile.text.slice(span.start, span.end)).toBe(expectedText);
 }
 
+const EXPECTED_SERVICE_SOURCE = `@Service()
+class ServiceA {
+  constructor(
+    @Dependency(DependencyA) dependency: DependencyA,
+    @Dependency("config") @Maybe() config: unknown,
+    @Dependency(SYMBOL_TOKEN) symbol: unknown,
+    @Dependency(AbstractDependency) abstractDependency: AbstractDependency,
+    @Dependency(FunctionDependency) functionDependency: typeof FunctionDependency,
+  ) {}
+
+  @Dependency("logger")
+  private logger!: unknown;
+}`;
+
 describe("NexusAnalyzer", () => {
 	it("returns an AST-independent NexusClass", () => {
 		const { program, sourceFile } = createProgram();
@@ -158,11 +172,7 @@ describe("NexusAnalyzer", () => {
 		expect(service.isModule).toBe(false);
 		expect(service.isGlobal).toBe(false);
 		expect(service).not.toHaveProperty("node");
-		expectSourceSpan(
-			sourceFile,
-			service.source,
-			"@Service()\nclass ServiceA {\n  constructor(\n    @Dependency(DependencyA) dependency: DependencyA,\n    @Dependency(\"config\") @Maybe() config: unknown,\n    @Dependency(SYMBOL_TOKEN) symbol: unknown,\n    @Dependency(AbstractDependency) abstractDependency: AbstractDependency,\n    @Dependency(FunctionDependency) functionDependency: typeof FunctionDependency,\n  ) {}\n\n  @Dependency(\"logger\")\n  private logger!: unknown;\n}",
-		);
+		expectSourceSpan(sourceFile, service.source, EXPECTED_SERVICE_SOURCE);
 	});
 
 	it("preserves semantic dependency information without AST declarations", () => {
