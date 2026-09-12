@@ -4,8 +4,13 @@
  */
 
 export { createNexusAnalyzer, NexusAnalyzer } from "./analysis/nexus-analyzer";
+export {
+	createNexusApplicationAnalyzer,
+	NexusApplicationAnalyzer,
+} from "./analysis/nexus-application-analyzer";
+export type { NexusApplication } from "./analysis/nexus-application-model";
 export type {
-	NexusClassModel,
+	NexusClass,
 	NexusDecorator,
 	NexusDecoratorKind,
 	NexusDependency,
