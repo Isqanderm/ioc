@@ -9,68 +9,73 @@ import {
 const FILES = new Map<string, string>([
 	[
 		"/app/app.module.ts",
-		`import { Inject, NsModule } from "@nexus-ioc/core";
-import { ServiceA } from "../services/service-a";
-import { ServiceB } from "../services/service-b";
+		`import { Inject as Dependency, NsModule as Module } from "@nexus-ioc/core";
+import { FirstService, SecondService } from "../services";
 import { UnreachableService } from "../services/unreachable";
 
 void UnreachableService;
 
-@NsModule({})
+@Module({})
 export class AppModule {
   constructor(
-    @Inject(ServiceA) serviceA: ServiceA,
-    @Inject(ServiceB) serviceB: ServiceB,
+    @Dependency(FirstService) first: FirstService,
+    @Dependency(SecondService) second: SecondService,
   ) {}
 }
 `,
 	],
 	[
+		"/services/index.ts",
+		`export { ServiceA as FirstService } from "./service-a";
+export { ServiceB as SecondService } from "./service-b";
+`,
+	],
+	[
 		"/services/service-a.ts",
-		`import { Inject, Injectable } from "@nexus-ioc/core";
-import { SharedService } from "./shared-service";
+		`import { Inject as Dependency, Injectable as Service } from "@nexus-ioc/core";
+import { SharedService as Shared } from "./shared-service";
 
-@Injectable()
+@Service()
 export class ServiceA {
-  constructor(@Inject(SharedService) shared: SharedService) {}
+  constructor(@Dependency(Shared) shared: Shared) {}
 }
 `,
 	],
 	[
 		"/services/service-b.ts",
-		`import { Inject, Injectable } from "@nexus-ioc/core";
-import { SharedService } from "./shared-service";
+		`import { Inject as Dependency, Injectable as Service } from "@nexus-ioc/core";
+import { SharedService as Shared } from "./shared-service";
 
-@Injectable()
+@Service()
 export class ServiceB {
-  constructor(@Inject(SharedService) shared: SharedService) {}
+  constructor(@Dependency(Shared) shared: Shared) {}
 }
 `,
 	],
 	[
 		"/services/shared-service.ts",
-		`import { Inject, Injectable } from "@nexus-ioc/core";
-import { LeafService } from "./leaf-service";
+		`import { Inject as Dependency, Injectable as Service } from "@nexus-ioc/core";
+import { LeafService as Leaf } from "./leaf-service";
 
-@Injectable()
+@Service()
 export class SharedService {
-  constructor(@Inject(LeafService) leaf: LeafService) {}
+  constructor(@Dependency(Leaf) leaf: Leaf) {}
 }
 `,
 	],
 	[
 		"/services/leaf-service.ts",
-		`import { Injectable } from "@nexus-ioc/core";
+		`import { Injectable as Service } from "@nexus-ioc/core";
 
-@Injectable()
+@Service()
 export class LeafService {}
 `,
 	],
 	[
 		"/services/unreachable.ts",
-		`import { Injectable } from "@nexus-ioc/core";
+		`import { Injectable as Service } from "@nexus-ioc/core";
 
-@Injectable()
+@Service()
 export class UnreachableService {}
 `,
 	],
@@ -167,6 +172,53 @@ describe("NexusApplicationAnalyzer", () => {
 			"/services/shared-service.ts",
 			"/services/leaf-service.ts",
 		]);
+	});
+
+	it("resolves aliased Nexus decorators and class imports across re-exports", () => {
+		const { program, entryPoint } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+		const applicationAnalyzer = createNexusApplicationAnalyzer(analyzer);
+
+		const application = applicationAnalyzer.analyze(entryPoint);
+		const appModule = application.classes[0];
+
+		expect(appModule.name).toBe("AppModule");
+		expect(appModule.isModule).toBe(true);
+		expect(appModule.dependencies.map((item) => item.name)).toEqual([
+			"first",
+			"second",
+		]);
+
+		for (const dependency of appModule.dependencies) {
+			expect(dependency.optional).toBe(false);
+			expect(dependency.token).toMatchObject({ kind: "reference" });
+		}
+
+		const dependencyClassNames = appModule.dependencies.map((dependency) => {
+			if (dependency.token?.kind !== "reference") {
+				throw new Error("Expected an aliased class import to resolve to a reference token");
+			}
+			return dependency.token.symbol.getName();
+		});
+
+		expect(dependencyClassNames).toEqual(["ServiceA", "ServiceB"]);
+	});
+
+	it("resolves aliased class references in nested dependencies", () => {
+		const { program, entryPoint } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+		const applicationAnalyzer = createNexusApplicationAnalyzer(analyzer);
+
+		const application = applicationAnalyzer.analyze(entryPoint);
+		const serviceA = application.classes.find((item) => item.name === "ServiceA");
+		const sharedDependency = serviceA?.dependencies[0];
+
+		expect(sharedDependency?.token).toMatchObject({ kind: "reference" });
+		if (sharedDependency?.token?.kind !== "reference") {
+			throw new Error("Expected aliased SharedService import to resolve to a reference token");
+		}
+
+		expect(sharedDependency.token.symbol.getName()).toBe("SharedService");
 	});
 
 	it("follows semantic references across imported files", () => {
