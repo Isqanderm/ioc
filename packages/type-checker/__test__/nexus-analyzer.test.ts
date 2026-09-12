@@ -170,8 +170,7 @@ describe("NexusAnalyzer", () => {
 		const analyzer = createNexusAnalyzer(program);
 
 		const service = analyzer.getClass(getClass(sourceFile, "ServiceA"));
-		const [dependency, config, , abstractDependency, functionDependency, property] =
-			service.dependencies;
+		const [dependency, config, , , , property] = service.dependencies;
 
 		expect(dependency).toMatchObject({
 			location: "constructor",
