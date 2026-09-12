@@ -7,7 +7,10 @@ export type {
 	NexusClassModel,
 	NexusDecorator,
 	NexusDecoratorKind,
-} from "./analysis/nexus-analyzer";
+	NexusDependency,
+	NexusSourceSpan,
+	NexusToken,
+} from "./analysis/nexus-semantic-model";
 export { createNexusAnalyzer, NexusAnalyzer } from "./analysis/nexus-analyzer";
 
 // Helpers
