@@ -164,8 +164,13 @@ describe("NexusAnalyzer", () => {
 		const analyzer = createNexusAnalyzer(program);
 
 		const service = analyzer.getClassModel(getClass(sourceFile, "ServiceA"));
-		const [classDependency, stringDependency, symbolDependency, abstractDependency, functionDependency] =
-			service.dependencies;
+		const [
+			classDependency,
+			stringDependency,
+			symbolDependency,
+			abstractDependency,
+			functionDependency,
+		] = service.dependencies;
 
 		expect(classDependency.token).toMatchObject({
 			kind: "reference",
@@ -211,7 +216,9 @@ describe("NexusAnalyzer", () => {
 				? abstractDependency.token.symbol.getName()
 				: undefined,
 		).toBe("AbstractDependency");
-		if (!abstractDependency.token) throw new Error("Abstract token was not resolved");
+		if (!abstractDependency.token) {
+			throw new Error("Abstract token was not resolved");
+		}
 		expectSourceSpan(
 			sourceFile,
 			abstractDependency.token.source,
@@ -226,7 +233,9 @@ describe("NexusAnalyzer", () => {
 				? functionDependency.token.symbol.getName()
 				: undefined,
 		).toBe("FunctionDependency");
-		if (!functionDependency.token) throw new Error("Function token was not resolved");
+		if (!functionDependency.token) {
+			throw new Error("Function token was not resolved");
+		}
 		expectSourceSpan(
 			sourceFile,
 			functionDependency.token.source,
