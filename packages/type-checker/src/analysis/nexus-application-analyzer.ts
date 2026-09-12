@@ -7,6 +7,17 @@ import type { NexusClass, NexusSourceSpan, NexusToken } from "./nexus-semantic-m
 export class NexusApplicationAnalyzer {
 	public constructor(private readonly analyzer: NexusAnalyzer) {}
 
+	/**
+	 * Discovers reachable Nexus classes in deterministic breadth-first order.
+	 *
+	 * Class identity is based on TypeScript symbols, so import aliases and
+	 * re-exports resolve to the same semantic class. A visited set also makes
+	 * circular dependency traversal terminate without duplicates.
+	 *
+	 * Only `NexusToken.reference` tokens resolving to a class declaration are
+	 * traversable. String, symbol, expression, and non-class reference tokens
+	 * remain dependency metadata but do not become application nodes.
+	 */
 	public analyze(entryPoint: ts.ClassDeclaration): NexusApplication {
 		const classes: NexusClass[] = [];
 		const visited = new Set<ts.Symbol>();
@@ -17,10 +28,9 @@ export class NexusApplicationAnalyzer {
 			visited.add(entryPointSymbol);
 		}
 
-		while (pending.length > 0) {
-			const node = pending.shift();
-			if (!node) continue;
-
+		let index = 0;
+		while (index < pending.length) {
+			const node = pending[index++];
 			const nexusClass = this.analyzer.getClass(node);
 			classes.push(nexusClass);
 
