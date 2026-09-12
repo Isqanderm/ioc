@@ -19,6 +19,11 @@ export type {
 
 const NEXUS_CORE_PACKAGE = "@nexus-ioc/core";
 
+type ResolvedNexusDecorator = {
+	kind: NexusDecoratorKind;
+	expression: ts.Expression;
+};
+
 /** Shared semantic model used by Nexus IDE, lint and compiler tooling. */
 export class NexusAnalyzer {
 	private readonly checker: ts.TypeChecker;
@@ -127,9 +132,9 @@ export class NexusAnalyzer {
 		return inject.expression.arguments[0];
 	}
 
-	private getDecoratorsWithExpressions(node: ts.Node): Array<
-		NexusDecorator & { expression: ts.Expression }
-	> {
+	private getDecoratorsWithExpressions(
+		node: ts.Node,
+	): ResolvedNexusDecorator[] {
 		if (!ts.canHaveDecorators(node)) return [];
 
 		return (ts.getDecorators(node) ?? []).flatMap((declaration) => {
@@ -138,7 +143,6 @@ export class NexusAnalyzer {
 				? [
 						{
 							kind,
-							source: this.getSourceSpan(declaration),
 							expression: declaration.expression,
 						},
 				  ]
