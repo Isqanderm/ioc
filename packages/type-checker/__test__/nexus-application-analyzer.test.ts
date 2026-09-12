@@ -12,8 +12,10 @@ const FILES = new Map<string, string>([
 		`import { Inject as Dependency, NsModule as Module } from "@nexus-ioc/core";
 import { FirstService, SecondService } from "../services";
 import { UnreachableService } from "../services/unreachable";
+import { CycleA as RootCycleA } from "../services/cycle-a";
 
 void UnreachableService;
+void RootCycleA;
 
 @Module({})
 export class AppModule {
@@ -79,7 +81,35 @@ export class LeafService {}
 export class UnreachableService {}
 `,
 	],
+	[
+		"/services/cycle-a.ts",
+		``,
+	],
 ]);
+
+// Populate the circular fixture from repository-backed test sources.
+FILES.set(
+	"/services/cycle-a.ts",
+	`import { Inject as Dependency, Injectable as Service } from "@nexus-ioc/core";
+import { CycleB } from "./cycle-b";
+
+@Service()
+export class CycleA {
+  constructor(@Dependency(CycleB) cycleB: CycleB) {}
+}
+`,
+);
+FILES.set(
+	"/services/cycle-b.ts",
+	`import { Inject as Dependency, Injectable as Service } from "@nexus-ioc/core";
+import { CycleA } from "./cycle-a";
+
+@Service()
+export class CycleB {
+  constructor(@Dependency(CycleA) cycleA: CycleA) {}
+}
+`,
+);
 
 function createProgram(): { program: ts.Program; entryPoint: ts.ClassDeclaration } {
 	const options: ts.CompilerOptions = {
@@ -255,6 +285,27 @@ describe("NexusApplicationAnalyzer", () => {
 		expect(
 			application.classes.filter((item) => item.name === "UnreachableService"),
 		).toHaveLength(0);
+	});
+
+	it("terminates circular traversal and deduplicates classes", () => {
+		const { program } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+		const applicationAnalyzer = createNexusApplicationAnalyzer(analyzer);
+		const sourceFile = program.getSourceFile("/services/cycle-a.ts");
+		if (!sourceFile) throw new Error("CycleA source file was not created");
+
+		const entryPoint = sourceFile.statements.find(
+			(statement): statement is ts.ClassDeclaration =>
+				ts.isClassDeclaration(statement) && statement.name?.text === "CycleA",
+		);
+		if (!entryPoint) throw new Error("CycleA not found");
+
+		const application = applicationAnalyzer.analyze(entryPoint);
+
+		expect(application.classes.map((item) => item.name)).toEqual([
+			"CycleA",
+			"CycleB",
+		]);
 	});
 
 	it("preserves the entry point source span from its own file", () => {
