@@ -81,7 +81,11 @@ export class UnreachableService {}
 	],
 ]);
 
-function createProgram(): { program: ts.Program; entryPoint: ts.ClassDeclaration } {
+function createProgram(
+	entryFileName = "/app/app.module.ts",
+	entryClassName = "AppModule",
+	files = FILES,
+): { program: ts.Program; entryPoint: ts.ClassDeclaration } {
 	const options: ts.CompilerOptions = {
 		target: ts.ScriptTarget.ES2022,
 		module: ts.ModuleKind.CommonJS,
@@ -100,14 +104,26 @@ function createProgram(): { program: ts.Program; entryPoint: ts.ClassDeclaration
 		...defaultHost,
 		fileExists: (fileName) =>
 			fileName === nexusCoreTypes ||
-			FILES.has(fileName) ||
+			files.has(fileName) ||
 			defaultHost.fileExists(fileName),
+		directoryExists: (directoryName) => {
+			const normalizedDirectory = path.normalize(directoryName);
+
+			return (
+				normalizedDirectory === "/" ||
+				[...files.keys()].some(
+					(fileName) =>
+						path.dirname(fileName) === normalizedDirectory ||
+						fileName.startsWith(`${normalizedDirectory}/`),
+				)
+			);
+		},
 		readFile: (fileName) =>
 			fileName === nexusCoreTypes
 				? defaultHost.readFile(fileName)
-				: FILES.get(fileName) ?? defaultHost.readFile(fileName),
+				: files.get(fileName) ?? defaultHost.readFile(fileName),
 		getSourceFile: (fileName, languageVersion) => {
-			const text = FILES.get(fileName);
+			const text = files.get(fileName);
 			if (text !== undefined) {
 				return ts.createSourceFile(fileName, text, languageVersion, true);
 			}
@@ -123,20 +139,24 @@ function createProgram(): { program: ts.Program; entryPoint: ts.ClassDeclaration
 					};
 				}
 
-				return ts.resolveModuleName(moduleName, containingFile, options, host)
-					.resolvedModule;
+				return ts.resolveModuleName(
+					moduleName,
+					containingFile,
+					options,
+					host,
+				).resolvedModule;
 			}),
 	};
 
-	const program = ts.createProgram(["/app/app.module.ts"], options, host);
-	const sourceFile = program.getSourceFile("/app/app.module.ts");
+	const program = ts.createProgram([entryFileName], options, host);
+	const sourceFile = program.getSourceFile(entryFileName);
 	if (!sourceFile) throw new Error("Entry point source file was not created");
 
 	const entryPoint = sourceFile.statements.find(
 		(statement): statement is ts.ClassDeclaration =>
-			ts.isClassDeclaration(statement) && statement.name?.text === "AppModule",
+			ts.isClassDeclaration(statement) && statement.name?.text === entryClassName,
 	);
-	if (!entryPoint) throw new Error("AppModule not found");
+	if (!entryPoint) throw new Error(`${entryClassName} not found`);
 
 	return { program, entryPoint };
 }
@@ -196,7 +216,9 @@ describe("NexusApplicationAnalyzer", () => {
 
 		const dependencyClassNames = appModule.dependencies.map((dependency) => {
 			if (dependency.token?.kind !== "reference") {
-				throw new Error("Expected an aliased class import to resolve to a reference token");
+				throw new Error(
+					"Expected an aliased class import to resolve to a reference token",
+				);
 			}
 			return dependency.token.symbol.getName();
 		});
@@ -215,7 +237,9 @@ describe("NexusApplicationAnalyzer", () => {
 
 		expect(sharedDependency?.token).toMatchObject({ kind: "reference" });
 		if (sharedDependency?.token?.kind !== "reference") {
-			throw new Error("Expected aliased SharedService import to resolve to a reference token");
+			throw new Error(
+				"Expected aliased SharedService import to resolve to a reference token",
+			);
 		}
 
 		expect(sharedDependency.token.symbol.getName()).toBe("SharedService");
@@ -307,5 +331,53 @@ describe("NexusApplicationAnalyzer", () => {
 				expect(decorator).not.toHaveProperty("expression");
 			}
 		}
+	});
+
+	it("terminates circular traversal and deduplicates classes", () => {
+		const cycleFiles = new Map(FILES);
+		cycleFiles.set(
+			"/cycle/cycle-a.ts",
+			`import { Inject as Dependency, Injectable as Service } from "@nexus-ioc/core";
+import { CycleB } from "./cycle-b";
+
+@Service()
+export class CycleA {
+  constructor(@Dependency(CycleB) cycleB: CycleB) {}
+}
+`,
+		);
+		cycleFiles.set(
+			"/cycle/cycle-b.ts",
+			`import { Inject as Dependency, Injectable as Service } from "@nexus-ioc/core";
+import { CycleA } from "./cycle-a";
+
+@Service()
+export class CycleB {
+  constructor(@Dependency(CycleA) cycleA: CycleA) {}
+}
+`,
+		);
+
+		const { program, entryPoint } = createProgram(
+			"/cycle/cycle-a.ts",
+			"CycleA",
+			cycleFiles,
+		);
+		const analyzer = createNexusApplicationAnalyzer(
+			createNexusAnalyzer(program),
+		);
+
+		const application = analyzer.analyze(entryPoint);
+
+		expect(application.classes.map((item) => item.name)).toEqual([
+			"CycleA",
+			"CycleB",
+		]);
+		expect(
+			application.classes.filter((item) => item.name === "CycleA"),
+		).toHaveLength(1);
+		expect(
+			application.classes.filter((item) => item.name === "CycleB"),
+		).toHaveLength(1);
 	});
 });
