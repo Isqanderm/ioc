@@ -67,7 +67,9 @@ export class NexusAnalyzer {
 			name: node.name?.text,
 			decorators,
 			isInjectable: decorators.some((item) => item.kind === "Injectable"),
-			isModule: decorators.some((item) => item.kind === "NsModule" || item.kind === "Global"),
+			isModule: decorators.some(
+				(item) => item.kind === "NsModule" || item.kind === "Global",
+			),
 			isGlobal: decorators.some((item) => item.kind === "Global"),
 			dependencies,
 		};
@@ -81,7 +83,9 @@ export class NexusAnalyzer {
 		return (ts.getDecorators(node) ?? [])
 			.map((declaration) => {
 				const kind = this.resolveDecoratorKind(declaration);
-				return kind ? { kind, declaration, expression: declaration.expression } : undefined;
+				return kind
+					? { kind, declaration, expression: declaration.expression }
+					: undefined;
 			})
 			.filter((item): item is NexusDecorator => item !== undefined);
 	}
@@ -90,13 +94,17 @@ export class NexusAnalyzer {
 		return this.getDecorators(node).some((item) => item.kind === kind);
 	}
 
-	public getInjectedMembers(node: ts.ClassDeclaration): InjectParameterDeclaration[] {
+	public getInjectedMembers(
+		node: ts.ClassDeclaration,
+	): InjectParameterDeclaration[] {
 		const result: InjectParameterDeclaration[] = [];
 		const add = (
 			declaration: ts.ParameterDeclaration | ts.PropertyDeclaration,
 			location: "constructor" | "property",
 		) => {
-			const inject = this.getDecorators(declaration).find((item) => item.kind === "Inject");
+			const inject = this.getDecorators(declaration).find(
+				(item) => item.kind === "Inject",
+			);
 			if (!inject || !ts.isCallExpression(inject.expression)) {
 				return;
 			}
@@ -124,16 +132,21 @@ export class NexusAnalyzer {
 
 		for (const member of node.members) {
 			if (ts.isConstructorDeclaration(member)) {
-				for (const parameter of member.parameters) add(parameter, "constructor");
+				for (const parameter of member.parameters)
+					add(parameter, "constructor");
 			}
 			if (ts.isPropertyDeclaration(member)) add(member, "property");
 		}
 
-		this.logger.log(`[NexusAnalyzer] ${node.name?.text ?? "AnonymousClass"}: ${result.length} injected members`);
+		this.logger.log(
+			`[NexusAnalyzer] ${node.name?.text ?? "AnonymousClass"}: ${result.length} injected members`,
+		);
 		return result;
 	}
 
-	private resolveDecoratorKind(decorator: ts.Decorator): NexusDecoratorKind | undefined {
+	private resolveDecoratorKind(
+		decorator: ts.Decorator,
+	): NexusDecoratorKind | undefined {
 		const callee = this.getDecoratorCallee(decorator.expression);
 		if (!callee) return undefined;
 
@@ -141,21 +154,34 @@ export class NexusAnalyzer {
 		if (!symbol || !this.isNexusCoreSymbol(symbol)) return undefined;
 
 		const name = this.resolveAlias(symbol).getName();
-		return name === "Inject" || name === "Injectable" || name === "NsModule" || name === "Optional" || name === "Global"
+		return name === "Inject" ||
+			name === "Injectable" ||
+			name === "NsModule" ||
+			name === "Optional" ||
+			name === "Global"
 			? name
 			: undefined;
 	}
 
-	private getDecoratorCallee(expression: ts.Expression): ts.Identifier | undefined {
+	private getDecoratorCallee(
+		expression: ts.Expression,
+	): ts.Identifier | undefined {
 		if (ts.isIdentifier(expression)) return expression;
-		if (ts.isCallExpression(expression) && ts.isIdentifier(expression.expression)) return expression.expression;
+		if (
+			ts.isCallExpression(expression) &&
+			ts.isIdentifier(expression.expression)
+		)
+			return expression.expression;
 		return undefined;
 	}
 
 	private resolveAlias(symbol: ts.Symbol): ts.Symbol {
 		let current = symbol;
 		const visited = new Set<ts.Symbol>();
-		while ((current.flags & ts.SymbolFlags.Alias) !== 0 && !visited.has(current)) {
+		while (
+			(current.flags & ts.SymbolFlags.Alias) !== 0 &&
+			!visited.has(current)
+		) {
 			visited.add(current);
 			const next = this.checker.getAliasedSymbol(current);
 			if (next === current) break;
@@ -171,7 +197,10 @@ export class NexusAnalyzer {
 			visited.add(current);
 			for (const declaration of current.declarations ?? []) {
 				const importDeclaration = this.findImportDeclaration(declaration);
-				if (importDeclaration?.moduleSpecifier && ts.isStringLiteral(importDeclaration.moduleSpecifier)) {
+				if (
+					importDeclaration?.moduleSpecifier &&
+					ts.isStringLiteral(importDeclaration.moduleSpecifier)
+				) {
 					return importDeclaration.moduleSpecifier.text === NEXUS_CORE_PACKAGE;
 				}
 			}
@@ -183,7 +212,9 @@ export class NexusAnalyzer {
 		return false;
 	}
 
-	private findImportDeclaration(node: ts.Node): ts.ImportDeclaration | undefined {
+	private findImportDeclaration(
+		node: ts.Node,
+	): ts.ImportDeclaration | undefined {
 		let current: ts.Node | undefined = node;
 		while (current) {
 			if (ts.isImportDeclaration(current)) return current;
@@ -193,6 +224,9 @@ export class NexusAnalyzer {
 	}
 }
 
-export function createNexusAnalyzer(program: ts.Program, logger?: ILogger): NexusAnalyzer {
+export function createNexusAnalyzer(
+	program: ts.Program,
+	logger?: ILogger,
+): NexusAnalyzer {
 	return new NexusAnalyzer(program, logger);
 }
