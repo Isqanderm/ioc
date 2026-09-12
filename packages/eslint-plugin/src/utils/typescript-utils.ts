@@ -1,10 +1,10 @@
-import type { TSESLint, TSESTree } from "@typescript-eslint/utils";
-import { ESLintUtils } from "@typescript-eslint/utils";
-import * as ts from "typescript";
 import {
 	createNexusAnalyzer,
 	type NexusDecoratorKind,
 } from "@nexus-ioc/type-checker";
+import type { TSESLint, TSESTree } from "@typescript-eslint/utils";
+import { ESLintUtils } from "@typescript-eslint/utils";
+import * as ts from "typescript";
 import type { TypedRuleContext } from "../types/rule-context.interface";
 
 export type NexusTypeScriptContext = TypedRuleContext & {
@@ -33,7 +33,9 @@ export function getTypeScriptContext(
 				return parserServices.esTreeNodeToTSNodeMap.get(node);
 			},
 			getSourceFile(): ts.SourceFile | undefined {
-				return program.getSourceFile(context.filename || context.getFilename?.());
+				return program.getSourceFile(
+					context.filename || context.getFilename?.(),
+				);
 			},
 		};
 	} catch (_error) {
@@ -65,7 +67,10 @@ export function isInjectableClass(
 	analyzer: ReturnType<typeof createNexusAnalyzer>,
 	node: ts.Node,
 ): node is ts.ClassDeclaration {
-	return ts.isClassDeclaration(node) && hasNexusDecorator(analyzer, node, "Injectable");
+	return (
+		ts.isClassDeclaration(node) &&
+		hasNexusDecorator(analyzer, node, "Injectable")
+	);
 }
 
 export function isModuleClass(

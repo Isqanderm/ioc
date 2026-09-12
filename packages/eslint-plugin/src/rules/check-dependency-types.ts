@@ -39,7 +39,10 @@ export default createRule<Options, MessageIds>({
 				if (!tsNode || !ts.isClassDeclaration(tsNode)) return;
 
 				const model = tsContext.analyzer.getClassModel(tsNode);
-				if (model.dependencies.length > 0 && !isInjectableClass(tsContext.analyzer, tsNode)) {
+				if (
+					model.dependencies.length > 0 &&
+					!isInjectableClass(tsContext.analyzer, tsNode)
+				) {
 					context.report({
 						node,
 						messageId: "injectableRequired",
