@@ -82,13 +82,7 @@ export class NexusAnalyzer {
 			}
 
 			const tokenExpression = inject.expression.arguments[0];
-			if (
-				!tokenExpression ||
-				(!ts.isIdentifier(tokenExpression) &&
-					!ts.isStringLiteral(tokenExpression))
-			) {
-				return;
-			}
+			if (!tokenExpression) return;
 
 			const start = declaration.getStart();
 			const end = declaration.getEnd();
@@ -119,7 +113,7 @@ export class NexusAnalyzer {
 		return result;
 	}
 
-	private resolveToken(expression: ts.Expression): NexusToken | undefined {
+	private resolveToken(expression: ts.Expression): NexusToken {
 		if (ts.isStringLiteral(expression)) {
 			return {
 				kind: "string",
@@ -128,14 +122,27 @@ export class NexusAnalyzer {
 			};
 		}
 
-		if (!ts.isIdentifier(expression)) return undefined;
+		const symbol = this.checker.getSymbolAtLocation(expression);
+		const type = this.checker.getTypeAtLocation(expression);
 
-		const symbol = this.resolveAlias(this.checker.getSymbolAtLocation(expression));
-		if (!symbol) return undefined;
+		if ((type.getFlags() & ts.TypeFlags.ESSymbolLike) !== 0) {
+			return {
+				kind: "symbol",
+				declaration: this.resolveAlias(symbol),
+				expression,
+			};
+		}
+
+		if (symbol) {
+			return {
+				kind: "reference",
+				symbol: this.resolveAlias(symbol) ?? symbol,
+				expression,
+			};
+		}
 
 		return {
-			kind: "reference",
-			symbol,
+			kind: "expression",
 			expression,
 		};
 	}
