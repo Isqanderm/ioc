@@ -102,10 +102,11 @@ export class CycleB {
 	],
 ]);
 
-function createProgram(): {
-	program: ts.Program;
-	entryPoint: ts.ClassDeclaration;
-} {
+function createProgram(
+	entryFileName = "/app/app.module.ts",
+	entryClassName = "AppModule",
+	files = FILES,
+): { program: ts.Program; entryPoint: ts.ClassDeclaration } {
 	const options: ts.CompilerOptions = {
 		target: ts.ScriptTarget.ES2022,
 		module: ts.ModuleKind.CommonJS,
@@ -124,14 +125,26 @@ function createProgram(): {
 		...defaultHost,
 		fileExists: (fileName) =>
 			fileName === nexusCoreTypes ||
-			FILES.has(fileName) ||
+			files.has(fileName) ||
 			defaultHost.fileExists(fileName),
+		directoryExists: (directoryName) => {
+			const normalizedDirectory = path.normalize(directoryName);
+
+			return (
+				normalizedDirectory === "/" ||
+				[...files.keys()].some(
+					(fileName) =>
+						path.dirname(fileName) === normalizedDirectory ||
+						fileName.startsWith(`${normalizedDirectory}/`),
+				)
+			);
+		},
 		readFile: (fileName) =>
 			fileName === nexusCoreTypes
 				? defaultHost.readFile(fileName)
-				: (FILES.get(fileName) ?? defaultHost.readFile(fileName)),
+				: files.get(fileName) ?? defaultHost.readFile(fileName),
 		getSourceFile: (fileName, languageVersion) => {
-			const text = FILES.get(fileName);
+			const text = files.get(fileName);
 			if (text !== undefined) {
 				return ts.createSourceFile(fileName, text, languageVersion, true);
 			}
@@ -147,20 +160,25 @@ function createProgram(): {
 					};
 				}
 
-				return ts.resolveModuleName(moduleName, containingFile, options, host)
-					.resolvedModule;
+				return ts.resolveModuleName(
+					moduleName,
+					containingFile,
+					options,
+					host,
+				).resolvedModule;
 			}),
 	};
 
-	const program = ts.createProgram(["/app/app.module.ts"], options, host);
-	const sourceFile = program.getSourceFile("/app/app.module.ts");
+	const program = ts.createProgram([entryFileName], options, host);
+	const sourceFile = program.getSourceFile(entryFileName);
 	if (!sourceFile) throw new Error("Entry point source file was not created");
 
 	const entryPoint = sourceFile.statements.find(
 		(statement): statement is ts.ClassDeclaration =>
-			ts.isClassDeclaration(statement) && statement.name?.text === "AppModule",
+			ts.isClassDeclaration(statement) &&
+			statement.name?.text === entryClassName,
 	);
-	if (!entryPoint) throw new Error("AppModule not found");
+	if (!entryPoint) throw new Error(`${entryClassName} not found`);
 
 	return { program, entryPoint };
 }
