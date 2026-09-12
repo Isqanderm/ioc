@@ -1,10 +1,7 @@
 import * as path from "node:path";
 import * as ts from "typescript/lib/tsserverlibrary";
 import { describe, expect, it } from "vitest";
-import {
-	createNexusAnalyzer,
-	createNexusApplicationAnalyzer,
-} from "../src";
+import { createNexusAnalyzer, createNexusApplicationAnalyzer } from "../src";
 
 const FILES = new Map<string, string>([
 	[
@@ -105,7 +102,10 @@ export class CycleB {
 	],
 ]);
 
-function createProgram(): { program: ts.Program; entryPoint: ts.ClassDeclaration } {
+function createProgram(): {
+	program: ts.Program;
+	entryPoint: ts.ClassDeclaration;
+} {
 	const options: ts.CompilerOptions = {
 		target: ts.ScriptTarget.ES2022,
 		module: ts.ModuleKind.CommonJS,
@@ -129,7 +129,7 @@ function createProgram(): { program: ts.Program; entryPoint: ts.ClassDeclaration
 		readFile: (fileName) =>
 			fileName === nexusCoreTypes
 				? defaultHost.readFile(fileName)
-				: FILES.get(fileName) ?? defaultHost.readFile(fileName),
+				: (FILES.get(fileName) ?? defaultHost.readFile(fileName)),
 		getSourceFile: (fileName, languageVersion) => {
 			const text = FILES.get(fileName);
 			if (text !== undefined) {
@@ -220,7 +220,9 @@ describe("NexusApplicationAnalyzer", () => {
 
 		const dependencyClassNames = appModule.dependencies.map((dependency) => {
 			if (dependency.token?.kind !== "reference") {
-				throw new Error("Expected an aliased class import to resolve to a reference token");
+				throw new Error(
+					"Expected an aliased class import to resolve to a reference token",
+				);
 			}
 			return dependency.token.symbol.getName();
 		});
@@ -234,12 +236,16 @@ describe("NexusApplicationAnalyzer", () => {
 		const applicationAnalyzer = createNexusApplicationAnalyzer(analyzer);
 
 		const application = applicationAnalyzer.analyze(entryPoint);
-		const serviceA = application.classes.find((item) => item.name === "ServiceA");
+		const serviceA = application.classes.find(
+			(item) => item.name === "ServiceA",
+		);
 		const sharedDependency = serviceA?.dependencies[0];
 
 		expect(sharedDependency?.token).toMatchObject({ kind: "reference" });
 		if (sharedDependency?.token?.kind !== "reference") {
-			throw new Error("Expected aliased SharedService import to resolve to a reference token");
+			throw new Error(
+				"Expected aliased SharedService import to resolve to a reference token",
+			);
 		}
 
 		expect(sharedDependency.token.symbol.getName()).toBe("SharedService");
@@ -251,7 +257,9 @@ describe("NexusApplicationAnalyzer", () => {
 		const applicationAnalyzer = createNexusApplicationAnalyzer(analyzer);
 
 		const application = applicationAnalyzer.analyze(entryPoint);
-		const serviceA = application.classes.find((item) => item.name === "ServiceA");
+		const serviceA = application.classes.find(
+			(item) => item.name === "ServiceA",
+		);
 		const sharedDependency = serviceA?.dependencies[0];
 
 		expect(sharedDependency?.token).toMatchObject({ kind: "reference" });

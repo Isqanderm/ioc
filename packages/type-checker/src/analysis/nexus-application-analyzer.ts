@@ -1,7 +1,11 @@
 import * as ts from "typescript";
 import type { NexusAnalyzer } from "./nexus-analyzer";
 import type { NexusApplication } from "./nexus-application-model";
-import type { NexusClass, NexusSourceSpan, NexusToken } from "./nexus-semantic-model";
+import type {
+	NexusClass,
+	NexusSourceSpan,
+	NexusToken,
+} from "./nexus-semantic-model";
 
 /** Performs whole-application semantic analysis from a Nexus root class. */
 export class NexusApplicationAnalyzer {
@@ -57,8 +61,11 @@ export class NexusApplicationAnalyzer {
 	): ts.ClassDeclaration | undefined {
 		if (!token || token.kind !== "reference") return undefined;
 
-		const declaration = token.symbol.valueDeclaration ?? token.symbol.declarations?.[0];
-		return declaration && ts.isClassDeclaration(declaration) ? declaration : undefined;
+		const declaration =
+			token.symbol.valueDeclaration ?? token.symbol.declarations?.[0];
+		return declaration && ts.isClassDeclaration(declaration)
+			? declaration
+			: undefined;
 	}
 
 	private getClassSymbol(node: ts.ClassDeclaration): ts.Symbol | undefined {

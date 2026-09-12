@@ -12,21 +12,21 @@ export type NexusToken =
 			kind: "string";
 			value: string;
 			source: NexusSourceSpan;
-		}
+	  }
 	| {
 			kind: "symbol";
 			declaration?: ts.Symbol;
 			source: NexusSourceSpan;
-		}
+	  }
 	| {
 			kind: "reference";
 			symbol: ts.Symbol;
 			source: NexusSourceSpan;
-		}
+	  }
 	| {
 			kind: "expression";
 			source: NexusSourceSpan;
-		};
+	  };
 
 export type NexusDependency = {
 	location: "constructor" | "property";

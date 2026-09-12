@@ -75,7 +75,7 @@ export class NexusAnalyzer {
 							kind,
 							source: this.getSourceSpan(declaration),
 						},
-				  ]
+					]
 				: [];
 		});
 	}
@@ -145,7 +145,7 @@ export class NexusAnalyzer {
 							kind,
 							expression: declaration.expression,
 						},
-				  ]
+					]
 				: [];
 		});
 	}

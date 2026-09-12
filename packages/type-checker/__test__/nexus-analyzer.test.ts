@@ -161,7 +161,7 @@ describe("NexusAnalyzer", () => {
 		expectSourceSpan(
 			sourceFile,
 			service.source,
-			"@Service()\nclass ServiceA {\n  constructor(\n    @Dependency(DependencyA) dependency: DependencyA,\n    @Dependency(\"config\") @Maybe() config: unknown,\n    @Dependency(SYMBOL_TOKEN) symbol: unknown,\n    @Dependency(AbstractDependency) abstractDependency: AbstractDependency,\n    @Dependency(FunctionDependency) functionDependency: typeof FunctionDependency,\n  ) {}\n\n  @Dependency(\"logger\")\n  private logger!: unknown;\n}",
+			'@Service()\nclass ServiceA {\n  constructor(\n    @Dependency(DependencyA) dependency: DependencyA,\n    @Dependency("config") @Maybe() config: unknown,\n    @Dependency(SYMBOL_TOKEN) symbol: unknown,\n    @Dependency(AbstractDependency) abstractDependency: AbstractDependency,\n    @Dependency(FunctionDependency) functionDependency: typeof FunctionDependency,\n  ) {}\n\n  @Dependency("logger")\n  private logger!: unknown;\n}',
 		);
 	});
 
@@ -221,8 +221,13 @@ describe("NexusAnalyzer", () => {
 		const analyzer = createNexusAnalyzer(program);
 
 		const service = analyzer.getClass(getClass(sourceFile, "ServiceA"));
-		const [classDependency, stringDependency, symbolDependency, abstractDependency, functionDependency] =
-			service.dependencies;
+		const [
+			classDependency,
+			stringDependency,
+			symbolDependency,
+			abstractDependency,
+			functionDependency,
+		] = service.dependencies;
 
 		expect(classDependency.token).toMatchObject({ kind: "reference" });
 		if (classDependency.token?.kind !== "reference") {
@@ -250,7 +255,9 @@ describe("NexusAnalyzer", () => {
 		if (abstractDependency.token?.kind !== "reference") {
 			throw new Error("Abstract token was not resolved");
 		}
-		expect(abstractDependency.token.symbol.getName()).toBe("AbstractDependency");
+		expect(abstractDependency.token.symbol.getName()).toBe(
+			"AbstractDependency",
+		);
 		expectSourceSpan(
 			sourceFile,
 			abstractDependency.token.source,
@@ -261,7 +268,9 @@ describe("NexusAnalyzer", () => {
 		if (functionDependency.token?.kind !== "reference") {
 			throw new Error("Function token was not resolved");
 		}
-		expect(functionDependency.token.symbol.getName()).toBe("FunctionDependency");
+		expect(functionDependency.token.symbol.getName()).toBe(
+			"FunctionDependency",
+		);
 		expectSourceSpan(
 			sourceFile,
 			functionDependency.token.source,
