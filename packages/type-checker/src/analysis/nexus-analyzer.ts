@@ -1,6 +1,6 @@
 import * as ts from "typescript";
 import type {
-	NexusClassModel,
+	NexusClass,
 	NexusDecorator,
 	NexusDecoratorKind,
 	NexusDependency,
@@ -9,7 +9,7 @@ import type {
 } from "./nexus-semantic-model";
 
 export type {
-	NexusClassModel,
+	NexusClass,
 	NexusDecorator,
 	NexusDecoratorKind,
 	NexusDependency,
@@ -35,21 +35,26 @@ export class NexusAnalyzer {
 		return this.checker;
 	}
 
-	public getClassModel(node: ts.ClassDeclaration): NexusClassModel {
+	public getClass(node: ts.ClassDeclaration): NexusClass {
 		const decorators = this.getDecorators(node);
 		const dependencies = this.getInjectedMembers(node);
 
 		return {
-			node,
 			name: node.name?.text,
+			source: this.getSourceSpan(node),
 			decorators,
+			dependencies,
 			isInjectable: decorators.some((item) => item.kind === "Injectable"),
 			isModule: decorators.some(
 				(item) => item.kind === "NsModule" || item.kind === "Global",
 			),
 			isGlobal: decorators.some((item) => item.kind === "Global"),
-			dependencies,
 		};
+	}
+
+	/** @deprecated Use getClass() instead. */
+	public getClassModel(node: ts.ClassDeclaration): NexusClass {
+		return this.getClass(node);
 	}
 
 	public getDecorators(node: ts.Node): NexusDecorator[] {
@@ -63,11 +68,9 @@ export class NexusAnalyzer {
 				? [
 						{
 							kind,
-							declaration,
-							expression: declaration.expression,
 							source: this.getSourceSpan(declaration),
 						},
-					]
+				  ]
 				: [];
 		});
 	}
@@ -85,23 +88,19 @@ export class NexusAnalyzer {
 			const inject = this.getDecorators(declaration).find(
 				(item) => item.kind === "Inject",
 			);
-			if (!inject || !ts.isCallExpression(inject.expression)) {
+			if (!inject) {
 				return;
 			}
 
-			const tokenExpression = inject.expression.arguments[0];
+			const tokenExpression = this.getInjectTokenExpression(declaration);
 			if (!tokenExpression) return;
-
-			const token = this.resolveToken(tokenExpression);
 
 			result.push({
 				location,
-				parameterName: declaration.name.getText(),
-				parameterType: declaration.type,
-				token,
+				name: declaration.name.getText(),
+				token: this.resolveToken(tokenExpression),
 				optional: this.hasDecorator(declaration, "Optional"),
 				source: this.getSourceSpan(declaration),
-				declaration,
 			});
 		};
 
@@ -117,6 +116,34 @@ export class NexusAnalyzer {
 		}
 
 		return result;
+	}
+
+	private getInjectTokenExpression(
+		declaration: ts.ParameterDeclaration | ts.PropertyDeclaration,
+	): ts.Expression | undefined {
+		const decorators = this.getDecoratorsWithExpressions(declaration);
+		const inject = decorators.find((item) => item.kind === "Inject");
+		if (!inject || !ts.isCallExpression(inject.expression)) return undefined;
+		return inject.expression.arguments[0];
+	}
+
+	private getDecoratorsWithExpressions(node: ts.Node): Array<
+		NexusDecorator & { expression: ts.Expression }
+	> {
+		if (!ts.canHaveDecorators(node)) return [];
+
+		return (ts.getDecorators(node) ?? []).flatMap((declaration) => {
+			const kind = this.resolveDecoratorKind(declaration);
+			return kind
+				? [
+						{
+							kind,
+							source: this.getSourceSpan(declaration),
+							expression: declaration.expression,
+						},
+				  ]
+				: [];
+		});
 	}
 
 	private resolveToken(expression: ts.Expression): NexusToken {
