@@ -5,7 +5,7 @@
 
 export { createNexusAnalyzer, NexusAnalyzer } from "./analysis/nexus-analyzer";
 export type {
-	NexusClassModel,
+	NexusClass,
 	NexusDecorator,
 	NexusDecoratorKind,
 	NexusDependency,
