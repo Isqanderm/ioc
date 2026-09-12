@@ -154,9 +154,9 @@ describe("NexusAnalyzer", () => {
 			parameterName: "dependency",
 			optional: false,
 		});
-		expect(service.dependencies[0].token?.kind).toBe("symbol");
+		expect(service.dependencies[0].token?.kind).toBe("reference");
 		expect(
-			service.dependencies[0].token?.kind === "symbol"
+			service.dependencies[0].token?.kind === "reference"
 				? service.dependencies[0].token.symbol.getName()
 				: undefined,
 		).toBe("DependencyA");
