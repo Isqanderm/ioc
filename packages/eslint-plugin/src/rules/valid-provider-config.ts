@@ -43,7 +43,7 @@ export default createRule<Options, MessageIds>({
 
 				// Check if class looks like a module but isn't decorated
 				const looksLikeModule = hasModuleLikeProperties(node);
-				const isModule = isModuleClass(tsNode);
+				const isModule = isModuleClass(tsContext.analyzer, tsNode);
 
 				if (looksLikeModule && !isModule) {
 					context.report({
