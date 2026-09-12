@@ -11,13 +11,12 @@ This package provides the core type-checking, parsing, and analysis logic for Ne
 - **CLI Tools** (CI/CD pipelines)
 - **Custom tooling and integrations**
 
-## Installation
-
-```bash
-npm install @nexus-ioc/type-checker
-```
-
 ## Features
+
+### Semantic analysis
+
+- **NexusAnalyzer** - Converts TypeScript classes into AST-independent Nexus semantic entities
+- **NexusApplicationAnalyzer** - Discovers reachable Nexus classes from an application entry point
 
 ### Parsers
 
@@ -37,57 +36,88 @@ npm install @nexus-ioc/type-checker
 
 ### Types
 
+- **NexusClass** - Semantic representation of a Nexus class
+- **NexusDependency** - Semantic representation of constructor/property injection
+- **NexusDecorator** - Semantic Nexus decorator information
+- **NexusToken** - Semantic injection token information
+- **NexusSourceSpan** - Source location information
+- **NexusApplication** - Semantic representation of classes reachable from an application entry point
 - **ILogger** - Minimal logger interface for framework-agnostic logging
 - **NoOpLogger** - No-op logger implementation
 
 ## Usage
 
-### Basic Example
+### Class-level semantic analysis
 
 ```typescript
+import * as ts from "typescript";
 import {
-  InjectParser,
-  InjectableParser,
-  NsModuleParser,
-  compareTypes,
-  NoOpLogger,
-} from '@nexus-ioc/type-checker';
-import * as ts from 'typescript';
+  createNexusAnalyzer,
+  type NexusClass,
+} from "@nexus-ioc/type-checker";
 
-// Create a TypeScript program
-const program = ts.createProgram(['src/app.ts'], {
-  target: ts.ScriptTarget.ES2020,
+const program = ts.createProgram(["src/app.ts"], {
+  target: ts.ScriptTarget.ES2022,
   module: ts.ModuleKind.CommonJS,
 });
 
-const sourceFile = program.getSourceFile('src/app.ts');
-const typeChecker = program.getTypeChecker();
+const sourceFile = program.getSourceFile("src/app.ts");
+if (!sourceFile) throw new Error("Source file not found");
 
-// Parse @Injectable classes
-const injectableClasses = InjectableParser.execute(sourceFile);
+const classDeclaration = sourceFile.statements.find(
+  (node): node is ts.ClassDeclaration =>
+    ts.isClassDeclaration(node) && node.name?.text === "UsersService",
+);
+if (!classDeclaration) throw new Error("UsersService not found");
 
-// Parse @Inject parameters for each class
-const logger = new NoOpLogger();
-for (const classDecl of injectableClasses) {
-  const params = InjectParser.execute(classDecl, logger);
-  console.log(`Found ${params.length} injected dependencies`);
-}
+const analyzer = createNexusAnalyzer(program);
+const nexusClass: NexusClass = analyzer.getClass(classDeclaration);
 
-// Parse @NsModule decorators
-const modules = NsModulesParser.execute(sourceFile);
-const nsModules = NsModuleParser.execute(modules, typeChecker, {
-  tsLS: program,
-  logger,
-});
-
-// Compare types for compatibility
-const isCompatible = compareTypes(paramType, providerType, typeChecker);
+console.log(nexusClass.name);
+console.log(nexusClass.isInjectable);
+console.log(nexusClass.dependencies);
 ```
 
-### With Custom Logger
+The TypeScript AST is accepted at the analyzer boundary, but `NexusClass`, `NexusDependency`, and `NexusDecorator` do not expose TypeScript AST nodes.
+
+### Application-level semantic analysis
 
 ```typescript
-import { ILogger, InjectParser } from '@nexus-ioc/type-checker';
+import * as ts from "typescript";
+import {
+  createNexusAnalyzer,
+  createNexusApplicationAnalyzer,
+} from "@nexus-ioc/type-checker";
+
+const program = ts.createProgram(["src/app.ts"], {
+  target: ts.ScriptTarget.ES2022,
+  module: ts.ModuleKind.CommonJS,
+});
+
+const sourceFile = program.getSourceFile("src/app.ts");
+if (!sourceFile) throw new Error("Source file not found");
+
+const entryPoint = sourceFile.statements.find(
+  (node): node is ts.ClassDeclaration =>
+    ts.isClassDeclaration(node) && node.name?.text === "AppModule",
+);
+if (!entryPoint) throw new Error("AppModule not found");
+
+const analyzer = createNexusAnalyzer(program);
+const applicationAnalyzer = createNexusApplicationAnalyzer(analyzer);
+const application = applicationAnalyzer.analyze(entryPoint);
+
+for (const nexusClass of application.classes) {
+  console.log(nexusClass.name);
+}
+```
+
+`NexusApplicationAnalyzer` starts from the supplied class and follows resolvable class-reference injection tokens. Results are deterministic and de-duplicated; unrelated classes are excluded.
+
+### Custom logger
+
+```typescript
+import { type ILogger, InjectParser } from "@nexus-ioc/type-checker";
 
 class CustomLogger implements ILogger {
   log(message: string): void {
@@ -100,6 +130,40 @@ const params = InjectParser.execute(classDeclaration, logger);
 ```
 
 ## API Documentation
+
+### NexusAnalyzer
+
+Converts a TypeScript class declaration into the semantic `NexusClass` representation.
+
+```typescript
+class NexusAnalyzer {
+  getClass(node: ts.ClassDeclaration): NexusClass;
+
+  /** @deprecated Use getClass() instead. */
+  getClassModel(node: ts.ClassDeclaration): NexusClass;
+}
+```
+
+### NexusApplicationAnalyzer
+
+Performs whole-application semantic traversal starting from an explicit root class.
+
+```typescript
+class NexusApplicationAnalyzer {
+  analyze(entryPoint: ts.ClassDeclaration): NexusApplication;
+}
+```
+
+The current implementation intentionally stops at semantic reachability. It does not define provider resolution, a full application graph, lifecycle analysis, or circular dependency reporting.
+
+### NexusApplication
+
+```typescript
+type NexusApplication = {
+  entryPoint: NexusSourceSpan;
+  classes: readonly NexusClass[];
+};
+```
 
 ### InjectParser
 
@@ -150,41 +214,6 @@ function compareTypes(
 ): boolean;
 ```
 
-## Integration Examples
-
-### TypeScript Language Service Plugin
-
-```typescript
-import { InjectParser, compareTypes } from '@nexus-ioc/type-checker';
-
-// In your language service plugin
-const params = InjectParser.execute(classDecl, logger);
-const isValid = compareTypes(paramType, providerType, checker);
-```
-
-### ESLint Plugin
-
-```typescript
-import { InjectParser, NoOpLogger } from '@nexus-ioc/type-checker';
-import { ESLintUtils } from '@typescript-eslint/utils';
-
-export default ESLintUtils.RuleCreator.withoutDocs({
-  create(context) {
-    const parserServices = ESLintUtils.getParserServices(context);
-    const checker = parserServices.program.getTypeChecker();
-    const logger = new NoOpLogger();
-
-    return {
-      ClassDeclaration(node) {
-        const tsNode = parserServices.esTreeNodeToTSNodeMap.get(node);
-        const params = InjectParser.execute(tsNode, logger);
-        // Validate dependencies...
-      },
-    };
-  },
-});
-```
-
 ## Requirements
 
 - TypeScript >= 4.0.0
@@ -200,7 +229,6 @@ See the main [Nexus IoC repository](https://github.com/Isqanderm/ioc) for contri
 
 ## Related Packages
 
-- [@nexus-ioc/language-service](https://www.npmjs.com/package/@nexus-ioc/language-service) - TypeScript Language Service Plugin for VS Code
-- [@nexus-ioc/eslint-plugin](https://www.npmjs.com/package/@nexus-ioc/eslint-plugin) - ESLint Plugin for WebStorm and all IDEs
-- [@nexus-ioc/core](https://www.npmjs.com/package/@nexus-ioc/core) - Core Nexus IoC framework
-
+- **Language Service** - TypeScript Language Service Plugin
+- **ESLint Plugin** - ESLint integration
+- **Core** - Nexus IoC runtime
