@@ -1,3 +1,4 @@
+import * as path from "node:path";
 import * as ts from "typescript/lib/tsserverlibrary";
 import { describe, expect, it } from "vitest";
 import { createNexusAnalyzer } from "../src";
@@ -63,12 +64,17 @@ function createProgram(): { program: ts.Program; sourceFile: ts.SourceFile } {
     strict: true,
     skipLibCheck: true,
   };
+  const nexusCoreTypes = path.resolve(process.cwd(), "../ioc/dist/types/index.d.ts");
 
   const defaultHost = ts.createCompilerHost(options, true);
   const host: ts.CompilerHost = {
     ...defaultHost,
-    fileExists: (fileName) => files.has(fileName) || defaultHost.fileExists(fileName),
-    readFile: (fileName) => files.get(fileName) ?? defaultHost.readFile(fileName),
+    fileExists: (fileName) =>
+      fileName === nexusCoreTypes || files.has(fileName) || defaultHost.fileExists(fileName),
+    readFile: (fileName) => {
+      if (fileName === nexusCoreTypes) return defaultHost.readFile(fileName);
+      return files.get(fileName) ?? defaultHost.readFile(fileName);
+    },
     getSourceFile: (fileName, languageVersion) => {
       const text = files.get(fileName);
       if (text !== undefined) {
@@ -78,6 +84,14 @@ function createProgram(): { program: ts.Program; sourceFile: ts.SourceFile } {
     },
     resolveModuleNames: (moduleNames, containingFile) =>
       moduleNames.map((moduleName) => {
+        if (moduleName === "@nexus-ioc/core") {
+          return {
+            resolvedFileName: nexusCoreTypes,
+            extension: ts.Extension.Dts,
+            isExternalLibraryImport: true,
+          };
+        }
+
         if (moduleName === "./foreign") {
           return {
             resolvedFileName: "/foreign.ts",
@@ -86,8 +100,7 @@ function createProgram(): { program: ts.Program; sourceFile: ts.SourceFile } {
           };
         }
 
-        const resolved = ts.resolveModuleName(moduleName, containingFile, options, host).resolvedModule;
-        return resolved;
+        return ts.resolveModuleName(moduleName, containingFile, options, host).resolvedModule;
       }),
   };
 
