@@ -226,18 +226,48 @@ describe("NexusAnalyzer", () => {
 			service.dependencies;
 
 		expect(classDependency.token).toMatchObject({ kind: "reference" });
-		expect(
-			classDependency.token?.kind === "reference"
-				? classDependency.token.symbol.getName()
-				: undefined,
-		).toBe("DependencyA");
+		if (classDependency.token?.kind !== "reference") {
+			throw new Error("Class token was not resolved");
+		}
+		expect(classDependency.token.symbol.getName()).toBe("DependencyA");
+		expectSourceSpan(sourceFile, classDependency.token.source, "DependencyA");
+
 		expect(stringDependency.token).toMatchObject({
 			kind: "string",
 			value: "config",
 		});
+		if (stringDependency.token?.kind !== "string") {
+			throw new Error("String token was not resolved");
+		}
+		expectSourceSpan(sourceFile, stringDependency.token.source, '"config"');
+
 		expect(symbolDependency.token).toMatchObject({ kind: "symbol" });
+		if (symbolDependency.token?.kind !== "symbol") {
+			throw new Error("Symbol token was not resolved");
+		}
+		expectSourceSpan(sourceFile, symbolDependency.token.source, "SYMBOL_TOKEN");
+
 		expect(abstractDependency.token).toMatchObject({ kind: "reference" });
+		if (abstractDependency.token?.kind !== "reference") {
+			throw new Error("Abstract token was not resolved");
+		}
+		expect(abstractDependency.token.symbol.getName()).toBe("AbstractDependency");
+		expectSourceSpan(
+			sourceFile,
+			abstractDependency.token.source,
+			"AbstractDependency",
+		);
+
 		expect(functionDependency.token).toMatchObject({ kind: "reference" });
+		if (functionDependency.token?.kind !== "reference") {
+			throw new Error("Function token was not resolved");
+		}
+		expect(functionDependency.token.symbol.getName()).toBe("FunctionDependency");
+		expectSourceSpan(
+			sourceFile,
+			functionDependency.token.source,
+			"FunctionDependency",
+		);
 	});
 
 	it("preserves module and global module semantics", () => {
