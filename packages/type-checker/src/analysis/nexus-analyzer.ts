@@ -80,14 +80,12 @@ export class NexusAnalyzer {
 			return [];
 		}
 
-		return (ts.getDecorators(node) ?? [])
-			.map((declaration) => {
-				const kind = this.resolveDecoratorKind(declaration);
-				return kind
-					? { kind, declaration, expression: declaration.expression }
-					: undefined;
-			})
-			.filter((item): item is NexusDecorator => item !== undefined);
+		return (ts.getDecorators(node) ?? []).flatMap((declaration) => {
+			const kind = this.resolveDecoratorKind(declaration);
+			return kind
+				? [{ kind, declaration, expression: declaration.expression }]
+				: [];
+		});
 	}
 
 	public hasDecorator(node: ts.Node, kind: NexusDecoratorKind): boolean {
