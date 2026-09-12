@@ -1,7 +1,7 @@
 import * as ts from "typescript";
 import type { NexusAnalyzer } from "./nexus-analyzer";
 import type { NexusApplication } from "./nexus-application-model";
-import type { NexusClass, NexusToken } from "./nexus-semantic-model";
+import type { NexusClass, NexusSourceSpan, NexusToken } from "./nexus-semantic-model";
 
 /** Performs whole-application semantic analysis from a Nexus root class. */
 export class NexusApplicationAnalyzer {
@@ -11,6 +11,11 @@ export class NexusApplicationAnalyzer {
 		const classes: NexusClass[] = [];
 		const visited = new Set<ts.Symbol>();
 		const pending: ts.ClassDeclaration[] = [entryPoint];
+		const entryPointSymbol = this.getClassSymbol(entryPoint);
+
+		if (entryPointSymbol) {
+			visited.add(entryPointSymbol);
+		}
 
 		while (pending.length > 0) {
 			const node = pending.shift();
@@ -23,8 +28,9 @@ export class NexusApplicationAnalyzer {
 				const next = this.resolveClassFromToken(dependency.token);
 				if (!next) continue;
 
-				const symbol = next.name ? this.getClassSymbol(next) : undefined;
+				const symbol = this.getClassSymbol(next);
 				if (!symbol || visited.has(symbol)) continue;
+
 				visited.add(symbol);
 				pending.push(next);
 			}
@@ -36,7 +42,9 @@ export class NexusApplicationAnalyzer {
 		};
 	}
 
-	private resolveClassFromToken(token: NexusToken | undefined): ts.ClassDeclaration | undefined {
+	private resolveClassFromToken(
+		token: NexusToken | undefined,
+	): ts.ClassDeclaration | undefined {
 		if (!token || token.kind !== "reference") return undefined;
 
 		const declaration = token.symbol.valueDeclaration ?? token.symbol.declarations?.[0];
@@ -44,10 +52,12 @@ export class NexusApplicationAnalyzer {
 	}
 
 	private getClassSymbol(node: ts.ClassDeclaration): ts.Symbol | undefined {
-		return node.name ? this.analyzer.getTypeChecker().getSymbolAtLocation(node.name) : undefined;
+		return node.name
+			? this.analyzer.getTypeChecker().getSymbolAtLocation(node.name)
+			: undefined;
 	}
 
-	private getSourceSpan(node: ts.Node) {
+	private getSourceSpan(node: ts.Node): NexusSourceSpan {
 		const start = node.getStart();
 		const end = node.getEnd();
 		return {
