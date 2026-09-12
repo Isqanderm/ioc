@@ -67,7 +67,7 @@ export class NexusAnalyzer {
 							expression: declaration.expression,
 							source: this.getSourceSpan(declaration),
 						},
-				  ]
+					]
 				: [];
 		});
 	}

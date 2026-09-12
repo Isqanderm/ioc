@@ -3,6 +3,7 @@
  * @nexus-ioc/type-checker - Framework-agnostic semantic analysis for Nexus IoC.
  */
 
+export { createNexusAnalyzer, NexusAnalyzer } from "./analysis/nexus-analyzer";
 export type {
 	NexusClassModel,
 	NexusDecorator,
@@ -11,7 +12,6 @@ export type {
 	NexusSourceSpan,
 	NexusToken,
 } from "./analysis/nexus-semantic-model";
-export { createNexusAnalyzer, NexusAnalyzer } from "./analysis/nexus-analyzer";
 
 // Helpers
 export { checkTypesHelper } from "./helpers/check-types.helper";
