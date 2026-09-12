@@ -14,6 +14,10 @@ import {
 import { Inject as ForeignInject, Injectable as ForeignService } from "./foreign";
 
 class DependencyA {}
+const SYMBOL_TOKEN = Symbol("symbol-token");
+abstract class AbstractDependency {}
+function FunctionDependency() {}
+function createStringToken() { return "computed"; }
 
 @Service()
 class ServiceA {
@@ -24,6 +28,19 @@ class ServiceA {
 
   @Dependency("logger")
   private logger!: unknown;
+}
+
+@Service()
+class TokenVariantsService {
+  constructor(
+    @Dependency("string-token") stringToken: unknown,
+    @Dependency(SYMBOL_TOKEN) symbolToken: unknown,
+    @Dependency(Symbol("inline-symbol")) inlineSymbolToken: unknown,
+    @Dependency(DependencyA) typeToken: DependencyA,
+    @Dependency(AbstractDependency) abstractToken: AbstractDependency,
+    @Dependency(FunctionDependency) functionToken: typeof FunctionDependency,
+    @Dependency(createStringToken()) computedToken: string,
+  ) {}
 }
 
 @Module({})
@@ -180,6 +197,61 @@ describe("NexusAnalyzer", () => {
 			kind: "string",
 			value: "logger",
 		});
+	});
+
+	it("represents all InjectionToken forms used by the analyzer", () => {
+		const { program, sourceFile } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+
+		const service = analyzer.getClassModel(
+			getClass(sourceFile, "TokenVariantsService"),
+		);
+
+		expect(service.dependencies).toHaveLength(7);
+
+		expect(service.dependencies[0].token).toMatchObject({
+			kind: "string",
+			value: "string-token",
+		});
+
+		expect(service.dependencies[1].token).toMatchObject({
+			kind: "symbol",
+		});
+		if (service.dependencies[1].token?.kind === "symbol") {
+			expect(service.dependencies[1].token.declaration?.getName()).toBe(
+				"SYMBOL_TOKEN",
+			);
+		}
+
+		expect(service.dependencies[2].token).toMatchObject({
+			kind: "symbol",
+		});
+		expect(service.dependencies[2].token?.expression).toSatisfy(
+			(expression) => expression && ts.isCallExpression(expression),
+		);
+
+		expect(service.dependencies[3].token?.kind).toBe("reference");
+		if (service.dependencies[3].token?.kind === "reference") {
+			expect(service.dependencies[3].token.symbol.getName()).toBe(
+				"DependencyA",
+			);
+		}
+
+		expect(service.dependencies[4].token?.kind).toBe("reference");
+		if (service.dependencies[4].token?.kind === "reference") {
+			expect(service.dependencies[4].token.symbol.getName()).toBe(
+				"AbstractDependency",
+			);
+		}
+
+		expect(service.dependencies[5].token?.kind).toBe("reference");
+		if (service.dependencies[5].token?.kind === "reference") {
+			expect(service.dependencies[5].token.symbol.getName()).toBe(
+				"FunctionDependency",
+			);
+		}
+
+		expect(service.dependencies[6].token?.kind).toBe("expression");
 	});
 
 	it("recognizes modules and global modules", () => {
