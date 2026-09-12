@@ -92,8 +92,6 @@ export class NexusAnalyzer {
 			const tokenExpression = inject.expression.arguments[0];
 			if (!tokenExpression) return;
 
-			const start = declaration.getStart();
-			const end = declaration.getEnd();
 			const token = this.resolveToken(tokenExpression);
 
 			result.push({
