@@ -4,6 +4,7 @@ import type {
 	NexusDecorator,
 	NexusDecoratorKind,
 	NexusDependency,
+	NexusSourceSpan,
 	NexusToken,
 } from "./nexus-semantic-model";
 
@@ -59,7 +60,14 @@ export class NexusAnalyzer {
 		return (ts.getDecorators(node) ?? []).flatMap((declaration) => {
 			const kind = this.resolveDecoratorKind(declaration);
 			return kind
-				? [{ kind, declaration, expression: declaration.expression }]
+				? [
+						{
+							kind,
+							declaration,
+							expression: declaration.expression,
+							source: this.getSourceSpan(declaration),
+						},
+				  ]
 				: [];
 		});
 	}
@@ -94,7 +102,7 @@ export class NexusAnalyzer {
 				parameterType: declaration.type,
 				token,
 				optional: this.hasDecorator(declaration, "Optional"),
-				source: { start, end, length: end - start },
+				source: this.getSourceSpan(declaration),
 				declaration,
 			});
 		};
@@ -114,11 +122,13 @@ export class NexusAnalyzer {
 	}
 
 	private resolveToken(expression: ts.Expression): NexusToken {
+		const source = this.getSourceSpan(expression);
+
 		if (ts.isStringLiteral(expression)) {
 			return {
 				kind: "string",
 				value: expression.text,
-				expression,
+				source,
 			};
 		}
 
@@ -129,7 +139,7 @@ export class NexusAnalyzer {
 			return {
 				kind: "symbol",
 				declaration: this.resolveAlias(symbol),
-				expression,
+				source,
 			};
 		}
 
@@ -137,13 +147,24 @@ export class NexusAnalyzer {
 			return {
 				kind: "reference",
 				symbol: this.resolveAlias(symbol) ?? symbol,
-				expression,
+				source,
 			};
 		}
 
 		return {
 			kind: "expression",
-			expression,
+			source,
+		};
+	}
+
+	private getSourceSpan(node: ts.Node): NexusSourceSpan {
+		const start = node.getStart();
+		const end = node.getEnd();
+		return {
+			fileName: node.getSourceFile().fileName,
+			start,
+			end,
+			length: end - start,
 		};
 	}
 

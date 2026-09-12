@@ -1,6 +1,7 @@
 import type * as ts from "typescript";
 
 export type NexusSourceSpan = {
+	fileName: string;
 	start: number;
 	end: number;
 	length: number;
@@ -10,21 +11,21 @@ export type NexusToken =
 	| {
 			kind: "string";
 			value: string;
-			expression: ts.StringLiteral;
+			source: NexusSourceSpan;
 		}
 	| {
 			kind: "symbol";
 			declaration?: ts.Symbol;
-			expression: ts.Expression;
+			source: NexusSourceSpan;
 		}
 	| {
 			kind: "reference";
 			symbol: ts.Symbol;
-			expression: ts.Expression;
+			source: NexusSourceSpan;
 		}
 	| {
 			kind: "expression";
-			expression: ts.Expression;
+			source: NexusSourceSpan;
 		};
 
 export type NexusDependency = {
@@ -48,6 +49,7 @@ export type NexusDecorator = {
 	kind: NexusDecoratorKind;
 	declaration: ts.Decorator;
 	expression: ts.Expression;
+	source: NexusSourceSpan;
 };
 
 export type NexusClassModel = {
