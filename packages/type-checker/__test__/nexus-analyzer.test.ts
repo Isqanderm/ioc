@@ -180,7 +180,8 @@ describe("NexusAnalyzer", () => {
 				? classDependency.token.symbol.getName()
 				: undefined,
 		).toBe("DependencyA");
-		if (!classDependency.token) throw new Error("Class token was not resolved");
+		if (!classDependency.token)
+			throw new Error("Class token was not resolved");
 		expectSourceSpan(
 			sourceFile,
 			classDependency.token.source,
@@ -191,7 +192,8 @@ describe("NexusAnalyzer", () => {
 			kind: "string",
 			value: "config",
 		});
-		if (!stringDependency.token) throw new Error("String token was not resolved");
+		if (!stringDependency.token)
+			throw new Error("String token was not resolved");
 		expectSourceSpan(
 			sourceFile,
 			stringDependency.token.source,
@@ -201,7 +203,8 @@ describe("NexusAnalyzer", () => {
 		expect(symbolDependency.token).toMatchObject({
 			kind: "symbol",
 		});
-		if (!symbolDependency.token) throw new Error("Symbol token was not resolved");
+		if (!symbolDependency.token)
+			throw new Error("Symbol token was not resolved");
 		expectSourceSpan(
 			sourceFile,
 			symbolDependency.token.source,
