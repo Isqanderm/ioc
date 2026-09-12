@@ -1,41 +1,13 @@
 import * as ts from "typescript";
 import type { ILogger } from "../types/logger.interface";
 import { NoOpLogger } from "../types/logger.interface";
-
-export type NexusDecoratorKind =
-	| "Inject"
-	| "Injectable"
-	| "NsModule"
-	| "Optional"
-	| "Global";
-
-export type NexusDecorator = {
-	kind: NexusDecoratorKind;
-	declaration: ts.Decorator;
-	expression: ts.Expression;
-};
-
-export type NexusClassModel = {
-	node: ts.ClassDeclaration;
-	name?: string;
-	decorators: NexusDecorator[];
-	isInjectable: boolean;
-	isModule: boolean;
-	isGlobal: boolean;
-	dependencies: InjectParameterDeclaration[];
-};
-
-export type InjectParameterDeclaration = {
-	name: ts.Identifier | ts.StringLiteral;
-	location: "constructor" | "property";
-	declaration: ts.ParameterDeclaration | ts.PropertyDeclaration;
-	start: number;
-	end: number;
-	length: number;
-	parameterName: string;
-	parameterType?: ts.TypeNode;
-	isOptional: boolean;
-};
+import type {
+	NexusClassModel,
+	NexusDecorator,
+	NexusDecoratorKind,
+	NexusDependency,
+	NexusToken,
+} from "./nexus-semantic-model";
 
 const NEXUS_CORE_PACKAGE = "@nexus-ioc/core";
 
@@ -92,10 +64,8 @@ export class NexusAnalyzer {
 		return this.getDecorators(node).some((item) => item.kind === kind);
 	}
 
-	public getInjectedMembers(
-		node: ts.ClassDeclaration,
-	): InjectParameterDeclaration[] {
-		const result: InjectParameterDeclaration[] = [];
+	public getInjectedMembers(node: ts.ClassDeclaration): NexusDependency[] {
+		const result: NexusDependency[] = [];
 		const add = (
 			declaration: ts.ParameterDeclaration | ts.PropertyDeclaration,
 			location: "constructor" | "property",
@@ -107,39 +77,63 @@ export class NexusAnalyzer {
 				return;
 			}
 
-			const token = inject.expression.arguments[0];
-			if (!token || (!ts.isIdentifier(token) && !ts.isStringLiteral(token))) {
+			const tokenExpression = inject.expression.arguments[0];
+			if (
+				!tokenExpression ||
+				(!ts.isIdentifier(tokenExpression) &&
+					!ts.isStringLiteral(tokenExpression))
+			) {
 				return;
 			}
 
 			const start = declaration.getStart();
 			const end = declaration.getEnd();
-			const isOptional = this.hasDecorator(declaration, "Optional");
+			const token = this.resolveToken(tokenExpression);
+
 			result.push({
-				name: token,
 				location,
-				declaration,
-				start,
-				end,
-				length: end - start,
 				parameterName: declaration.name.getText(),
 				parameterType: declaration.type,
-				isOptional,
+				token,
+				optional: this.hasDecorator(declaration, "Optional"),
+				source: { start, end, length: end - start },
+				declaration,
 			});
 		};
 
 		for (const member of node.members) {
 			if (ts.isConstructorDeclaration(member)) {
-				for (const parameter of member.parameters)
+				for (const parameter of member.parameters) {
 					add(parameter, "constructor");
+				}
 			}
-			if (ts.isPropertyDeclaration(member)) add(member, "property");
+			if (ts.isPropertyDeclaration(member)) {
+				add(member, "property");
+			}
 		}
 
-		this.logger.log(
-			`[NexusAnalyzer] ${node.name?.text ?? "AnonymousClass"}: ${result.length} injected members`,
-		);
 		return result;
+	}
+
+	private resolveToken(expression: ts.Expression): NexusToken | undefined {
+		if (ts.isStringLiteral(expression)) {
+			return {
+				kind: "string",
+				value: expression.text,
+				expression,
+			};
+		}
+
+		if (!ts.isIdentifier(expression)) return undefined;
+
+		const symbol = this.resolveAlias(this.checker.getSymbolAtLocation(expression));
+		if (!symbol) return undefined;
+
+		return {
+			kind: "symbol",
+			symbol,
+			expression,
+		};
 	}
 
 	private resolveDecoratorKind(
@@ -151,7 +145,7 @@ export class NexusAnalyzer {
 		const symbol = this.checker.getSymbolAtLocation(callee);
 		if (!symbol || !this.isNexusCoreSymbol(symbol)) return undefined;
 
-		const name = this.resolveAlias(symbol).getName();
+		const name = this.resolveAlias(symbol)?.getName();
 		return name === "Inject" ||
 			name === "Injectable" ||
 			name === "NsModule" ||
@@ -173,7 +167,9 @@ export class NexusAnalyzer {
 		return undefined;
 	}
 
-	private resolveAlias(symbol: ts.Symbol): ts.Symbol {
+	private resolveAlias(symbol: ts.Symbol | undefined): ts.Symbol | undefined {
+		if (!symbol) return undefined;
+
 		let current = symbol;
 		const visited = new Set<ts.Symbol>();
 		while (
