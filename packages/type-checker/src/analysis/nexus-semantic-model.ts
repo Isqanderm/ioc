@@ -6,11 +6,19 @@ export type NexusSourceSpan = {
 	length: number;
 };
 
+/**
+ * Semantic representation of a Nexus injection token.
+ *
+ * A TypeScript symbol is the identity of a referenced declaration; it is not
+ * itself a JavaScript `symbol` runtime token. Keeping that distinction explicit
+ * prevents the semantic model from conflating declaration identity with token
+ * value.
+ */
 export type NexusToken =
 	| {
-			kind: "symbol";
+			kind: "reference";
 			symbol: ts.Symbol;
-			expression: ts.Identifier;
+			expression: ts.Expression;
 		}
 	| {
 			kind: "string";
