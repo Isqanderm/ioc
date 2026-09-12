@@ -276,7 +276,7 @@ describe("NexusApplicationAnalyzer", () => {
 		);
 		const first = firstAnalyzer
 			.analyze(firstProgram.entryPoint)
-			.classes.map((item) => item.source.fileName + ":" + item.name);
+			.classes.map((item) => `${item.source.fileName}:${item.name}`);
 
 		const secondProgram = createProgram();
 		const secondAnalyzer = createNexusApplicationAnalyzer(
@@ -284,7 +284,7 @@ describe("NexusApplicationAnalyzer", () => {
 		);
 		const second = secondAnalyzer
 			.analyze(secondProgram.entryPoint)
-			.classes.map((item) => item.source.fileName + ":" + item.name);
+			.classes.map((item) => `${item.source.fileName}:${item.name}`);
 
 		expect(first).toEqual(second);
 	});
