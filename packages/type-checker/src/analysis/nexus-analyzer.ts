@@ -9,6 +9,15 @@ import type {
 	NexusToken,
 } from "./nexus-semantic-model";
 
+export type {
+	NexusClassModel,
+	NexusDecorator,
+	NexusDecoratorKind,
+	NexusDependency,
+	NexusSourceSpan,
+	NexusToken,
+} from "./nexus-semantic-model";
+
 const NEXUS_CORE_PACKAGE = "@nexus-ioc/core";
 
 /** Shared semantic model used by Nexus IDE, lint and compiler tooling. */
