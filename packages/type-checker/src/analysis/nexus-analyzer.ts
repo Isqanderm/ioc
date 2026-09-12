@@ -1,6 +1,4 @@
 import * as ts from "typescript";
-import type { ILogger } from "../types/logger.interface";
-import { NoOpLogger } from "../types/logger.interface";
 import type {
 	NexusClassModel,
 	NexusDecorator,
@@ -24,10 +22,7 @@ const NEXUS_CORE_PACKAGE = "@nexus-ioc/core";
 export class NexusAnalyzer {
 	private readonly checker: ts.TypeChecker;
 
-	public constructor(
-		private readonly program: ts.Program,
-		private readonly logger: ILogger = new NoOpLogger(),
-	) {
+	public constructor(private readonly program: ts.Program) {
 		this.checker = program.getTypeChecker();
 	}
 
@@ -227,9 +222,6 @@ export class NexusAnalyzer {
 	}
 }
 
-export function createNexusAnalyzer(
-	program: ts.Program,
-	logger?: ILogger,
-): NexusAnalyzer {
-	return new NexusAnalyzer(program, logger);
+export function createNexusAnalyzer(program: ts.Program): NexusAnalyzer {
+	return new NexusAnalyzer(program);
 }
