@@ -83,14 +83,7 @@ export class UnreachableService {}
 	],
 	[
 		"/services/cycle-a.ts",
-		``,
-	],
-]);
-
-// Populate the circular fixture from repository-backed test sources.
-FILES.set(
-	"/services/cycle-a.ts",
-	`import { Inject as Dependency, Injectable as Service } from "@nexus-ioc/core";
+		`import { Inject as Dependency, Injectable as Service } from "@nexus-ioc/core";
 import { CycleB } from "./cycle-b";
 
 @Service()
@@ -98,10 +91,10 @@ export class CycleA {
   constructor(@Dependency(CycleB) cycleB: CycleB) {}
 }
 `,
-);
-FILES.set(
-	"/services/cycle-b.ts",
-	`import { Inject as Dependency, Injectable as Service } from "@nexus-ioc/core";
+	],
+	[
+		"/services/cycle-b.ts",
+		`import { Inject as Dependency, Injectable as Service } from "@nexus-ioc/core";
 import { CycleA } from "./cycle-a";
 
 @Service()
@@ -109,7 +102,8 @@ export class CycleB {
   constructor(@Dependency(CycleA) cycleA: CycleA) {}
 }
 `,
-);
+	],
+]);
 
 function createProgram(): { program: ts.Program; entryPoint: ts.ClassDeclaration } {
 	const options: ts.CompilerOptions = {
