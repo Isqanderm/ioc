@@ -56,6 +56,7 @@ export type NexusClass = {
 	isInjectable: boolean;
 	isModule: boolean;
 	isGlobal: boolean;
+	module?: NexusModule;
 };
 
 export type NexusProviderKind =

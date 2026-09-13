@@ -62,6 +62,7 @@ export class NexusAnalyzer {
 				(item) => item.kind === "NsModule" || item.kind === "Global",
 			),
 			isGlobal: decorators.some((item) => item.kind === "Global"),
+			module: this.getModule(node),
 		};
 	}
 

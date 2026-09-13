@@ -14,6 +14,11 @@ export type {
 	NexusDecorator,
 	NexusDecoratorKind,
 	NexusDependency,
+	NexusModule,
+	NexusModuleExport,
+	NexusModuleImport,
+	NexusProvider,
+	NexusProviderKind,
 	NexusSourceSpan,
 	NexusToken,
 } from "./analysis/nexus-semantic-model";

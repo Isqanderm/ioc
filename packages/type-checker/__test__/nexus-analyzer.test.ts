@@ -466,4 +466,18 @@ describe("NexusAnalyzer", () => {
 			"DynamicFeatureModule",
 		);
 	});
+
+	it("attaches module metadata to NexusClass.module for @NsModule classes", () => {
+		const { program, sourceFile } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+
+		const exportingModule = analyzer.getClass(
+			getClass(sourceFile, "ExportingModule"),
+		);
+		expect(exportingModule.module).toBeDefined();
+		expect(exportingModule.module?.imports).toHaveLength(1);
+
+		const service = analyzer.getClass(getClass(sourceFile, "ServiceA"));
+		expect(service.module).toBeUndefined();
+	});
 });
