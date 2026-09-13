@@ -39,14 +39,16 @@ export class NexusApplicationAnalyzer {
 			classes.push(nexusClass);
 
 			for (const dependency of nexusClass.dependencies) {
-				const next = this.resolveClassFromToken(dependency.token);
-				if (!next) continue;
+				this.enqueue(dependency.token, pending, visited);
+			}
 
-				const symbol = this.getClassSymbol(next);
-				if (!symbol || visited.has(symbol)) continue;
+			for (const moduleImport of nexusClass.module?.imports ?? []) {
+				this.enqueue(moduleImport.module, pending, visited);
+			}
 
-				visited.add(symbol);
-				pending.push(next);
+			for (const provider of nexusClass.module?.providers ?? []) {
+				this.enqueue(provider.provide, pending, visited);
+				this.enqueue(provider.useClass, pending, visited);
 			}
 		}
 
@@ -56,10 +58,25 @@ export class NexusApplicationAnalyzer {
 		};
 	}
 
+	private enqueue(
+		token: NexusToken | undefined,
+		pending: ts.ClassDeclaration[],
+		visited: Set<ts.Symbol>,
+	): void {
+		const next = this.resolveClassFromToken(token);
+		if (!next) return;
+
+		const symbol = this.getClassSymbol(next);
+		if (!symbol || visited.has(symbol)) return;
+
+		visited.add(symbol);
+		pending.push(next);
+	}
+
 	private resolveClassFromToken(
 		token: NexusToken | undefined,
 	): ts.ClassDeclaration | undefined {
-		if (!token || token.kind !== "reference") return undefined;
+		if (token?.kind !== "reference") return undefined;
 
 		const declaration =
 			token.symbol.valueDeclaration ?? token.symbol.declarations?.[0];

@@ -10,17 +10,29 @@ const FILES = new Map<string, string>([
 import { FirstService, SecondService } from "../services";
 import { UnreachableService } from "../services/unreachable";
 import { CycleA as RootCycleA } from "../services/cycle-a";
+import { DatabaseModule } from "../services/database.module";
 
 void UnreachableService;
 void RootCycleA;
 
-@Module({})
+@Module({ imports: [DatabaseModule] })
 export class AppModule {
   constructor(
     @Dependency(FirstService) first: FirstService,
     @Dependency(SecondService) second: SecondService,
   ) {}
 }
+`,
+	],
+	[
+		"/services/database.module.ts",
+		`import { Injectable as Service, NsModule as Module } from "@nexus-ioc/core";
+
+@Service()
+export class DatabaseService {}
+
+@Module({ providers: [DatabaseService], exports: [DatabaseService] })
+export class DatabaseModule {}
 `,
 	],
 	[
@@ -119,7 +131,8 @@ function createProgram(
 		process.cwd(),
 		"../ioc/dist/types/index.d.ts",
 	);
-	const normalizePath = (fileName: string): string => path.posix.normalize(fileName);
+	const normalizePath = (fileName: string): string =>
+		path.posix.normalize(fileName);
 
 	const defaultHost = ts.createCompilerHost(options, true);
 	const host: ts.CompilerHost = {
@@ -135,10 +148,7 @@ function createProgram(
 		},
 		directoryExists: (directoryName) => {
 			const normalizedDirectory = normalizePath(directoryName);
-			if (
-				normalizedDirectory === "/" ||
-				normalizedDirectory === "."
-			) {
+			if (normalizedDirectory === "/" || normalizedDirectory === ".") {
 				return true;
 			}
 
@@ -178,12 +188,8 @@ function createProgram(
 					};
 				}
 
-				return ts.resolveModuleName(
-					moduleName,
-					containingFile,
-					options,
-					host,
-				).resolvedModule;
+				return ts.resolveModuleName(moduleName, containingFile, options, host)
+					.resolvedModule;
 			}),
 	};
 
@@ -222,16 +228,32 @@ describe("NexusApplicationAnalyzer", () => {
 			"AppModule",
 			"ServiceA",
 			"ServiceB",
+			"DatabaseModule",
 			"SharedService",
+			"DatabaseService",
 			"LeafService",
 		]);
 		expect(application.classes.map((item) => item.source.fileName)).toEqual([
 			"/app/app.module.ts",
 			"/services/service-a.ts",
 			"/services/service-b.ts",
+			"/services/database.module.ts",
 			"/services/shared-service.ts",
+			"/services/database.module.ts",
 			"/services/leaf-service.ts",
 		]);
+	});
+
+	it("discovers classes reachable only through module imports and providers", () => {
+		const { program, entryPoint } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+		const applicationAnalyzer = createNexusApplicationAnalyzer(analyzer);
+
+		const application = applicationAnalyzer.analyze(entryPoint);
+		const names = application.classes.map((item) => item.name);
+
+		expect(names).toContain("DatabaseModule");
+		expect(names).toContain("DatabaseService");
 	});
 
 	it("resolves aliased Nexus decorators and class imports across re-exports", () => {
