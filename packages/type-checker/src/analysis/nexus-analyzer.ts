@@ -194,7 +194,9 @@ export class NexusAnalyzer {
 				moduleProperty,
 				expression,
 			);
-			const symbol = moduleType.getSymbol();
+			const symbol =
+				moduleType.getSymbol() ??
+				this.resolveIntersectionClassSymbol(moduleType);
 			if (symbol) {
 				return {
 					kind: "reference",
@@ -204,7 +206,76 @@ export class NexusAnalyzer {
 			}
 		}
 
+		if (ts.isCallExpression(expression)) {
+			const fromReturnLiteral = this.resolveModuleFromReturnLiteral(expression);
+			if (fromReturnLiteral) return fromReturnLiteral;
+		}
+
 		return this.resolveToken(expression);
+	}
+
+	/**
+	 * A `DynamicModule`-shaped `module` property is typed as an intersection
+	 * (e.g. `Module & { forRoot?: () => DynamicModule }`), so `Type#getSymbol()`
+	 * returns `undefined` for it directly. Look through the intersection's
+	 * constituents for the concrete module class.
+	 */
+	private resolveIntersectionClassSymbol(type: ts.Type): ts.Symbol | undefined {
+		if (!type.isIntersection()) return undefined;
+
+		for (const constituent of type.types) {
+			const symbol = constituent.getSymbol();
+			if (symbol && (symbol.flags & ts.SymbolFlags.Class) !== 0) {
+				return symbol;
+			}
+		}
+
+		return undefined;
+	}
+
+	/**
+	 * Resolves a dynamic-module call (`FooModule.forRoot(...)`) by inspecting
+	 * the called signature's declaration body: when it is a single, top-level
+	 * `return <object literal>;` statement whose object literal has a `module`
+	 * property, that property's initializer is resolved as the module
+	 * reference. Anything more complex (conditional returns, multiple return
+	 * statements, computed/spread values) is a genuine static-analysis limit
+	 * and is left to fall back to an `expression`-kind token.
+	 */
+	private resolveModuleFromReturnLiteral(
+		expression: ts.CallExpression,
+	): NexusToken | undefined {
+		const signature = this.checker.getResolvedSignature(expression);
+		const declaration = signature?.declaration;
+		if (
+			!declaration ||
+			!(
+				ts.isMethodDeclaration(declaration) ||
+				ts.isFunctionDeclaration(declaration) ||
+				ts.isFunctionExpression(declaration) ||
+				ts.isArrowFunction(declaration)
+			)
+		) {
+			return undefined;
+		}
+
+		const body = declaration.body;
+		if (!body || !ts.isBlock(body)) return undefined;
+		if (body.statements.length !== 1) return undefined;
+
+		const [statement] = body.statements;
+		if (!ts.isReturnStatement(statement) || !statement.expression) {
+			return undefined;
+		}
+		if (!ts.isObjectLiteralExpression(statement.expression)) return undefined;
+
+		const moduleProperty = this.findProperty(statement.expression, "module");
+		if (!moduleProperty) return undefined;
+
+		const token = this.resolveToken(moduleProperty.initializer);
+		return token.kind === "reference" || token.kind === "symbol"
+			? token
+			: undefined;
 	}
 
 	private getModuleDecoratorArgument(

@@ -5,6 +5,7 @@ import { createNexusAnalyzer } from "../src";
 
 const SOURCE = `
 import {
+  DynamicModule,
   Global as NexusGlobal,
   Inject as Dependency,
   Injectable as Service,
@@ -65,6 +66,18 @@ class LocalImportedModule {}
   exports: [ProviderModuleService, "CONFIG"],
 })
 class ExportingModule {}
+
+@Module({})
+class DynamicFeatureModule {
+  static forRoot(): DynamicModule {
+    return { module: DynamicFeatureModule };
+  }
+}
+
+@Module({
+  imports: [DynamicFeatureModule.forRoot()],
+})
+class DynamicImportingModule {}
 
 @ForeignService()
 class ForeignServiceClass {}
@@ -430,5 +443,27 @@ describe("NexusAnalyzer", () => {
 		expect(
 			analyzer.getModule(getClass(sourceFile, "ServiceA")),
 		).toBeUndefined();
+	});
+
+	it("resolves a dynamic-module import (Foo.forRoot()) to the concrete module class", () => {
+		const { program, sourceFile } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+
+		const module = analyzer.getModule(
+			getClass(sourceFile, "DynamicImportingModule"),
+		);
+		if (!module) {
+			throw new Error("Expected DynamicImportingModule to be a NexusModule");
+		}
+
+		expect(module.imports).toHaveLength(1);
+		expect(module.imports[0].isDynamic).toBe(true);
+		expect(module.imports[0].module).toMatchObject({ kind: "reference" });
+		if (module.imports[0].module.kind !== "reference") {
+			throw new Error("unreachable");
+		}
+		expect(module.imports[0].module.symbol.getName()).toBe(
+			"DynamicFeatureModule",
+		);
 	});
 });
