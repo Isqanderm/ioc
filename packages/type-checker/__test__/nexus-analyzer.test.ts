@@ -10,6 +10,7 @@ import {
   Injectable as Service,
   NsModule as Module,
   Optional as Maybe,
+  Scope,
 } from "@nexus-ioc/core";
 import { Inject as ForeignInject, Injectable as ForeignService } from "./foreign";
 
@@ -39,6 +40,22 @@ class AppModule {}
 @Module({})
 @NexusGlobal()
 class GlobalModule {}
+
+@Service()
+class ProviderModuleService {}
+
+@Service()
+class ProviderModuleServiceImpl {}
+
+@Module({
+  providers: [
+    ProviderModuleService,
+    { provide: ProviderModuleService, useClass: ProviderModuleServiceImpl, scope: Scope.Transient },
+    { provide: "CONFIG", useValue: { debug: true } },
+    { provide: "DATABASE", useFactory: (config: unknown) => config, inject: ["CONFIG", DependencyA] },
+  ],
+})
+class ProviderModule {}
 
 @ForeignService()
 class ForeignServiceClass {}
@@ -317,5 +334,58 @@ describe("NexusAnalyzer", () => {
 
 		expect(service.name).toBe("ServiceA");
 		expect(service).not.toHaveProperty("node");
+	});
+
+	it("parses @NsModule providers into semantic NexusProvider entries", () => {
+		const { program, sourceFile } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+
+		const providers = analyzer.getModuleProviders(
+			getClass(sourceFile, "ProviderModule"),
+		);
+
+		expect(providers).toHaveLength(4);
+
+		const [
+			classProvider,
+			useClassProvider,
+			useValueProvider,
+			useFactoryProvider,
+		] = providers;
+
+		expect(classProvider.kind).toBe("class");
+		expect(classProvider.provide).toMatchObject({ kind: "reference" });
+		expect(classProvider.factoryInject).toEqual([]);
+
+		expect(useClassProvider.kind).toBe("useClass");
+		expect(useClassProvider.provide).toMatchObject({ kind: "reference" });
+		expect(useClassProvider.useClass).toMatchObject({ kind: "reference" });
+		expect(useClassProvider.scope).toMatchObject({ kind: "reference" });
+
+		expect(useValueProvider.kind).toBe("useValue");
+		expect(useValueProvider.provide).toMatchObject({
+			kind: "string",
+			value: "CONFIG",
+		});
+		expect(useValueProvider.useClass).toBeUndefined();
+
+		expect(useFactoryProvider.kind).toBe("useFactory");
+		expect(useFactoryProvider.provide).toMatchObject({
+			kind: "string",
+			value: "DATABASE",
+		});
+		expect(useFactoryProvider.factoryInject).toHaveLength(2);
+		expect(useFactoryProvider.factoryInject[0]).toMatchObject({
+			kind: "string",
+			value: "CONFIG",
+		});
+		expect(useFactoryProvider.factoryInject[1]).toMatchObject({
+			kind: "reference",
+		});
+
+		for (const provider of providers) {
+			expect(provider).not.toHaveProperty("declaration");
+			expect(provider).not.toHaveProperty("expression");
+		}
 	});
 });

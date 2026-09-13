@@ -4,6 +4,7 @@ import type {
 	NexusDecorator,
 	NexusDecoratorKind,
 	NexusDependency,
+	NexusProvider,
 	NexusSourceSpan,
 	NexusToken,
 } from "./nexus-semantic-model";
@@ -13,6 +14,7 @@ export type {
 	NexusDecorator,
 	NexusDecoratorKind,
 	NexusDependency,
+	NexusProvider,
 	NexusSourceSpan,
 	NexusToken,
 } from "./nexus-semantic-model";
@@ -121,6 +123,113 @@ export class NexusAnalyzer {
 		}
 
 		return result;
+	}
+
+	public getModuleProviders(node: ts.ClassDeclaration): NexusProvider[] {
+		const metadata = this.getModuleDecoratorArgument(node);
+		if (!metadata) return [];
+
+		const array = this.getObjectLiteralArrayProperty(metadata, "providers");
+		if (!array) return [];
+
+		return array.elements.flatMap((element) => this.resolveProvider(element));
+	}
+
+	private getModuleDecoratorArgument(
+		node: ts.ClassDeclaration,
+	): ts.ObjectLiteralExpression | undefined {
+		if (!ts.canHaveDecorators(node)) return undefined;
+
+		for (const decorator of ts.getDecorators(node) ?? []) {
+			if (this.resolveDecoratorKind(decorator) !== "NsModule") continue;
+			if (!ts.isCallExpression(decorator.expression)) continue;
+
+			const [argument] = decorator.expression.arguments;
+			if (argument && ts.isObjectLiteralExpression(argument)) return argument;
+		}
+
+		return undefined;
+	}
+
+	private getObjectLiteralArrayProperty(
+		metadata: ts.ObjectLiteralExpression,
+		name: "providers" | "imports" | "exports",
+	): ts.ArrayLiteralExpression | undefined {
+		const property = this.findProperty(metadata, name);
+		return property && ts.isArrayLiteralExpression(property.initializer)
+			? property.initializer
+			: undefined;
+	}
+
+	private findProperty(
+		object: ts.ObjectLiteralExpression,
+		name: string,
+	): ts.PropertyAssignment | undefined {
+		return object.properties.find(
+			(item): item is ts.PropertyAssignment =>
+				ts.isPropertyAssignment(item) &&
+				ts.isIdentifier(item.name) &&
+				item.name.text === name,
+		);
+	}
+
+	private resolveProvider(element: ts.Expression): NexusProvider[] {
+		const source = this.getSourceSpan(element);
+
+		if (!ts.isObjectLiteralExpression(element)) {
+			return [
+				{
+					kind: "class",
+					provide: this.resolveToken(element),
+					factoryInject: [],
+					source,
+				},
+			];
+		}
+
+		const provideProperty = this.findProperty(element, "provide");
+		if (!provideProperty) return [];
+		const provide = this.resolveToken(provideProperty.initializer);
+
+		const useClassProperty = this.findProperty(element, "useClass");
+		const useValueProperty = this.findProperty(element, "useValue");
+		const useFactoryProperty = this.findProperty(element, "useFactory");
+		const scopeProperty = this.findProperty(element, "scope");
+		const scope = scopeProperty
+			? this.resolveToken(scopeProperty.initializer)
+			: undefined;
+
+		if (useClassProperty) {
+			return [
+				{
+					kind: "useClass",
+					provide,
+					useClass: this.resolveToken(useClassProperty.initializer),
+					factoryInject: [],
+					scope,
+					source,
+				},
+			];
+		}
+
+		if (useValueProperty) {
+			return [{ kind: "useValue", provide, factoryInject: [], source }];
+		}
+
+		if (useFactoryProperty) {
+			const injectProperty = this.findProperty(element, "inject");
+			const factoryInject =
+				injectProperty &&
+				ts.isArrayLiteralExpression(injectProperty.initializer)
+					? injectProperty.initializer.elements.map((item) =>
+							this.resolveToken(item),
+						)
+					: [];
+
+			return [{ kind: "useFactory", provide, factoryInject, scope, source }];
+		}
+
+		return [];
 	}
 
 	private getInjectTokenExpression(

@@ -57,3 +57,18 @@ export type NexusClass = {
 	isModule: boolean;
 	isGlobal: boolean;
 };
+
+export type NexusProviderKind =
+	| "class"
+	| "useClass"
+	| "useValue"
+	| "useFactory";
+
+export type NexusProvider = {
+	kind: NexusProviderKind;
+	provide: NexusToken;
+	useClass?: NexusToken;
+	factoryInject: readonly NexusToken[];
+	scope?: NexusToken;
+	source: NexusSourceSpan;
+};
