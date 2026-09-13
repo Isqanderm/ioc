@@ -57,6 +57,15 @@ class ProviderModuleServiceImpl {}
 })
 class ProviderModule {}
 
+@Module({})
+class LocalImportedModule {}
+
+@Module({
+  imports: [LocalImportedModule],
+  exports: [ProviderModuleService, "CONFIG"],
+})
+class ExportingModule {}
+
 @ForeignService()
 class ForeignServiceClass {}
 
@@ -387,5 +396,39 @@ describe("NexusAnalyzer", () => {
 			expect(provider).not.toHaveProperty("declaration");
 			expect(provider).not.toHaveProperty("expression");
 		}
+	});
+
+	it("parses @NsModule imports and exports into semantic tokens", () => {
+		const { program, sourceFile } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+
+		const module = analyzer.getModule(getClass(sourceFile, "ExportingModule"));
+		if (!module)
+			throw new Error("Expected ExportingModule to be a NexusModule");
+
+		expect(module.imports).toHaveLength(1);
+		expect(module.imports[0].isDynamic).toBe(false);
+		expect(module.imports[0].module).toMatchObject({ kind: "reference" });
+		if (module.imports[0].module.kind !== "reference")
+			throw new Error("unreachable");
+		expect(module.imports[0].module.symbol.getName()).toBe(
+			"LocalImportedModule",
+		);
+
+		expect(module.exports).toHaveLength(2);
+		expect(module.exports[0].token).toMatchObject({ kind: "reference" });
+		expect(module.exports[1].token).toMatchObject({
+			kind: "string",
+			value: "CONFIG",
+		});
+	});
+
+	it("returns undefined for getModule() on a non-module class", () => {
+		const { program, sourceFile } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+
+		expect(
+			analyzer.getModule(getClass(sourceFile, "ServiceA")),
+		).toBeUndefined();
 	});
 });

@@ -4,6 +4,9 @@ import type {
 	NexusDecorator,
 	NexusDecoratorKind,
 	NexusDependency,
+	NexusModule,
+	NexusModuleExport,
+	NexusModuleImport,
 	NexusProvider,
 	NexusSourceSpan,
 	NexusToken,
@@ -14,6 +17,9 @@ export type {
 	NexusDecorator,
 	NexusDecoratorKind,
 	NexusDependency,
+	NexusModule,
+	NexusModuleExport,
+	NexusModuleImport,
 	NexusProvider,
 	NexusSourceSpan,
 	NexusToken,
@@ -133,6 +139,72 @@ export class NexusAnalyzer {
 		if (!array) return [];
 
 		return array.elements.flatMap((element) => this.resolveProvider(element));
+	}
+
+	public getModule(node: ts.ClassDeclaration): NexusModule | undefined {
+		const metadata = this.getModuleDecoratorArgument(node);
+		if (!metadata) return undefined;
+
+		return {
+			providers: this.getModuleProviders(node),
+			imports: this.getModuleImports(metadata),
+			exports: this.getModuleExports(metadata),
+		};
+	}
+
+	private getModuleImports(
+		metadata: ts.ObjectLiteralExpression,
+	): NexusModuleImport[] {
+		const array = this.getObjectLiteralArrayProperty(metadata, "imports");
+		if (!array) return [];
+
+		return array.elements.map((element) => ({
+			module: this.resolveModuleReference(element),
+			isDynamic: ts.isCallExpression(element),
+			source: this.getSourceSpan(element),
+		}));
+	}
+
+	private getModuleExports(
+		metadata: ts.ObjectLiteralExpression,
+	): NexusModuleExport[] {
+		const array = this.getObjectLiteralArrayProperty(metadata, "exports");
+		if (!array) return [];
+
+		return array.elements.map((element) => ({
+			token: this.resolveToken(element),
+			source: this.getSourceSpan(element),
+		}));
+	}
+
+	/**
+	 * Resolves an `imports` array entry to the module class it refers to.
+	 *
+	 * A bare class reference (`FooModule`) resolves directly. A dynamic-module
+	 * call (`FooModule.forRoot(...)`) is resolved through its *return type's*
+	 * `module` property, so the edge still points at the concrete module class
+	 * rather than the anonymous `DynamicModule` return value.
+	 */
+	private resolveModuleReference(expression: ts.Expression): NexusToken {
+		const type = this.checker.getTypeAtLocation(expression);
+		const moduleProperty = type.getProperty("module");
+
+		if (moduleProperty) {
+			const moduleType = this.checker.getTypeOfSymbolAtLocation(
+				moduleProperty,
+				expression,
+			);
+			const symbol = moduleType.getSymbol();
+			if (symbol) {
+				return {
+					kind: "reference",
+					symbol: this.resolveAlias(symbol) ?? symbol,
+					source: this.getSourceSpan(expression),
+				};
+			}
+		}
+
+		return this.resolveToken(expression);
 	}
 
 	private getModuleDecoratorArgument(

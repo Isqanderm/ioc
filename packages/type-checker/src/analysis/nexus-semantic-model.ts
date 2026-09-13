@@ -72,3 +72,20 @@ export type NexusProvider = {
 	scope?: NexusToken;
 	source: NexusSourceSpan;
 };
+
+export type NexusModuleImport = {
+	module: NexusToken;
+	isDynamic: boolean;
+	source: NexusSourceSpan;
+};
+
+export type NexusModuleExport = {
+	token: NexusToken;
+	source: NexusSourceSpan;
+};
+
+export type NexusModule = {
+	providers: readonly NexusProvider[];
+	imports: readonly NexusModuleImport[];
+	exports: readonly NexusModuleExport[];
+};
