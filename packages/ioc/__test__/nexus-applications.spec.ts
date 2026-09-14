@@ -3,12 +3,12 @@ import { vi } from "vitest";
 import {
 	Inject,
 	Injectable,
-	NexusApplications,
-	NsModule,
+	Module,
+	NexusApplication,
 	type OnModuleInit,
 } from "../src";
 
-describe("NexusApplications", () => {
+describe("NexusApplication", () => {
 	@Injectable()
 	class TestService {
 		public initialized = false;
@@ -17,11 +17,11 @@ describe("NexusApplications", () => {
 		}
 	}
 
-	@NsModule({ providers: [TestService] })
+	@Module({ providers: [TestService] })
 	class TestModule {}
 
 	it("should create application and initialize providers", async () => {
-		const app = await NexusApplications.create(TestModule).bootstrap();
+		const app = await NexusApplication.create(TestModule).bootstrap();
 		const service = await app.get<TestService>(TestService);
 
 		expect(service).toBeInstanceOf(TestService);
@@ -40,11 +40,11 @@ describe("Dependency Resolution", () => {
 		constructor(@Inject(DatabaseService) public database: DatabaseService) {}
 	}
 
-	@NsModule({ providers: [DatabaseService, UserService] })
+	@Module({ providers: [DatabaseService, UserService] })
 	class AppModule {}
 
 	it("should resolve nested dependencies", async () => {
-		const app = await NexusApplications.create(AppModule).bootstrap();
+		const app = await NexusApplication.create(AppModule).bootstrap();
 		const userService = await app.get<UserService>(UserService);
 
 		expect(userService?.database).toBeInstanceOf(DatabaseService);
@@ -62,11 +62,11 @@ describe("Lifecycle Hooks", () => {
 		}
 	}
 
-	@NsModule({ providers: [LifecycleService] })
+	@Module({ providers: [LifecycleService] })
 	class LifecycleModule {}
 
 	it("should call onModuleInit during bootstrap", async () => {
-		const app = await NexusApplications.create(LifecycleModule).bootstrap();
+		const app = await NexusApplication.create(LifecycleModule).bootstrap();
 		expect(initSpy).toHaveBeenCalledTimes(1);
 
 		// Повторный вызов get не должен триггерить хук

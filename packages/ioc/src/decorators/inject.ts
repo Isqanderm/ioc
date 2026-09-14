@@ -5,6 +5,7 @@ import {
 	SELF_DECLARED_DEPS_METADATA,
 	type Type,
 } from "../interfaces";
+import type { ForwardRef } from "../utils/forward-ref";
 
 /**
  * Explicitly specifies the injection token for a constructor parameter or property.
@@ -46,7 +47,7 @@ import {
  * ```
  */
 export function Inject(
-	token: Type | symbol | string,
+	token: Type | symbol | string | ForwardRef,
 ): PropertyDecorator & ParameterDecorator {
 	return (
 		target: object,

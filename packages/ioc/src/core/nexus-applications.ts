@@ -1,33 +1,35 @@
+import { BootstrapError } from "../errors";
 import {
+	type BootstrapOptions,
 	type HashUtilInterface,
 	type InjectionToken,
-	type Module,
 	type NexusApplicationInterface,
 	NodeTypeEnum,
 	type ScannerPluginInterface,
 	Scope,
+	type Type,
 } from "../interfaces";
 import { HashUtil } from "../utils/hash-utils";
 import { Container } from "./modules/container";
 
 /**
- * NexusApplications is the main application class that provides a high-level
+ * NexusApplication is the main application class that provides a high-level
  * API for creating and managing IoC containers.
  *
  * This class wraps the Container and provides additional features:
  * - Automatic singleton initialization
  * - Scanner plugin support for custom metadata processing
  * - Parent-child container hierarchies
- * - Async/sync container modes
+ * - Lazy/eager container modes
  *
  * @example
  * ```typescript
- * const app = NexusApplications.create(AppModule);
+ * const app = NexusApplication.create(AppModule);
  * await app.bootstrap();
  * const service = await app.get(MyService);
  * ```
  */
-export class NexusApplications implements NexusApplicationInterface {
+export class NexusApplication implements NexusApplicationInterface {
 	private hashUtil: HashUtilInterface = new HashUtil();
 	private isAsyncContainer = false;
 	private readonly container = new Container(this.hashUtil);
@@ -35,14 +37,14 @@ export class NexusApplications implements NexusApplicationInterface {
 	private _parentContainer: NexusApplicationInterface | null = null;
 
 	/**
-	 * Creates a new NexusApplications instance.
+	 * Creates a new NexusApplication instance.
 	 *
 	 * @param rootModule - The root module of the application
 	 * @param options - Optional configuration
 	 * @param options.hashFn - Custom hash function for module identification
 	 */
 	private constructor(
-		private readonly rootModule: Module,
+		private readonly rootModule: Type,
 		options?: { hashFn: new () => HashUtilInterface },
 	) {
 		if (options?.hashFn && typeof options?.hashFn === "function") {
@@ -51,26 +53,26 @@ export class NexusApplications implements NexusApplicationInterface {
 	}
 
 	/**
-	 * Creates a new NexusApplications instance.
+	 * Creates a new NexusApplication instance.
 	 *
 	 * This is the main entry point for creating an application.
 	 *
 	 * @param rootModule - The root module of the application
 	 * @param options - Optional configuration
 	 * @param options.hashFn - Custom hash function for module identification
-	 * @returns A new NexusApplications instance
+	 * @returns A new NexusApplication instance
 	 *
 	 * @example
 	 * ```typescript
-	 * const app = NexusApplications.create(AppModule);
+	 * const app = NexusApplication.create(AppModule);
 	 * await app.bootstrap();
 	 * ```
 	 */
 	static create(
-		rootModule: Module,
+		rootModule: Type,
 		options?: { hashFn: new () => HashUtilInterface },
 	) {
-		return new NexusApplications(rootModule, options);
+		return new NexusApplication(rootModule, options);
 	}
 
 	/**
@@ -86,16 +88,20 @@ export class NexusApplications implements NexusApplicationInterface {
 	 *
 	 * @example
 	 * ```typescript
-	 * const app = NexusApplications.create(AppModule);
+	 * const app = NexusApplication.create(AppModule);
 	 * await app.bootstrap();
 	 * // Application is now ready to use
 	 * ```
 	 */
-	public async bootstrap(): Promise<this> {
+	public async bootstrap(options?: BootstrapOptions): Promise<this> {
 		await this.container.run(this.rootModule);
 
 		for (const scannerPlugin of this.scannerPlugins) {
 			await scannerPlugin.scan(this.container.graph);
+		}
+
+		if (this.container.errors.length > 0 && options?.throwOnError !== false) {
+			throw new BootstrapError(this.container.errors);
 		}
 
 		if (!this.isAsyncContainer) {
@@ -113,6 +119,21 @@ export class NexusApplications implements NexusApplicationInterface {
 	}
 
 	/**
+	 * Closes the application and cleans up resources.
+	 *
+	 * @returns A promise that resolves when the application is closed
+	 *
+	 * @example
+	 * ```typescript
+	 * const app = await NexusApplication.create(AppModule).bootstrap();
+	 * await app.close();
+	 * ```
+	 */
+	public async close(): Promise<void> {
+		await this.container.close();
+	}
+
+	/**
 	 * Adds one or more scanner plugins to the application.
 	 *
 	 * Scanner plugins are executed after the dependency graph is built
@@ -124,7 +145,7 @@ export class NexusApplications implements NexusApplicationInterface {
 	 *
 	 * @example
 	 * ```typescript
-	 * const app = NexusApplications.create(AppModule)
+	 * const app = NexusApplication.create(AppModule)
 	 *   .addScannerPlugin(new CustomScanner())
 	 *   .addScannerPlugin([new Scanner1(), new Scanner2()]);
 	 * await app.bootstrap();
@@ -150,7 +171,7 @@ export class NexusApplications implements NexusApplicationInterface {
 	 *
 	 * @example
 	 * ```typescript
-	 * const app = await NexusApplications.create(AppModule).bootstrap();
+	 * const app = await NexusApplication.create(AppModule).bootstrap();
 	 * const userService = await app.get(UserService);
 	 * const config = await app.get('CONFIG');
 	 * ```
@@ -173,7 +194,7 @@ export class NexusApplications implements NexusApplicationInterface {
 	 *
 	 * @example
 	 * ```typescript
-	 * const app = await NexusApplications.create(AppModule).bootstrap();
+	 * const app = await NexusApplication.create(AppModule).bootstrap();
 	 * if (app.errors.length > 0) {
 	 *   console.error('Application errors:', app.errors);
 	 * }
@@ -184,9 +205,9 @@ export class NexusApplications implements NexusApplicationInterface {
 	}
 
 	/**
-	 * Enables async mode for the container.
+	 * Enables lazy mode for the container.
 	 *
-	 * In async mode, singleton providers are NOT pre-instantiated during
+	 * In lazy mode, singleton providers are NOT pre-instantiated during
 	 * bootstrap. They will be created lazily on first access via get().
 	 * This can improve startup time for large applications.
 	 *
@@ -194,13 +215,13 @@ export class NexusApplications implements NexusApplicationInterface {
 	 *
 	 * @example
 	 * ```typescript
-	 * const app = NexusApplications.create(AppModule)
-	 *   .async();
+	 * const app = NexusApplication.create(AppModule)
+	 *   .lazy();
 	 * await app.bootstrap(); // Singletons are NOT created yet
 	 * const service = await app.get(MyService); // Created on first access
 	 * ```
 	 */
-	public async(): this {
+	public lazy(): this {
 		this.isAsyncContainer = true;
 		return this;
 	}
@@ -216,8 +237,8 @@ export class NexusApplications implements NexusApplicationInterface {
 	 *
 	 * @example
 	 * ```typescript
-	 * const parentApp = await NexusApplications.create(ParentModule).bootstrap();
-	 * const childApp = await NexusApplications.create(ChildModule)
+	 * const parentApp = await NexusApplication.create(ParentModule).bootstrap();
+	 * const childApp = await NexusApplication.create(ChildModule)
 	 *   .setParent(parentApp)
 	 *   .bootstrap();
 	 * // childApp can access providers from parentApp

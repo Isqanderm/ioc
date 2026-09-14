@@ -4,7 +4,7 @@ import {
 	Global,
 	Inject,
 	Injectable,
-	NsModule,
+	Module,
 	type OnModuleInit,
 	Optional,
 	Scope,
@@ -38,7 +38,7 @@ describe("Real-World Scenarios E2E", () => {
 			}
 
 			@Global()
-			@NsModule({
+			@Module({
 				providers: [ConfigService],
 				exports: [ConfigService],
 			})
@@ -58,7 +58,7 @@ describe("Real-World Scenarios E2E", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [DatabaseConnection],
 				exports: [DatabaseConnection],
 			})
@@ -85,7 +85,7 @@ describe("Real-World Scenarios E2E", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				imports: [DatabaseModule],
 				providers: [ProductRepository, ProductService],
 				exports: [ProductService],
@@ -128,7 +128,7 @@ describe("Real-World Scenarios E2E", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				imports: [DatabaseModule, ProductsModule],
 				providers: [OrderRepository, OrderService],
 				exports: [OrderService],
@@ -136,7 +136,7 @@ describe("Real-World Scenarios E2E", () => {
 			class OrdersModule {}
 
 			// App Module
-			@NsModule({
+			@Module({
 				imports: [CoreModule, ProductsModule, OrdersModule],
 			})
 			class AppModule {}
@@ -173,7 +173,7 @@ describe("Real-World Scenarios E2E", () => {
 			}
 
 			@Global()
-			@NsModule({
+			@Module({
 				providers: [MessageBus],
 				exports: [MessageBus],
 			})
@@ -205,7 +205,7 @@ describe("Real-World Scenarios E2E", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [UserRepository, UserService],
 				exports: [UserService],
 			})
@@ -228,7 +228,7 @@ describe("Real-World Scenarios E2E", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [NotificationService],
 				exports: [NotificationService],
 			})
@@ -255,7 +255,7 @@ describe("Real-World Scenarios E2E", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				imports: [
 					MessageBusModule,
 					UserServiceModule,

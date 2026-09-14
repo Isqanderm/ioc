@@ -1,6 +1,6 @@
 import type { DynamicModule } from "../dynamic-module.interface";
-import type { Module } from "../module-types.interface";
+import type { Type } from "../type.interface";
 
 export interface ModuleTokenFactoryInterface {
-	create(metatype: Module | DynamicModule): Promise<string>;
+	create(metatype: Type | DynamicModule): Promise<string>;
 }

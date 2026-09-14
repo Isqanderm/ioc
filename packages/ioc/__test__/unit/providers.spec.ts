@@ -33,8 +33,7 @@ describe("Providers", () => {
 			expect(service?.getValue()).toBe("alternative");
 		});
 
-		// TODO: Implement Transient scope
-		it.skip("should support scope in class provider", async () => {
+		it("should support scope in class provider", async () => {
 			@Injectable()
 			class TransientService {
 				id = Math.random();
@@ -45,7 +44,7 @@ describe("Providers", () => {
 					{
 						provide: TransientService,
 						useClass: TransientService,
-						// scope: Scope.Transient, // Not implemented
+						scope: Scope.Transient,
 					},
 				],
 			}).compile();
@@ -281,8 +280,7 @@ describe("Providers", () => {
 			expect(service?.combined).toBe("A-B");
 		});
 
-		// TODO: Implement Transient scope
-		it.skip("should support scope in factory provider", async () => {
+		it("should support scope in factory provider", async () => {
 			let counter = 0;
 			const factory = () => ({ id: ++counter });
 
@@ -291,7 +289,7 @@ describe("Providers", () => {
 					{
 						provide: "TRANSIENT_FACTORY",
 						useFactory: factory,
-						// scope: Scope.Transient, // Not implemented
+						scope: Scope.Transient,
 					},
 				],
 			}).compile();

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Global } from "../../src/decorators/global";
 import { Injectable } from "../../src/decorators/injectable";
-import { NsModule } from "../../src/decorators/nsModule";
+import { Module } from "../../src/decorators/module";
 import { Scope } from "../../src/interfaces";
 import {
 	getDependencyToken,
@@ -35,7 +35,7 @@ describe("Helpers", () => {
 
 	describe("isModule", () => {
 		it("should return true for module classes", () => {
-			@NsModule({})
+			@Module({})
 			class TestModule {}
 			expect(isModule(TestModule)).toBe(true);
 		});
@@ -157,14 +157,14 @@ describe("Helpers", () => {
 
 	describe("isDynamicModule", () => {
 		it("should return true for dynamic modules", () => {
-			@NsModule({})
+			@Module({})
 			class TestModule {}
 			const dynamicModule = { module: TestModule, providers: [] };
 			expect(isDynamicModule(dynamicModule)).toBe(true);
 		});
 
 		it("should return false for regular modules", () => {
-			@NsModule({})
+			@Module({})
 			class TestModule {}
 			expect(isDynamicModule(TestModule)).toBe(false);
 		});
@@ -173,13 +173,13 @@ describe("Helpers", () => {
 	describe("isGlobalModule", () => {
 		it("should return true for global modules", () => {
 			@Global()
-			@NsModule({})
+			@Module({})
 			class GlobalModule {}
 			expect(isGlobalModule(GlobalModule)).toBe(true);
 		});
 
 		it("should return false for non-global modules", () => {
-			@NsModule({})
+			@Module({})
 			class RegularModule {}
 			expect(isGlobalModule(RegularModule)).toBe(false);
 		});
@@ -187,13 +187,13 @@ describe("Helpers", () => {
 
 	describe("getModuleLabel", () => {
 		it("should return module name for regular modules", () => {
-			@NsModule({})
+			@Module({})
 			class TestModule {}
 			expect(getModuleLabel(TestModule)).toBe("TestModule");
 		});
 
 		it("should return module name for dynamic modules", () => {
-			@NsModule({})
+			@Module({})
 			class TestModule {}
 			const dynamicModule = { module: TestModule, providers: [] };
 			expect(getModuleLabel(dynamicModule)).toBe("TestModule");
@@ -210,9 +210,9 @@ describe("Helpers", () => {
 			const provider = {
 				provide: "TOKEN",
 				useFactory: () => ({}),
-				scope: Scope.Request,
+				scope: Scope.Scoped,
 			};
-			expect(getProviderScope(provider)).toBe(Scope.Request);
+			expect(getProviderScope(provider)).toBe(Scope.Scoped);
 		});
 
 		it("should return Singleton for class providers without scope", () => {
@@ -228,9 +228,9 @@ describe("Helpers", () => {
 			const provider = {
 				provide: "TOKEN",
 				useClass: TestService,
-				scope: Scope.Request,
+				scope: Scope.Scoped,
 			};
-			expect(getProviderScope(provider)).toBe(Scope.Request);
+			expect(getProviderScope(provider)).toBe(Scope.Scoped);
 		});
 
 		it("should return Singleton for value providers", () => {
@@ -245,9 +245,9 @@ describe("Helpers", () => {
 		});
 
 		it("should return specified scope for function providers with @Injectable scope", () => {
-			@Injectable({ scope: Scope.Request })
+			@Injectable({ scope: Scope.Scoped })
 			class TestService {}
-			expect(getProviderScope(TestService)).toBe(Scope.Request);
+			expect(getProviderScope(TestService)).toBe(Scope.Scoped);
 		});
 	});
 });

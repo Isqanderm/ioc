@@ -1,8 +1,8 @@
 import type {
 	InjectionToken,
-	Module,
 	NexusApplicationInterface,
 	ScannerPluginInterface,
+	Type,
 } from "../interfaces";
 import { HashUtilsServer } from "../utils/hash-utils.server";
 import { Container } from "./modules/container";
@@ -10,18 +10,18 @@ import { Container } from "./modules/container";
 /**
  * @deprecated
  * It will be removed in version 1.0.0.
- * these classes work the same way. For the new behavior, use @NexusApplications
+ * these classes work the same way. For the new behavior, use @NexusApplication
  */
-export class NexusApplicationsServer implements NexusApplicationInterface {
+export class NexusApplicationServer implements NexusApplicationInterface {
 	private readonly hashUtil = new HashUtilsServer();
 	private readonly container = new Container(this.hashUtil);
 	private readonly scannerPlugins: ScannerPluginInterface[] = [];
 	private _parentContainer: NexusApplicationInterface | null = null;
 
-	private constructor(private readonly rootModule: Module) {}
+	private constructor(private readonly rootModule: Type) {}
 
-	static create(rootModule: Module) {
-		return new NexusApplicationsServer(rootModule);
+	static create(rootModule: Type) {
+		return new NexusApplicationServer(rootModule);
 	}
 
 	public async bootstrap(): Promise<this> {
@@ -56,8 +56,12 @@ export class NexusApplicationsServer implements NexusApplicationInterface {
 		return this.container.errors;
 	}
 
-	async(): this {
+	lazy(): this {
 		return this;
+	}
+
+	public async close(): Promise<void> {
+		await this.container.close();
 	}
 
 	public setParent(parentContainer: NexusApplicationInterface) {

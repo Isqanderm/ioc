@@ -1,6 +1,6 @@
 import "reflect-metadata";
 import { Test } from "@nexus-ioc/testing";
-import { Global, Inject, Injectable, NsModule } from "../../src";
+import { Global, Inject, Injectable, Module } from "../../src";
 
 describe("Module System Integration", () => {
 	describe("Module Imports", () => {
@@ -12,7 +12,7 @@ describe("Module System Integration", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [SharedService],
 				exports: [SharedService],
 			})
@@ -27,7 +27,7 @@ describe("Module System Integration", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				imports: [SharedModule],
 				providers: [FeatureService],
 			})
@@ -49,7 +49,7 @@ describe("Module System Integration", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [ServiceA],
 				exports: [ServiceA],
 			})
@@ -62,7 +62,7 @@ describe("Module System Integration", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [ServiceB],
 				exports: [ServiceB],
 			})
@@ -80,7 +80,7 @@ describe("Module System Integration", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				imports: [ModuleA, ModuleB],
 				providers: [CombinedService],
 			})
@@ -102,7 +102,7 @@ describe("Module System Integration", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [CoreService],
 				exports: [CoreService],
 			})
@@ -117,7 +117,7 @@ describe("Module System Integration", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				imports: [CoreModule],
 				providers: [SharedService],
 				exports: [SharedService],
@@ -133,7 +133,7 @@ describe("Module System Integration", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				imports: [SharedModule],
 				providers: [FeatureService],
 			})
@@ -164,7 +164,7 @@ describe("Module System Integration", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [PublicService, PrivateService],
 				exports: [PublicService],
 			})
@@ -179,7 +179,7 @@ describe("Module System Integration", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				imports: [LibraryModule],
 				providers: [ConsumerService],
 			})
@@ -209,13 +209,13 @@ describe("Module System Integration", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [CoreService],
 				exports: [CoreService],
 			})
 			class CoreModule {}
 
-			@NsModule({
+			@Module({
 				imports: [CoreModule],
 				exports: [CoreModule],
 			})
@@ -230,7 +230,7 @@ describe("Module System Integration", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				imports: [SharedModule],
 				providers: [FeatureService],
 			})
@@ -255,7 +255,7 @@ describe("Module System Integration", () => {
 			}
 
 			@Global()
-			@NsModule({
+			@Module({
 				providers: [GlobalService],
 				exports: [GlobalService],
 			})
@@ -270,12 +270,12 @@ describe("Module System Integration", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [FeatureService],
 			})
 			class FeatureModule {}
 
-			@NsModule({
+			@Module({
 				imports: [GlobalModule, FeatureModule],
 			})
 			class AppModule {}
@@ -297,7 +297,7 @@ describe("Module System Integration", () => {
 			}
 
 			@Global()
-			@NsModule({
+			@Module({
 				providers: [ConfigService],
 				exports: [ConfigService],
 			})
@@ -312,12 +312,12 @@ describe("Module System Integration", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [ApiService],
 			})
 			class ApiModule {}
 
-			@NsModule({
+			@Module({
 				imports: [ConfigModule, ApiModule],
 			})
 			class AppModule {}
@@ -347,7 +347,7 @@ describe("Module System Integration", () => {
 				}
 			}
 
-			@NsModule({})
+			@Module({})
 			class DatabaseModule {
 				static forRoot(config: DatabaseConfig) {
 					return {
@@ -379,7 +379,7 @@ describe("Module System Integration", () => {
 				}
 			}
 
-			@NsModule({})
+			@Module({})
 			class FeatureModule {
 				static forFeature(featureName: string) {
 					return {
@@ -413,7 +413,7 @@ describe("Module System Integration", () => {
 			}
 
 			@Global()
-			@NsModule({
+			@Module({
 				providers: [LoggerService],
 				exports: [LoggerService],
 			})
@@ -427,7 +427,7 @@ describe("Module System Integration", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [DatabaseConnection],
 				exports: [DatabaseConnection],
 			})
@@ -458,7 +458,7 @@ describe("Module System Integration", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				imports: [DatabaseModule],
 				providers: [UserRepository, UserService],
 				exports: [UserService],
@@ -466,7 +466,7 @@ describe("Module System Integration", () => {
 			class UsersModule {}
 
 			// App Module
-			@NsModule({
+			@Module({
 				imports: [CoreModule, UsersModule],
 			})
 			class AppModule {}

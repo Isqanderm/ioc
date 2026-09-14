@@ -1,6 +1,13 @@
 import "reflect-metadata";
 import { Test } from "@nexus-ioc/testing";
-import { Inject, Injectable, NsModule, type OnModuleInit } from "../../src";
+import {
+	Inject,
+	Injectable,
+	Module,
+	NexusApplication,
+	type OnModuleDestroy,
+	type OnModuleInit,
+} from "../../src";
 
 describe("Lifecycle Hooks", () => {
 	describe("OnModuleInit", () => {
@@ -338,7 +345,7 @@ describe("Lifecycle Hooks", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [SharedService],
 				exports: [SharedService],
 			})
@@ -353,7 +360,7 @@ describe("Lifecycle Hooks", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				imports: [SharedModule],
 				providers: [FeatureService],
 			})
@@ -367,5 +374,87 @@ describe("Lifecycle Hooks", () => {
 
 			expect(initOrder).toEqual(["Shared", "Feature"]);
 		});
+	});
+});
+
+describe("OnModuleDestroy", () => {
+	it("should call onModuleDestroy when app.close() is called", async () => {
+		const destroySpy = vi.fn();
+
+		@Injectable()
+		class ServiceWithDestroy implements OnModuleDestroy {
+			onModuleDestroy() {
+				destroySpy();
+			}
+		}
+
+		@Module({ providers: [ServiceWithDestroy] })
+		class AppModule {}
+
+		const app = await NexusApplication.create(AppModule).bootstrap();
+		await app.get(ServiceWithDestroy); // ensure it's initialized
+		await app.close();
+
+		expect(destroySpy).toHaveBeenCalledTimes(1);
+	});
+
+	it("should call onModuleDestroy in reverse initialization order", async () => {
+		const callOrder: string[] = [];
+
+		@Injectable()
+		class ServiceA {
+			onModuleDestroy() {
+				callOrder.push("A");
+			}
+		}
+
+		@Injectable()
+		class ServiceB {
+			constructor(@Inject(ServiceA) _a: ServiceA) {}
+			onModuleDestroy() {
+				callOrder.push("B");
+			}
+		}
+
+		@Module({ providers: [ServiceA, ServiceB] })
+		class AppModule {}
+
+		const app = await NexusApplication.create(AppModule).bootstrap();
+		await app.close();
+
+		// ServiceA initialized first (as dep of B), so destroyed last
+		expect(callOrder).toEqual(["B", "A"]);
+	});
+
+	it("should not throw if provider has no onModuleDestroy", async () => {
+		@Injectable()
+		class SimpleService {}
+
+		@Module({ providers: [SimpleService] })
+		class AppModule {}
+
+		const app = await NexusApplication.create(AppModule).bootstrap();
+		await expect(app.close()).resolves.not.toThrow();
+	});
+
+	it("should call onModuleDestroy only for already-initialized singletons", async () => {
+		const destroySpy = vi.fn();
+
+		@Injectable()
+		class LazyService {
+			onModuleDestroy() {
+				destroySpy();
+			}
+		}
+
+		@Module({ providers: [LazyService] })
+		class AppModule {}
+
+		// Use async() to skip pre-instantiation
+		const app = await NexusApplication.create(AppModule).lazy().bootstrap();
+		// LazyService never resolved — onModuleDestroy should NOT be called
+		await app.close();
+
+		expect(destroySpy).not.toHaveBeenCalled();
 	});
 });

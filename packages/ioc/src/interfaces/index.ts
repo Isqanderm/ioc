@@ -7,6 +7,7 @@ export * from "./module-metadata.interface";
 export * from "./module-types.interface";
 export * from "./modules";
 export * from "./nexus-application.interface";
+export * from "./on-module-destroy.interface";
 export * from "./on-module-init.interface";
 export * from "./plugins";
 export * from "./scope.interface";

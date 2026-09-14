@@ -3,7 +3,7 @@ import { Test } from "@nexus-ioc/testing";
 import {
 	Injectable,
 	type ModuleMetadata,
-	NsModule as NexusModule,
+	Module as NexusModule,
 	type Node,
 	type Provider,
 	type ScannerGraphInterface,

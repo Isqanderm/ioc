@@ -1,5 +1,5 @@
 import { Test } from "@nexus-ioc/testing";
-import { type DynamicModule, Injectable, NsModule } from "../src";
+import { type DynamicModule, Injectable, Module } from "../src";
 
 describe("forFeature/forFeatureAsync", () => {
 	describe("forFeature", () => {
@@ -9,7 +9,7 @@ describe("forFeature/forFeatureAsync", () => {
 				useValue: { feature: true },
 			};
 
-			@NsModule({})
+			@Module({})
 			class FeatureModule {
 				static forFeature(): DynamicModule {
 					return {
@@ -40,7 +40,7 @@ describe("forFeature/forFeatureAsync", () => {
 				featureEnabled = true;
 			}
 
-			@NsModule({})
+			@Module({})
 			class FeatureModule {
 				static forFeatureAsync(): DynamicModule {
 					return {

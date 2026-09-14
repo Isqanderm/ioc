@@ -7,7 +7,6 @@ import {
 	INJECTABLE_WATERMARK,
 	type InjectionToken,
 	MODULE_GLOBAL_WATERMARK,
-	type Module,
 	type Provider,
 	Scope,
 	type Type,
@@ -18,7 +17,7 @@ export function isFunctionProvider(target: Provider): target is Type {
 	return typeof target === "function";
 }
 
-export function isModule(target: Module | InjectionToken): target is Module {
+export function isModule(target: Type | InjectionToken): target is Type {
 	return typeof target === "function";
 }
 
@@ -60,16 +59,16 @@ export function getDependencyToken(target: Provider): InjectionToken {
 }
 
 export function isDynamicModule(
-	module: Module | DynamicModule,
+	module: Type | DynamicModule,
 ): module is DynamicModule {
 	return "module" in module;
 }
 
-export function isGlobalModule(target: Module): boolean {
+export function isGlobalModule(target: Type): boolean {
 	return Reflect.getMetadata(MODULE_GLOBAL_WATERMARK, target) === true;
 }
 
-export function getModuleLabel(module: Module | DynamicModule): string {
+export function getModuleLabel(module: Type | DynamicModule): string {
 	if (isDynamicModule(module)) {
 		return module.module.name;
 	}

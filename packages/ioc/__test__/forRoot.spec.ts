@@ -1,5 +1,5 @@
 import { Test } from "@nexus-ioc/testing";
-import { type DynamicModule, Inject, Injectable, NsModule } from "../src";
+import { type DynamicModule, Inject, Injectable, Module } from "../src";
 
 describe("forRoot/forRootAsync", () => {
 	describe("forRoot", () => {
@@ -9,7 +9,7 @@ describe("forRoot/forRootAsync", () => {
 				useValue: { feature: true },
 			};
 
-			@NsModule({})
+			@Module({})
 			class GlobalModule {
 				static forRoot(): DynamicModule {
 					return {
@@ -28,7 +28,7 @@ describe("forRoot/forRootAsync", () => {
 				) {}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [AppService],
 			})
 			class AppModule {}
@@ -51,7 +51,7 @@ describe("forRoot/forRootAsync", () => {
 				featureEnabled = true;
 			}
 
-			@NsModule({})
+			@Module({})
 			class GlobalModule {
 				static forRootAsync(): DynamicModule {
 					return {
@@ -80,7 +80,7 @@ describe("forRoot/forRootAsync", () => {
 				) {}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [AppService],
 			})
 			class AppModule {}

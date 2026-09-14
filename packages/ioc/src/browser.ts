@@ -1,1 +1,1 @@
-export { NexusApplicationsBrowser } from "./core/nexus-applications.browser";
+export { NexusApplicationBrowser } from "./core/nexus-applications.browser";

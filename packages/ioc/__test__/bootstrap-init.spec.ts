@@ -3,8 +3,8 @@ import { vi } from "vitest";
 import {
 	Inject,
 	Injectable,
-	NexusApplications,
-	NsModule,
+	Module,
+	NexusApplication,
 	type OnModuleInit,
 } from "../src";
 
@@ -28,10 +28,10 @@ describe("Bootstrap Initialization via OnModuleInit", () => {
 			}
 		}
 
-		@NsModule({ providers: [AService, BService] })
+		@Module({ providers: [AService, BService] })
 		class TestModule {}
 
-		const app = await NexusApplications.create(TestModule).bootstrap();
+		const app = await NexusApplication.create(TestModule).bootstrap();
 		expect(initSpy).toHaveBeenCalledTimes(2);
 
 		initSpy.mockClear();

@@ -11,7 +11,7 @@ import { INJECTABLE_OPTIONS, INJECTABLE_WATERMARK, Scope } from "../interfaces";
  * @param options - Configuration options for the injectable
  * @param options.scope - The lifecycle scope of the provider:
  *   - `Scope.Singleton` (default): One instance shared across the entire application
- *   - `Scope.Request`: New instance for each container.get() call
+ *   - `Scope.Scoped`: New instance for each container.get() call
  *   - `Scope.Transient`: New instance every time, even within the same dependency tree
  * @returns A class decorator
  *
@@ -24,7 +24,7 @@ import { INJECTABLE_OPTIONS, INJECTABLE_WATERMARK, Scope } from "../interfaces";
  * }
  *
  * // Request scope
- * @Injectable({ scope: Scope.Request })
+ * @Injectable({ scope: Scope.Scoped })
  * class RequestContext {
  *   requestId = Math.random();
  * }

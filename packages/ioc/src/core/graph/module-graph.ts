@@ -5,7 +5,6 @@ import {
 	type InjectionToken,
 	MODULE_TOKEN_WATERMARK,
 	MODULE_WATERMARK,
-	type Module,
 	type ModuleContainerInterface,
 	type ModuleGraphInterface,
 	type Node,
@@ -17,6 +16,8 @@ import {
 	SELF_DECLARED_OPTIONAL_DEPS_METADATA,
 	type Type,
 } from "../../interfaces";
+import type { ForwardRef } from "../../utils/forward-ref";
+import { isForwardRef } from "../../utils/forward-ref";
 import {
 	getDependencyToken,
 	getProviderToken,
@@ -198,7 +199,12 @@ export class ModuleGraph implements ModuleGraphInterface {
 		);
 
 		for (const [index, dependency] of constructorDependencies.entries()) {
-			const dependencyToken = getDependencyToken(dependency.param);
+			const isLazy = isForwardRef(dependency.param);
+			const dependencyToken: InjectionToken = isLazy
+				? ((
+						dependency.param as unknown as ForwardRef
+					).forwardRef() as InjectionToken)
+				: getDependencyToken(dependency.param);
 			const isExported =
 				optionalDependency.includes(index) ||
 				(await this.isProviderExported(node.moduleContainer, dependencyToken));
@@ -219,6 +225,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 				metadata: {
 					unreached: !isExported,
 					isCircular: false,
+					lazy: isLazy,
 					index: dependency.index,
 					inject: "constructor",
 				},
@@ -274,7 +281,12 @@ export class ModuleGraph implements ModuleGraphInterface {
 		const optionalDependency = this.getOptionalConstructorDependencies(Class);
 
 		for (const [index, dependency] of constructorDependencies.entries()) {
-			const dependencyToken = getDependencyToken(dependency.param);
+			const isLazy = isForwardRef(dependency.param);
+			const dependencyToken: InjectionToken = isLazy
+				? ((
+						dependency.param as unknown as ForwardRef
+					).forwardRef() as InjectionToken)
+				: getDependencyToken(dependency.param);
 			const isExported =
 				optionalDependency.includes(index) ||
 				(await this.isProviderExported(node.moduleContainer, dependencyToken));
@@ -295,6 +307,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 				metadata: {
 					unreached: !isExported,
 					isCircular: false,
+					lazy: isLazy,
 					index: dependency.index,
 					inject: "constructor",
 				},
@@ -343,16 +356,21 @@ export class ModuleGraph implements ModuleGraphInterface {
 		let index = 0;
 
 		for (const dependency of dependencies) {
+			const isLazy = isForwardRef(dependency);
+			const dependencyToken: InjectionToken = isLazy
+				? ((dependency as ForwardRef).forwardRef() as InjectionToken)
+				: (dependency as InjectionToken);
+
 			const isExported = await this.isProviderExported(
 				node.moduleContainer,
-				dependency,
+				dependencyToken,
 			);
 
 			if (!isExported) {
 				this.errors.push({
 					type: "UNREACHED_DEP_FACTORY",
 					token: node.label,
-					dependency: tokenToString(dependency),
+					dependency: tokenToString(dependencyToken),
 					key: index,
 				});
 			}
@@ -360,10 +378,11 @@ export class ModuleGraph implements ModuleGraphInterface {
 			const factoryDependency: Edge = {
 				type: EdgeTypeEnum.DEPENDENCY,
 				source: token,
-				target: dependency,
+				target: dependencyToken,
 				metadata: {
 					unreached: !isExported,
 					isCircular: false,
+					lazy: isLazy,
 					index: index++,
 					inject: "constructor",
 				},
@@ -399,7 +418,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 		// externals
 		const containerImports = await moduleContainer.imports;
-		const visitedModules = new Set<InjectionToken | Module>();
+		const visitedModules = new Set<InjectionToken | Type>();
 		const queue = containerImports.flatMap(
 			(firstLevelContainer) => firstLevelContainer.exports,
 		);
@@ -454,8 +473,6 @@ export class ModuleGraph implements ModuleGraphInterface {
 				const to = cyclePath[cyclePath.length - 1];
 
 				if (from[0] === to[1]) {
-					const _edges = this._edges.get(nodeId);
-
 					for (const [from, to] of cyclePath) {
 						const edges = this._edges.get(from);
 						if (edges) {
@@ -466,10 +483,22 @@ export class ModuleGraph implements ModuleGraphInterface {
 						}
 					}
 
-					this.errors.push({
-						type: "CD_PROVIDERS",
-						path: cyclePath,
+					// Only push CD_PROVIDERS if NO edge in cycle has forwardRef (lazy)
+					const hasForwardRef = cyclePath.some(([from, to]) => {
+						const edges = this._edges.get(from);
+						if (!edges) return false;
+						const edge = edges.find(
+							(e) => e.target === to && e.type === EdgeTypeEnum.DEPENDENCY,
+						);
+						return edge?.metadata.lazy === true;
 					});
+
+					if (!hasForwardRef) {
+						this.errors.push({
+							type: "CD_PROVIDERS",
+							path: cyclePath,
+						});
+					}
 				}
 				return true;
 			}
@@ -567,19 +596,19 @@ export class ModuleGraph implements ModuleGraphInterface {
 	): { index: number; param: Type<unknown> }[] {
 		return (
 			Reflect.getMetadata(SELF_DECLARED_DEPS_METADATA, provider) || []
-		).sort((a, b) => a.index - b.index);
+		).sort((a: { index: number }, b: { index: number }) => a.index - b.index);
 	}
 
 	private getOptionalConstructorDependencies(provider: Provider): number[] {
 		return (
 			Reflect.getMetadata(SELF_DECLARED_OPTIONAL_DEPS_METADATA, provider) || []
-		).map(({ index }) => index);
+		).map(({ index }: { index: number }) => index);
 	}
 
 	private getOptionalPropertyDependencies(provider: Provider): string[] {
 		return (
 			Reflect.getMetadata(PROPERTY_OPTIONAL_DEPS_METADATA, provider) || []
-		).map(({ key }) => key);
+		).map(({ key }: { key: string }) => key);
 	}
 
 	private getPropertiesDependencies(

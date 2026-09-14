@@ -1,8 +1,9 @@
 import type { InjectionToken } from "./injection-token.interface";
-import type { Module, Provider } from "./module-types.interface";
+import type { Provider } from "./module-types.interface";
+import type { Type } from "./type.interface";
 
 export interface DynamicModule {
-	module: Module & {
+	module: Type & {
 		forRoot?: () => DynamicModule;
 		forRootAsync?: () => DynamicModule;
 		forFeature?: () => DynamicModule;
@@ -10,5 +11,5 @@ export interface DynamicModule {
 	};
 	providers?: Provider[];
 	exports?: InjectionToken[];
-	imports?: (Module | DynamicModule)[];
+	imports?: (Type | DynamicModule)[];
 }

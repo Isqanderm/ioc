@@ -1,6 +1,6 @@
 import "reflect-metadata";
 import { Test } from "@nexus-ioc/testing";
-import { NsModule } from "../src/decorators/nsModule";
+import { Module } from "../src/decorators/module";
 
 describe("ModuleContainer", () => {
 	class ServiceA {}
@@ -37,7 +37,7 @@ describe("ModuleContainer", () => {
 	});
 
 	it("should handle modules with imports", async () => {
-		@NsModule({
+		@Module({
 			providers: [ServiceA, ServiceB],
 			exports: [ServiceA],
 		})
