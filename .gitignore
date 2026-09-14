@@ -9,3 +9,6 @@ dist/
 # Coverage
 coverage/
 .nyc_output/
+
+# superpowers skill working files (plans/specs)
+docs/superpowers/
