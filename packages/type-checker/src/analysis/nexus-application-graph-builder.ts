@@ -211,7 +211,7 @@ export class NexusApplicationGraphBuilder {
 		moduleClass: NexusClass,
 		moduleBySymbol: Map<ts.Symbol, NexusClass>,
 		visiting: Set<ts.Symbol> = new Set(),
-	): Map<TokenIdentity, NexusProvider> {
+	): Map<TokenIdentity, { provider: NexusProvider; owner: NexusClass }> {
 		const symbol = this.classSymbol(moduleClass);
 		if (symbol) {
 			if (visiting.has(symbol)) return new Map();
@@ -219,7 +219,10 @@ export class NexusApplicationGraphBuilder {
 		}
 
 		const ownProviders = this.resolveOwnProviderMap(moduleClass);
-		const result = new Map<TokenIdentity, NexusProvider>();
+		const result = new Map<
+			TokenIdentity,
+			{ provider: NexusProvider; owner: NexusClass }
+		>();
 
 		for (const exportEntry of moduleClass.module?.exports ?? []) {
 			const identity = getTokenIdentity(exportEntry.token);
@@ -227,22 +230,19 @@ export class NexusApplicationGraphBuilder {
 
 			const ownMatch = ownProviders.get(identity);
 			if (ownMatch) {
-				result.set(identity, ownMatch);
+				result.set(identity, { provider: ownMatch, owner: moduleClass });
 				continue;
 			}
 
 			if (isSymbolIdentity(identity)) {
 				const referencedModule = moduleBySymbol.get(identity);
 				if (referencedModule) {
-					for (const [
-						nestedIdentity,
-						provider,
-					] of this.resolveExportedProviders(
+					for (const [nestedIdentity, entry] of this.resolveExportedProviders(
 						referencedModule,
 						moduleBySymbol,
 						visiting,
 					)) {
-						result.set(nestedIdentity, provider);
+						result.set(nestedIdentity, entry);
 					}
 				}
 			}
@@ -274,23 +274,23 @@ export class NexusApplicationGraphBuilder {
 			const importedModule = moduleBySymbol.get(identity);
 			if (!importedModule) continue;
 
-			for (const [exportedIdentity, provider] of this.resolveExportedProviders(
+			for (const [exportedIdentity, entry] of this.resolveExportedProviders(
 				importedModule,
 				moduleBySymbol,
 			)) {
 				if (!visible.has(exportedIdentity)) {
-					visible.set(exportedIdentity, { provider, owner: importedModule });
+					visible.set(exportedIdentity, entry);
 				}
 			}
 		}
 
 		for (const globalModule of globalModules) {
-			for (const [exportedIdentity, provider] of this.resolveExportedProviders(
+			for (const [exportedIdentity, entry] of this.resolveExportedProviders(
 				globalModule,
 				moduleBySymbol,
 			)) {
 				if (!visible.has(exportedIdentity)) {
-					visible.set(exportedIdentity, { provider, owner: globalModule });
+					visible.set(exportedIdentity, entry);
 				}
 			}
 		}

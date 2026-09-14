@@ -264,6 +264,57 @@ export class OtherModule {}
 	],
 ]);
 
+const END_TO_END_FILES = new Map<string, string>([
+	[
+		"/app/app.module.ts",
+		`import { Injectable as Service, Inject as Dependency, NsModule as Module, Optional as Maybe } from "@nexus-ioc/core";
+import { CoreModule } from "./core.module";
+import { LoggerModule } from "./logger.module";
+
+@Service()
+export class ApiService {
+  constructor(
+    @Dependency("DATABASE") db: unknown,
+    @Dependency("LOGGER") logger: unknown,
+    @Dependency("MISSING") @Maybe() missing: unknown,
+  ) {}
+}
+
+@Module({ imports: [CoreModule, LoggerModule], providers: [ApiService] })
+export class AppModule {}
+`,
+	],
+	[
+		"/app/core.module.ts",
+		`import { NsModule as Module } from "@nexus-ioc/core";
+import { DatabaseModule } from "./database.module";
+
+@Module({ imports: [DatabaseModule], exports: [DatabaseModule] })
+export class CoreModule {}
+`,
+	],
+	[
+		"/app/database.module.ts",
+		`import { NsModule as Module } from "@nexus-ioc/core";
+
+@Module({
+  providers: [{ provide: "DATABASE", useFactory: () => ({}) }],
+  exports: ["DATABASE"],
+})
+export class DatabaseModule {}
+`,
+	],
+	[
+		"/app/logger.module.ts",
+		`import { Global as NexusGlobal, NsModule as Module } from "@nexus-ioc/core";
+
+@Module({ providers: [{ provide: "LOGGER", useValue: console }], exports: ["LOGGER"] })
+@NexusGlobal()
+export class LoggerModule {}
+`,
+	],
+]);
+
 describe("NexusApplicationGraphBuilder", () => {
 	it("indexes a module's own providers and finds no dependencies to resolve yet", () => {
 		const { program, entryPoint } = createProgram();
@@ -389,5 +440,31 @@ describe("NexusApplicationGraphBuilder", () => {
 			provider.provide.kind === "string" ? provider.provide.value : undefined,
 		);
 		expect(provideValues).toEqual(["TOKEN", "A", "TOKEN"]);
+	});
+
+	it("resolves a realistic multi-module application end to end", () => {
+		const { program, entryPoint } = createProgram(
+			"/app/app.module.ts",
+			"AppModule",
+			END_TO_END_FILES,
+		);
+		const analyzer = createNexusAnalyzer(program);
+		const application =
+			createNexusApplicationAnalyzer(analyzer).analyze(entryPoint);
+		const graph =
+			createNexusApplicationGraphBuilder(analyzer).build(application);
+
+		const resolvedByName = new Map(
+			graph.resolved.map((item) => [item.dependencyName, item]),
+		);
+
+		expect(resolvedByName.get("db")?.providingModule.name).toBe(
+			"DatabaseModule",
+		);
+		expect(resolvedByName.get("logger")?.providingModule.name).toBe(
+			"LoggerModule",
+		);
+		expect(graph.unresolved).toEqual([]);
+		expect(graph.cycles).toEqual([]);
 	});
 });
