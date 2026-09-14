@@ -42,7 +42,8 @@ function isSymbolIdentity(identity: TokenIdentity): identity is ts.Symbol {
 
 /** Resolves a `NexusApplication` into a module-scoped dependency graph. */
 export class NexusApplicationGraphBuilder {
-	public constructor(readonly _analyzer: NexusAnalyzer) {}
+	// biome-ignore lint/correctness/noUnusedPrivateClassMembers: wired up by Task 6's classSymbol() implementation
+	public constructor(private readonly analyzer: NexusAnalyzer) {}
 
 	public build(application: NexusApplication): NexusApplicationGraph {
 		const moduleClasses = application.classes.filter(
