@@ -99,11 +99,11 @@ export class ConfigService {
 }
 `,
 			"config.module.ts": `
-import { Global, NsModule } from "@nexus-ioc/core";
+import { Global, Module } from "@nexus-ioc/core";
 import { ConfigService } from "./config.service";
 
 @Global()
-@NsModule({
+@Module({
   providers: [ConfigService],
   exports: [ConfigService],
 })
@@ -119,21 +119,21 @@ export class UserService {
 }
 `,
 			"user.module.ts": `
-import { NsModule } from "@nexus-ioc/core";
+import { Module } from "@nexus-ioc/core";
 import { UserService } from "./user.service";
 
-@NsModule({
+@Module({
   providers: [UserService],
   exports: [],
 })
 export class UserModule {}
 `,
 			"app.module.ts": `
-import { NsModule } from "@nexus-ioc/core";
+import { Module } from "@nexus-ioc/core";
 import { ConfigModule } from "./config.module";
 import { UserModule } from "./user.module";
 
-@NsModule({
+@Module({
   imports: [ConfigModule, UserModule],
 })
 export class AppModule {}
@@ -181,11 +181,11 @@ export class LoggerService {
 }
 `,
 			"config.module.ts": `
-import { Global, NsModule } from "@nexus-ioc/core";
+import { Global, Module } from "@nexus-ioc/core";
 import { ConfigService } from "./config.service";
 
 @Global()
-@NsModule({
+@Module({
   providers: [ConfigService],
   exports: [ConfigService],
 })
@@ -205,10 +205,10 @@ export class UserService {
 }
 `,
 			"user.module.ts": `
-import { NsModule } from "@nexus-ioc/core";
+import { Module } from "@nexus-ioc/core";
 import { UserService } from "./user.service";
 
-@NsModule({
+@Module({
   providers: [UserService],
   exports: [],
 })
@@ -256,11 +256,11 @@ export class ConfigService {
 }
 `,
 			"config.module.ts": `
-import { Global, NsModule } from "@nexus-ioc/core";
+import { Global, Module } from "@nexus-ioc/core";
 import { ConfigService } from "./config.service";
 
 @Global()
-@NsModule({
+@Module({
   providers: [ConfigService],
   exports: [ConfigService],
 })
@@ -313,22 +313,22 @@ import { Injectable } from "@nexus-ioc/core";
 export class LoggerService {}
 `,
 			"config.module.ts": `
-import { Global, NsModule } from "@nexus-ioc/core";
+import { Global, Module } from "@nexus-ioc/core";
 import { ConfigService } from "./config.service";
 
 @Global()
-@NsModule({
+@Module({
   providers: [ConfigService],
   exports: [ConfigService],
 })
 export class ConfigModule {}
 `,
 			"logger.module.ts": `
-import { Global, NsModule } from "@nexus-ioc/core";
+import { Global, Module } from "@nexus-ioc/core";
 import { LoggerService } from "./logger.service";
 
 @Global()
-@NsModule({
+@Module({
   providers: [LoggerService],
   exports: [LoggerService],
 })
@@ -348,10 +348,10 @@ export class UserService {
 }
 `,
 			"user.module.ts": `
-import { NsModule } from "@nexus-ioc/core";
+import { Module } from "@nexus-ioc/core";
 import { UserService } from "./user.service";
 
-@NsModule({
+@Module({
   providers: [UserService],
   exports: [],
 })

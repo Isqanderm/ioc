@@ -1,4 +1,4 @@
-import { Global, NsModule } from "@nexus-ioc/core";
+import { Global, Module } from "@nexus-ioc/core";
 import { GlobalLoggerService } from "./global-logger.service";
 
 /**
@@ -9,7 +9,7 @@ import { GlobalLoggerService } from "./global-logger.service";
  * in the application without needing to import this module explicitly.
  */
 @Global()
-@NsModule({
+@Module({
 	providers: [GlobalLoggerService],
 	exports: [GlobalLoggerService],
 })

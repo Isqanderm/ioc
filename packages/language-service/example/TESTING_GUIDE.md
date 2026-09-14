@@ -622,10 +622,10 @@ export class TestOrphanGlobalService {
 **Steps**:
 1. Create a new file `src/test-global-no-parens.module.ts`:
 ```typescript
-import { Global, NsModule } from "@nexus-ioc/core";
+import { Global, Module } from "@nexus-ioc/core";
 
 @Global  // Without parentheses
-@NsModule({
+@Module({
   providers: [],
   exports: [],
 })

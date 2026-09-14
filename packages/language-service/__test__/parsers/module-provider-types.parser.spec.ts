@@ -1,9 +1,9 @@
-import { NsModuleParser } from "@nexus-ioc/type-checker";
+import { ModuleParser } from "@nexus-ioc/type-checker";
 import { tsquery } from "@phenomnomnominal/tsquery";
 import * as ts from "typescript/lib/tsserverlibrary";
 import { beforeEach, describe, expect, it } from "vitest";
 
-describe("NsModuleParser - Provider Types", () => {
+describe("ModuleParser - Provider Types", () => {
 	let sourceFile: ts.SourceFile;
 	let typeChecker: ts.TypeChecker;
 	let program: ts.Program;
@@ -13,7 +13,7 @@ describe("NsModuleParser - Provider Types", () => {
 
 	beforeEach(() => {
 		const sourceText = `
-      import { NsModule, Injectable } from "@nexus-ioc/core";
+      import { Module, Injectable } from "@nexus-ioc/core";
 
       @Injectable()
       class DatabaseService {}
@@ -27,7 +27,7 @@ describe("NsModuleParser - Provider Types", () => {
       @Injectable()
       class MockDatabaseService {}
 
-      @NsModule({
+      @Module({
         providers: [
           // Class provider (shorthand)
           DatabaseService,
@@ -127,7 +127,7 @@ describe("NsModuleParser - Provider Types", () => {
 			`ClassDeclaration[name.text="TestModule"]`,
 		);
 
-		const [{ providers }] = NsModuleParser.execute(
+		const [{ providers }] = ModuleParser.execute(
 			modules,
 			typeChecker,
 			mockLogger,
@@ -151,7 +151,7 @@ describe("NsModuleParser - Provider Types", () => {
 			`ClassDeclaration[name.text="TestModule"]`,
 		);
 
-		const [{ providers }] = NsModuleParser.execute(
+		const [{ providers }] = ModuleParser.execute(
 			modules,
 			typeChecker,
 			mockLogger,
@@ -175,7 +175,7 @@ describe("NsModuleParser - Provider Types", () => {
 			`ClassDeclaration[name.text="TestModule"]`,
 		);
 
-		const [{ providers }] = NsModuleParser.execute(
+		const [{ providers }] = ModuleParser.execute(
 			modules,
 			typeChecker,
 			mockLogger,
@@ -199,7 +199,7 @@ describe("NsModuleParser - Provider Types", () => {
 			`ClassDeclaration[name.text="TestModule"]`,
 		);
 
-		const [{ providers }] = NsModuleParser.execute(
+		const [{ providers }] = ModuleParser.execute(
 			modules,
 			typeChecker,
 			mockLogger,
@@ -222,7 +222,7 @@ describe("NsModuleParser - Provider Types", () => {
 			`ClassDeclaration[name.text="TestModule"]`,
 		);
 
-		const [{ providers }] = NsModuleParser.execute(
+		const [{ providers }] = ModuleParser.execute(
 			modules,
 			typeChecker,
 			mockLogger,
@@ -245,7 +245,7 @@ describe("NsModuleParser - Provider Types", () => {
 			`ClassDeclaration[name.text="TestModule"]`,
 		);
 
-		const [{ providers }] = NsModuleParser.execute(
+		const [{ providers }] = ModuleParser.execute(
 			modules,
 			typeChecker,
 			mockLogger,
@@ -272,7 +272,7 @@ describe("NsModuleParser - Provider Types", () => {
 			`ClassDeclaration[name.text="TestModule"]`,
 		);
 
-		const [{ providers }] = NsModuleParser.execute(
+		const [{ providers }] = ModuleParser.execute(
 			modules,
 			typeChecker,
 			mockLogger,
@@ -299,7 +299,7 @@ describe("NsModuleParser - Provider Types", () => {
 			`ClassDeclaration[name.text="TestModule"]`,
 		);
 
-		const [{ providers }] = NsModuleParser.execute(
+		const [{ providers }] = ModuleParser.execute(
 			modules,
 			typeChecker,
 			mockLogger,

@@ -1,8 +1,8 @@
 import {
 	findTypeReferences,
-	type NsModuleDeclaration,
-	NsModuleParser,
-	NsModulesParser,
+	type ModuleDeclaration,
+	ModuleParser,
+	ModulesParser,
 	type ProviderType,
 } from "@nexus-ioc/type-checker";
 import * as ts from "typescript/lib/tsserverlibrary";
@@ -11,7 +11,7 @@ import type { NsLanguageService } from "../language-service/ns-language-service"
 /**
  * Finds the definition location for a dependency token used in an @Inject decorator
  *
- * This function analyzes the AST to locate where a dependency is provided in NsModule declarations.
+ * This function analyzes the AST to locate where a dependency is provided in Module declarations.
  * It searches through all modules that reference the class containing the @Inject decorator and
  * returns the provider definition locations.
  *
@@ -47,7 +47,7 @@ export const goToDependencyDefinitionActions = (
 
 		const references = findTypeReferences(classDeclarationNode, tsNsLs);
 
-		const referenceModules: NsModuleDeclaration[] = [];
+		const referenceModules: ModuleDeclaration[] = [];
 
 		for (const reference of references) {
 			const sourceFileReference = tsNsLs.tsLS
@@ -58,14 +58,14 @@ export const goToDependencyDefinitionActions = (
 				continue;
 			}
 
-			const modules = NsModulesParser.executeByClassDependency(
+			const modules = ModulesParser.executeByClassDependency(
 				sourceFileReference,
 				classDeclarationNode,
 				tsNsLs,
 			);
-			const nsModule = NsModuleParser.execute(modules, typeChecker, tsNsLs);
+			const parsedModules = ModuleParser.execute(modules, typeChecker, tsNsLs);
 
-			referenceModules.push(...nsModule);
+			referenceModules.push(...parsedModules);
 		}
 
 		const providers = referenceModules.reduce<ProviderType[]>((accum, item) => {

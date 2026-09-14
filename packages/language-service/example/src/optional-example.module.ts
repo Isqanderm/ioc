@@ -1,4 +1,4 @@
-import { NsModule } from "@nexus-ioc/core";
+import { Module } from "@nexus-ioc/core";
 import { ConfigService } from "./config.service";
 import { LoggerService } from "./logger.service";
 import { OptionalDependenciesService } from "./optional-dependencies.service";
@@ -19,7 +19,7 @@ import { OptionalDependenciesService } from "./optional-dependencies.service";
  * 2. Remove ConfigService from providers - ERROR (it's required)
  * 3. Add CacheService to providers - service will use it
  */
-@NsModule({
+@Module({
 	providers: [
 		// String token providers for ConfigService
 		{

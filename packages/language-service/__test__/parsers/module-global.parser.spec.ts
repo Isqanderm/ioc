@@ -1,10 +1,10 @@
-import { NsModuleParser } from "@nexus-ioc/type-checker";
+import { ModuleParser } from "@nexus-ioc/type-checker";
 import { tsquery } from "@phenomnomnominal/tsquery";
 import * as ts from "typescript/lib/tsserverlibrary";
 import { describe, expect, it, vi } from "vitest";
 import type { Logger } from "../../src/logger";
 
-describe("NsModuleParser - @Global() Decorator", () => {
+describe("ModuleParser - @Global() Decorator", () => {
 	let mockLogger: Logger;
 	let program: ts.Program;
 	let typeChecker: ts.TypeChecker;
@@ -19,24 +19,24 @@ describe("NsModuleParser - @Global() Decorator", () => {
 		} as unknown as Logger;
 
 		const sourceText = `
-import { Global, NsModule } from "@nexus-ioc/core";
+import { Global, Module } from "@nexus-ioc/core";
 import { ConfigService } from "./config.service";
 
 @Global()
-@NsModule({
+@Module({
   providers: [ConfigService],
   exports: [ConfigService],
 })
 export class GlobalConfigModule {}
 
-@NsModule({
+@Module({
   providers: [],
   exports: [],
 })
 export class RegularModule {}
 
 @Global
-@NsModule({
+@Module({
   providers: [],
   exports: [],
 })
@@ -78,7 +78,7 @@ export class GlobalWithoutParentheses {}
 				`ClassDeclaration[name.text="GlobalConfigModule"]`,
 			);
 
-			const [result] = NsModuleParser.execute(modules, typeChecker, mockLogger);
+			const [result] = ModuleParser.execute(modules, typeChecker, mockLogger);
 
 			expect(result.isGlobal).toBe(true);
 			expect(result.moduleName).toBe("GlobalConfigModule");
@@ -94,7 +94,7 @@ export class GlobalWithoutParentheses {}
 				`ClassDeclaration[name.text="GlobalWithoutParentheses"]`,
 			);
 
-			const [result] = NsModuleParser.execute(modules, typeChecker, mockLogger);
+			const [result] = ModuleParser.execute(modules, typeChecker, mockLogger);
 
 			expect(result.isGlobal).toBe(true);
 			expect(result.moduleName).toBe("GlobalWithoutParentheses");
@@ -110,18 +110,18 @@ export class GlobalWithoutParentheses {}
 				`ClassDeclaration[name.text="RegularModule"]`,
 			);
 
-			const [result] = NsModuleParser.execute(modules, typeChecker, mockLogger);
+			const [result] = ModuleParser.execute(modules, typeChecker, mockLogger);
 
 			expect(result.isGlobal).toBe(false);
 			expect(result.moduleName).toBe("RegularModule");
 		});
 
-		it("should handle decorator order (@Global before @NsModule)", () => {
+		it("should handle decorator order (@Global before @Module)", () => {
 			const code = `
-import { Global, NsModule } from "@nexus-ioc/core";
+import { Global, Module } from "@nexus-ioc/core";
 
 @Global()
-@NsModule({
+@Module({
   providers: [],
   exports: [],
 })
@@ -134,16 +134,16 @@ export class TestModule {}
 			);
 
 			// Use the existing program's type checker
-			const [result] = NsModuleParser.execute(modules, typeChecker, mockLogger);
+			const [result] = ModuleParser.execute(modules, typeChecker, mockLogger);
 
 			expect(result.isGlobal).toBe(true);
 		});
 
-		it("should handle decorator order (@NsModule before @Global)", () => {
+		it("should handle decorator order (@Module before @Global)", () => {
 			const code = `
-import { Global, NsModule } from "@nexus-ioc/core";
+import { Global, Module } from "@nexus-ioc/core";
 
-@NsModule({
+@Module({
   providers: [],
   exports: [],
 })
@@ -157,7 +157,7 @@ export class TestModule {}
 			);
 
 			// Use the existing program's type checker
-			const [result] = NsModuleParser.execute(modules, typeChecker, mockLogger);
+			const [result] = ModuleParser.execute(modules, typeChecker, mockLogger);
 
 			expect(result.isGlobal).toBe(true);
 		});
@@ -172,7 +172,7 @@ export class PlainClass {}
 				`ClassDeclaration[name.text="PlainClass"]`,
 			);
 
-			// This should return empty array since PlainClass doesn't have @NsModule
+			// This should return empty array since PlainClass doesn't have @Module
 			expect(modules).toHaveLength(1);
 		});
 	});

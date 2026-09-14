@@ -32,7 +32,7 @@ describe("getSemanticDiagnosticsActions - @Optional() Support", () => {
 
 	it("should NOT report error for missing optional dependency", () => {
 		const sourceCode = `
-      import { Injectable, Inject, Optional, NsModule } from '@nexus-ioc/core';
+      import { Injectable, Inject, Optional, Module } from '@nexus-ioc/core';
 
       @Injectable()
       class DatabaseService {}
@@ -46,7 +46,7 @@ describe("getSemanticDiagnosticsActions - @Optional() Support", () => {
         ) {}
       }
 
-      @NsModule({
+      @Module({
         providers: [TestService]
       })
       class TestModule {}
@@ -102,7 +102,7 @@ describe("getSemanticDiagnosticsActions - @Optional() Support", () => {
 
 	it("should report error for missing required dependency", () => {
 		const sourceCode = `
-      import { Injectable, Inject, NsModule } from '@nexus-ioc/core';
+      import { Injectable, Inject, Module } from '@nexus-ioc/core';
 
       @Injectable()
       class DatabaseService {}
@@ -115,7 +115,7 @@ describe("getSemanticDiagnosticsActions - @Optional() Support", () => {
         ) {}
       }
 
-      @NsModule({
+      @Module({
         providers: [TestService]
       })
       class TestModule {}
@@ -171,7 +171,7 @@ describe("getSemanticDiagnosticsActions - @Optional() Support", () => {
 
 	it("should handle mixed optional and required dependencies", () => {
 		const sourceCode = `
-      import { Injectable, Inject, Optional, NsModule } from '@nexus-ioc/core';
+      import { Injectable, Inject, Optional, Module } from '@nexus-ioc/core';
 
       @Injectable()
       class DatabaseService {}
@@ -196,7 +196,7 @@ describe("getSemanticDiagnosticsActions - @Optional() Support", () => {
         ) {}
       }
 
-      @NsModule({
+      @Module({
         providers: [TestService, DatabaseService]
       })
       class TestModule {}
@@ -327,7 +327,7 @@ describe("getSemanticDiagnosticsActions - @Optional() Support", () => {
 
 	it("should NOT report type mismatch error for optional dependency with correct type", () => {
 		const sourceCode = `
-      import { Injectable, Inject, Optional, NsModule } from '@nexus-ioc/core';
+      import { Injectable, Inject, Optional, Module } from '@nexus-ioc/core';
 
       @Injectable()
       class LoggerService {
@@ -343,7 +343,7 @@ describe("getSemanticDiagnosticsActions - @Optional() Support", () => {
         ) {}
       }
 
-      @NsModule({
+      @Module({
         providers: [
           LoggerService,  // Provides LoggerService (not LoggerService | undefined)
           UserService,

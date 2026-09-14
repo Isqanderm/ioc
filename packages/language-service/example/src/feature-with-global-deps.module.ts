@@ -1,4 +1,4 @@
-import { NsModule } from "@nexus-ioc/core";
+import { Module } from "@nexus-ioc/core";
 import { FeatureWithGlobalDepsService } from "./feature-with-global-deps.service";
 
 /**
@@ -10,7 +10,7 @@ import { FeatureWithGlobalDepsService } from "./feature-with-global-deps.service
  *
  * The language service plugin will NOT show errors for these dependencies.
  */
-@NsModule({
+@Module({
 	providers: [FeatureWithGlobalDepsService],
 	exports: [FeatureWithGlobalDepsService],
 })

@@ -1,4 +1,4 @@
-import { Global, NsModule } from "@nexus-ioc/core";
+import { Global, Module } from "@nexus-ioc/core";
 import { GlobalConfigService } from "./global-config.service";
 
 /**
@@ -15,7 +15,7 @@ import { GlobalConfigService } from "./global-config.service";
  * - Other cross-cutting concerns
  */
 @Global()
-@NsModule({
+@Module({
 	providers: [GlobalConfigService],
 	exports: [GlobalConfigService],
 })

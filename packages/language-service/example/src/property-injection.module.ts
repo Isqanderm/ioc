@@ -1,4 +1,4 @@
-import { NsModule } from "@nexus-ioc/core";
+import { Module } from "@nexus-ioc/core";
 import { DatabaseService } from "./database.service";
 import { LoggerService } from "./logger.service";
 import { OptionalPropertyInjectionService } from "./optional-property-injection.service";
@@ -17,7 +17,7 @@ import { PropertyInjectionService } from "./property-injection.service";
  * 2. Remove CacheService from providers - should NOT show error (it's optional)
  * 3. Add/remove services to see how property injection diagnostics work
  */
-@NsModule({
+@Module({
 	providers: [
 		DatabaseService,
 		LoggerService,

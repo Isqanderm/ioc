@@ -21,7 +21,7 @@ describe("getSemanticDiagnostics - Provider Types", () => {
 				"test.ts",
 				`
       // Mock decorators for testing
-      function NsModule(metadata: any) {
+      function Module(metadata: any) {
         return function (target: any) {};
       }
       function Injectable() {
@@ -70,7 +70,7 @@ describe("getSemanticDiagnostics - Provider Types", () => {
       }
 
       // Module that provides and consumes services for testing
-      @NsModule({
+      @Module({
         providers: [
           DatabaseService,
           ConfigService,
@@ -248,7 +248,7 @@ describe("getSemanticDiagnostics - Provider Type Errors", () => {
 				"test.ts",
 				`
       // Mock decorators for testing
-      function NsModule(metadata: any) {
+      function Module(metadata: any) {
         return function (target: any) {};
       }
       function Injectable() {
@@ -265,7 +265,7 @@ describe("getSemanticDiagnostics - Provider Type Errors", () => {
       class ConfigService {}
 
       // Module with factory provider that has missing inject dependency
-      @NsModule({
+      @Module({
         providers: [
           DatabaseService,
           {
@@ -353,7 +353,7 @@ describe("getSemanticDiagnostics - Provider Type Errors", () => {
 			[
 				"type-mismatch-test.ts",
 				`
-      function NsModule(metadata: any) {
+      function Module(metadata: any) {
         return function (target: any) {};
       }
       function Injectable() {
@@ -368,7 +368,7 @@ describe("getSemanticDiagnostics - Provider Type Errors", () => {
         constructor(@Inject("CONFIG_VALUE") private config: string) {}
       }
 
-      @NsModule({
+      @Module({
         providers: [
           {
             provide: "CONFIG_VALUE",

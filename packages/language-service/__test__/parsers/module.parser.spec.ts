@@ -1,10 +1,10 @@
-import { NsModuleParser } from "@nexus-ioc/type-checker";
+import { ModuleParser } from "@nexus-ioc/type-checker";
 import { tsquery } from "@phenomnomnominal/tsquery";
 import * as ts from "typescript/lib/tsserverlibrary";
 import { vi } from "vitest";
 import type { Logger } from "../../src/logger";
 
-describe("NsModuleParser", () => {
+describe("ModuleParser", () => {
 	let sourceFile: ts.SourceFile;
 	let mockLogger: Logger;
 	let typeChecker: ts.TypeChecker;
@@ -12,12 +12,12 @@ describe("NsModuleParser", () => {
 
 	beforeEach(() => {
 		const sourceText = `
-      import { NsModule } from "@nexus-ioc/core";
+      import { Module } from "@nexus-ioc/core";
       import { AppService } from "./app.service";
       import { UserModule } from "./user/user.module";
       import { forFeature, forRoot } from "./feature";
 
-      @NsModule({
+      @Module({
         imports: [
           UserModule
         ],
@@ -46,7 +46,7 @@ describe("NsModuleParser", () => {
       })
       export class AppModule {}
 
-      @NsModule({
+      @Module({
         imports: [],
         providers: [],
         exports: [],
@@ -90,10 +90,10 @@ describe("NsModuleParser", () => {
 		it("should parse module declarations correctly", () => {
 			const modules = tsquery.query<ts.ClassDeclaration>(
 				sourceFile,
-				`ClassDeclaration:has(Decorator > CallExpression > Identifier[name="NsModule"])`,
+				`ClassDeclaration:has(Decorator > CallExpression > Identifier[name="Module"])`,
 			);
 
-			const result = NsModuleParser.execute(modules, typeChecker, mockLogger);
+			const result = ModuleParser.execute(modules, typeChecker, mockLogger);
 
 			expect(result).toHaveLength(2);
 
@@ -119,7 +119,7 @@ describe("NsModuleParser", () => {
 					`ClassDeclaration[name.text="AppModule"]`,
 				);
 
-				const [{ imports }] = NsModuleParser.execute(
+				const [{ imports }] = ModuleParser.execute(
 					modules,
 					typeChecker,
 					mockLogger,
@@ -138,7 +138,7 @@ describe("NsModuleParser", () => {
 					`ClassDeclaration[name.text="AppModule"]`,
 				);
 
-				const [{ providers }] = NsModuleParser.execute(
+				const [{ providers }] = ModuleParser.execute(
 					modules,
 					typeChecker,
 					mockLogger,
@@ -169,7 +169,7 @@ describe("NsModuleParser", () => {
 					`ClassDeclaration[name.text="AppModule"]`,
 				);
 
-				const [{ exports }] = NsModuleParser.execute(
+				const [{ exports }] = ModuleParser.execute(
 					modules,
 					typeChecker,
 					mockLogger,

@@ -7,9 +7,9 @@ import {
 	InjectableParser,
 	type InjectParameterDeclaration,
 	InjectParser,
-	type NsModuleDeclaration,
-	NsModuleParser,
-	NsModulesParser,
+	type ModuleDeclaration,
+	ModuleParser,
+	ModulesParser,
 	type ProviderType,
 } from "@nexus-ioc/type-checker";
 import * as ts from "typescript/lib/tsserverlibrary";
@@ -90,8 +90,8 @@ export const getSemanticDiagnosticsActions = (
 	}
 
 	// Validate factory provider dependencies
-	const allModules = NsModulesParser.execute(sourceFile);
-	const parsedModules = NsModuleParser.execute(allModules, typeChecker, tsNsLs);
+	const allModules = ModulesParser.execute(sourceFile);
+	const parsedModules = ModuleParser.execute(allModules, typeChecker, tsNsLs);
 
 	for (const module of parsedModules) {
 		for (const provider of module.providers) {
@@ -143,13 +143,13 @@ export const getSemanticDiagnosticsActions = (
 
 									if (!importedSourceFile) continue;
 
-									const importedModules = NsModulesParser.executeByModuleName(
+									const importedModules = ModulesParser.executeByModuleName(
 										importedSourceFile,
 										importedModule.declaration,
 										typeChecker,
 										tsNsLs,
 									);
-									const importedNsModules = NsModuleParser.execute(
+									const importedNsModules = ModuleParser.execute(
 										importedModules,
 										typeChecker,
 										tsNsLs,
@@ -252,7 +252,7 @@ export const getSemanticDiagnosticsActions = (
 		);
 
 		const references = findTypeReferences(injectableClass, tsNsLs);
-		const referenceModules: NsModuleDeclaration[] = [];
+		const referenceModules: ModuleDeclaration[] = [];
 
 		for (const reference of references) {
 			const sourceFileReference = tsNsLs.tsLS
@@ -263,12 +263,12 @@ export const getSemanticDiagnosticsActions = (
 				continue;
 			}
 
-			const modules = NsModulesParser.executeByClassDependency(
+			const modules = ModulesParser.executeByClassDependency(
 				sourceFileReference,
 				injectableClass,
 				tsNsLs,
 			);
-			const nsModule = NsModuleParser.execute(modules, typeChecker, tsNsLs);
+			const nsModule = ModuleParser.execute(modules, typeChecker, tsNsLs);
 
 			referenceModules.push(...nsModule);
 		}
@@ -313,13 +313,13 @@ export const getSemanticDiagnosticsActions = (
 									.getProgram()
 									?.getSourceFile(reference.fileName) as ts.SourceFile;
 
-								const modules = NsModulesParser.executeByModuleName(
+								const modules = ModulesParser.executeByModuleName(
 									sourceFile,
 									module.declaration,
 									typeChecker,
 									tsNsLs,
 								);
-								const nsModules = NsModuleParser.execute(
+								const nsModules = ModuleParser.execute(
 									modules,
 									typeChecker,
 									tsNsLs,
@@ -532,13 +532,13 @@ export const getSemanticDiagnosticsActions = (
 function findGlobalModules(
 	tsNsLs: NsLanguageService,
 	typeChecker: ts.TypeChecker,
-): NsModuleDeclaration[] {
+): ModuleDeclaration[] {
 	const program = tsNsLs.tsLS.getProgram();
 	if (!program) {
 		return [];
 	}
 
-	const globalModules: NsModuleDeclaration[] = [];
+	const globalModules: ModuleDeclaration[] = [];
 	const sourceFiles = program.getSourceFiles();
 
 	for (const sourceFile of sourceFiles) {
@@ -550,8 +550,8 @@ function findGlobalModules(
 			continue;
 		}
 
-		const modules = NsModulesParser.execute(sourceFile);
-		const nsModules = NsModuleParser.execute(modules, typeChecker, tsNsLs);
+		const modules = ModulesParser.execute(sourceFile);
+		const nsModules = ModuleParser.execute(modules, typeChecker, tsNsLs);
 
 		for (const nsModule of nsModules) {
 			if (nsModule.isGlobal && nsModule.exports.length > 0) {
