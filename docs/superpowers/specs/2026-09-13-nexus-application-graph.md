@@ -55,7 +55,13 @@ cycles by TypeScript symbol identity rather than class-name strings.
    any `@Global()` module anywhere in the program. Unresolved *required*
    dependencies are reported explicitly; optional ones are not.
 4. Detect dependency cycles across this resolved provider graph using
-   `ts.Symbol`/token identity, not class-name strings.
+   `ts.Symbol`/token identity, not class-name strings. **Delivered scope:**
+   cycles among `useFactory` providers' `inject` arrays, scoped per module
+   (a cycle spanning two different modules' own provider registrations for
+   the same token is not detected — see Out of scope). Constructor-injection
+   cycles between `@Injectable` classes (the classic case the legacy
+   `CircularDependencyDetectorHelper` already handles via fragile class-name
+   matching) are **not yet detected** by the new graph; see Out of scope.
 5. Keep the public API AST-free and deterministic — same class/property
    naming and testing discipline as `nexus-application-analyzer.ts`.
 
@@ -68,3 +74,16 @@ cycles by TypeScript symbol identity rather than class-name strings.
 - `Scope.Singleton/Request/Transient` instance semantics — only captured as
   inert token metadata on `NexusProvider`, never interpreted.
 - ESLint rules or compiler code generation consuming the graph.
+- Constructor-injection cycle detection (class `A` `@Inject()`s class `B`
+  which `@Inject()`s class `A` back, via their class providers). The
+  delivered `NexusApplicationGraphBuilder.detectCycles()` only walks
+  `useFactory` `inject` arrays; it does not yet walk `NexusApplicationGraph`
+  `resolved` class-to-provider edges to find this classic cycle shape, even
+  though the data needed to do so (`resolved`) already exists. Follow-up:
+  extend `detectCycles()` to also traverse `resolved` dependency edges.
+- Caching `NexusApplicationGraphBuilder`'s `classSymbol()` AST re-location
+  (currently re-walks the source file per call; correct but O(modules²) —
+  acceptable until this feeds a language-service on the keystroke path).
+- A dedicated "class registered in zero modules" diagnostic. Today such a
+  class reports every one of its required dependencies as unresolved
+  individually rather than one clear "not registered in any module" error.
