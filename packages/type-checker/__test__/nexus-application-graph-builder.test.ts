@@ -220,6 +220,22 @@ export class ImportedModule {}
 	],
 ]);
 
+const FACTORY_CYCLE_FILES = new Map<string, string>([
+	[
+		"/app/app.module.ts",
+		`import { NsModule as Module } from "@nexus-ioc/core";
+
+@Module({
+  providers: [
+    { provide: "A", useFactory: (b: unknown) => b, inject: ["B"] },
+    { provide: "B", useFactory: (a: unknown) => a, inject: ["A"] },
+  ],
+})
+export class AppModule {}
+`,
+	],
+]);
+
 describe("NexusApplicationGraphBuilder", () => {
 	it("indexes a module's own providers and finds no dependencies to resolve yet", () => {
 		const { program, entryPoint } = createProgram();
@@ -305,5 +321,25 @@ describe("NexusApplicationGraphBuilder", () => {
 		expect(graph.resolved[0].dependencyName).toBe("shared");
 		expect(graph.resolved[0].providingModule.name).toBe("AppModule");
 		expect(graph.resolved[0].provider.kind).toBe("useValue");
+	});
+
+	it("detects a cycle between two factory providers by token identity", () => {
+		const { program, entryPoint } = createProgram(
+			"/app/app.module.ts",
+			"AppModule",
+			FACTORY_CYCLE_FILES,
+		);
+		const analyzer = createNexusAnalyzer(program);
+		const application =
+			createNexusApplicationAnalyzer(analyzer).analyze(entryPoint);
+		const graph =
+			createNexusApplicationGraphBuilder(analyzer).build(application);
+
+		expect(graph.cycles).toHaveLength(1);
+		const [cycle] = graph.cycles;
+		const provideValues = cycle.path.map((provider) =>
+			provider.provide.kind === "string" ? provider.provide.value : undefined,
+		);
+		expect(provideValues).toEqual(["A", "B", "A"]);
 	});
 });

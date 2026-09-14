@@ -114,7 +114,7 @@ export class NexusApplicationGraphBuilder {
 		return {
 			resolved,
 			unresolved,
-			cycles: this.detectCycles(moduleClasses, providingModulesByClassSymbol),
+			cycles: this.detectCycles(moduleClasses),
 		};
 	}
 
@@ -329,10 +329,56 @@ export class NexusApplicationGraphBuilder {
 	}
 
 	private detectCycles(
-		_moduleClasses: readonly NexusClass[],
-		_providingModulesByClassSymbol: Map<ts.Symbol, NexusClass[]>,
+		moduleClasses: readonly NexusClass[],
 	): NexusProviderCycle[] {
-		return [];
+		const providersByIdentity = new Map<TokenIdentity, NexusProvider>();
+		for (const moduleClass of moduleClasses) {
+			for (const [identity, provider] of this.resolveOwnProviderMap(
+				moduleClass,
+			)) {
+				providersByIdentity.set(identity, provider);
+			}
+		}
+
+		const cycles: NexusProviderCycle[] = [];
+		const visited = new Set<TokenIdentity>();
+		const stack = new Set<TokenIdentity>();
+
+		const visit = (identity: TokenIdentity, path: NexusProvider[]): void => {
+			if (stack.has(identity)) {
+				const cycleStart = path.findIndex(
+					(provider) => getTokenIdentity(provider.provide) === identity,
+				);
+				const cyclePath = path.slice(cycleStart);
+				const closingProvider = providersByIdentity.get(identity);
+				cycles.push({
+					path: closingProvider ? [...cyclePath, closingProvider] : cyclePath,
+				});
+				return;
+			}
+			if (visited.has(identity)) return;
+
+			visited.add(identity);
+			stack.add(identity);
+
+			const provider = providersByIdentity.get(identity);
+			if (provider) {
+				for (const injectToken of provider.factoryInject) {
+					const nextIdentity = getTokenIdentity(injectToken);
+					if (nextIdentity !== undefined) {
+						visit(nextIdentity, [...path, provider]);
+					}
+				}
+			}
+
+			stack.delete(identity);
+		};
+
+		for (const identity of providersByIdentity.keys()) {
+			if (!visited.has(identity)) visit(identity, []);
+		}
+
+		return cycles;
 	}
 }
 
