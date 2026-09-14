@@ -236,6 +236,34 @@ export class AppModule {}
 	],
 ]);
 
+const CROSS_MODULE_TOKEN_COLLISION_FILES = new Map<string, string>([
+	[
+		"/app/app.module.ts",
+		`import { NsModule as Module } from "@nexus-ioc/core";
+import { OtherModule } from "./other.module";
+
+@Module({
+  imports: [OtherModule],
+  providers: [
+    { provide: "TOKEN", useFactory: (a: unknown) => a, inject: ["A"] },
+    { provide: "A", useFactory: (t: unknown) => t, inject: ["TOKEN"] },
+  ],
+})
+export class AppModule {}
+`,
+	],
+	[
+		"/app/other.module.ts",
+		`import { NsModule as Module } from "@nexus-ioc/core";
+
+@Module({
+  providers: [{ provide: "TOKEN", useValue: 1 }],
+})
+export class OtherModule {}
+`,
+	],
+]);
+
 describe("NexusApplicationGraphBuilder", () => {
 	it("indexes a module's own providers and finds no dependencies to resolve yet", () => {
 		const { program, entryPoint } = createProgram();
@@ -341,5 +369,25 @@ describe("NexusApplicationGraphBuilder", () => {
 			provider.provide.kind === "string" ? provider.provide.value : undefined,
 		);
 		expect(provideValues).toEqual(["A", "B", "A"]);
+	});
+
+	it("still finds a module's own factory cycle when another module reuses the same token name", () => {
+		const { program, entryPoint } = createProgram(
+			"/app/app.module.ts",
+			"AppModule",
+			CROSS_MODULE_TOKEN_COLLISION_FILES,
+		);
+		const analyzer = createNexusAnalyzer(program);
+		const application =
+			createNexusApplicationAnalyzer(analyzer).analyze(entryPoint);
+		const graph =
+			createNexusApplicationGraphBuilder(analyzer).build(application);
+
+		expect(graph.cycles).toHaveLength(1);
+		const [cycle] = graph.cycles;
+		const provideValues = cycle.path.map((provider) =>
+			provider.provide.kind === "string" ? provider.provide.value : undefined,
+		);
+		expect(provideValues).toEqual(["TOKEN", "A", "TOKEN"]);
 	});
 });
