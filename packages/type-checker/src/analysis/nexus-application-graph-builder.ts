@@ -279,7 +279,9 @@ export class NexusApplicationGraphBuilder {
 				importedModule,
 				moduleBySymbol,
 			)) {
-				visible.set(exportedIdentity, { provider, owner: importedModule });
+				if (!visible.has(exportedIdentity)) {
+					visible.set(exportedIdentity, { provider, owner: importedModule });
+				}
 			}
 		}
 
