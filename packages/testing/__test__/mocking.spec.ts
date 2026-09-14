@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import { Inject, Injectable, NsModule } from "@nexus-ioc/core";
+import { Inject, Injectable, Module } from "@nexus-ioc/core";
 import { Test } from "../src/core/testing-container";
 
 describe("Mocking and Provider Overriding", () => {
@@ -273,14 +273,14 @@ describe("Mocking and Provider Overriding", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [MockDatabaseService],
 				exports: [MockDatabaseService],
 			})
 			class MockDatabaseModule {}
 
 			// Replace real module with mock
-			@NsModule({
+			@Module({
 				imports: [MockDatabaseModule],
 				providers: [
 					{

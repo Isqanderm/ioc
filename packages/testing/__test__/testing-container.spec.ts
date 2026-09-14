@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import { Injectable, NsModule } from "@nexus-ioc/core";
+import { Injectable, Module } from "@nexus-ioc/core";
 import { vi } from "vitest";
 import { Test } from "../src/core/testing-container";
 
@@ -32,7 +32,7 @@ describe("TestingContainer (Test class)", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [SharedService],
 				exports: [SharedService],
 			})
@@ -172,7 +172,7 @@ describe("TestingContainer (Test class)", () => {
 				name = "new";
 			}
 
-			@NsModule({
+			@Module({
 				providers: [NewService],
 				exports: [NewService],
 			})
@@ -193,7 +193,7 @@ describe("TestingContainer (Test class)", () => {
 			@Injectable()
 			class ServiceInModule {}
 
-			@NsModule({
+			@Module({
 				providers: [ServiceInModule],
 			})
 			class TestModule {}
@@ -208,12 +208,12 @@ describe("TestingContainer (Test class)", () => {
 		});
 
 		it("should return undefined for non-existent modules", async () => {
-			@NsModule({
+			@Module({
 				providers: [],
 			})
 			class ExistingModule {}
 
-			@NsModule({
+			@Module({
 				providers: [],
 			})
 			class NonExistentModule {}
@@ -244,13 +244,13 @@ describe("TestingContainer (Test class)", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [OldService],
 				exports: [OldService],
 			})
 			class OldModule {}
 
-			@NsModule({
+			@Module({
 				providers: [NewService],
 				exports: [NewService],
 			})
@@ -300,7 +300,7 @@ describe("TestingContainer (Test class)", () => {
 				providers: [CustomService],
 			});
 
-			testingModule.setModuleDecorator(NsModule);
+			testingModule.setModuleDecorator(Module);
 
 			const compiled = await testingModule.compile();
 			const service = await compiled.get<CustomService>(CustomService);

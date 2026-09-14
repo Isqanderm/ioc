@@ -1,14 +1,14 @@
 import {
-	Container,
 	type DynamicModule,
 	type GraphError,
 	type InjectionToken,
-	type Module,
 	type ModuleContainerInterface,
-	NsModule as ModuleDecorator,
+	Module as ModuleDecorator,
 	type ModuleMetadata,
 	type ScannerPluginInterface,
+	type Type,
 } from "@nexus-ioc/core";
+import { Container } from "@nexus-ioc/core/internal";
 import { ContainerNotCompiledError } from "@nexus-ioc/shared";
 import type { ModuleTestingContainerInterface } from "../interfaces";
 import { HashTestingUtil } from "./hash-testing-util";
@@ -24,7 +24,7 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 	private _moduleContainer: ModuleContainerInterface | null = null;
 	private _moduleDecorator: <D extends T>(metadata: D) => ClassDecorator =
 		ModuleDecorator;
-	private _module: Module | null = null;
+	private _module: Type | null = null;
 	private containerCompiled = false;
 
 	private constructor(private readonly metatype: T) {}
@@ -36,20 +36,20 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 	}
 
 	public async addModule(
-		metatype: Module | DynamicModule,
+		metatype: Type | DynamicModule,
 	): Promise<ModuleContainerInterface> {
 		return this.container.addModule(metatype);
 	}
 
 	public async getModule(
-		metatype: Module,
+		metatype: Type,
 	): Promise<ModuleContainerInterface | undefined> {
 		return this.container.getModule(metatype);
 	}
 
 	public async replaceModule(
-		metatypeToReplace: Module,
-		newMetatype: Module,
+		metatypeToReplace: Type,
+		newMetatype: Type,
 	): Promise<ModuleContainerInterface> {
 		return this.container.replaceModule(metatypeToReplace, newMetatype);
 	}
@@ -69,7 +69,7 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 		);
 		this._moduleContainer = await this.container.addModule(this._module);
 
-		await this.container.run(this._moduleContainer.metatype as Module);
+		await this.container.run(this._moduleContainer.metatype as Type);
 
 		this.containerCompiled = true;
 
