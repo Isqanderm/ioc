@@ -128,37 +128,6 @@ describe("Validator", () => {
 		});
 	});
 
-	describe("validateGraphvizInstalled", () => {
-		it("should return null for json format", () => {
-			const error = Validator.validateGraphvizInstalled("json");
-			expect(error).toBeNull();
-		});
-
-		it("should return null for html format", () => {
-			const error = Validator.validateGraphvizInstalled("html");
-			expect(error).toBeNull();
-		});
-
-		it("should check Graphviz for png format", () => {
-			const error = Validator.validateGraphvizInstalled("png");
-			// This will depend on whether Graphviz is installed
-			// We just check that it returns a result (null or error)
-			expect(error === null || error?.type === "GRAPHVIZ_NOT_FOUND").toBe(true);
-		});
-
-		it("should check Graphviz for both format", () => {
-			const error = Validator.validateGraphvizInstalled("both");
-			// This will depend on whether Graphviz is installed
-			expect(error === null || error?.type === "GRAPHVIZ_NOT_FOUND").toBe(true);
-		});
-
-		it("should check Graphviz when format is undefined", () => {
-			const error = Validator.validateGraphvizInstalled(undefined);
-			// This will depend on whether Graphviz is installed
-			expect(error === null || error?.type === "GRAPHVIZ_NOT_FOUND").toBe(true);
-		});
-	});
-
 	describe("validateOutputDirectory", () => {
 		it("should return null for writable directory", () => {
 			const outputPath = path.join(testDir, "output.json");
@@ -219,7 +188,6 @@ describe("Validator", () => {
 
 			const error = Validator.runPreflightChecks({
 				entryFile,
-				format: "json",
 			});
 
 			expect(error).toBeNull();
@@ -228,7 +196,6 @@ describe("Validator", () => {
 		it("should return error for invalid entry file", () => {
 			const error = Validator.runPreflightChecks({
 				entryFile: "nonexistent.ts",
-				format: "json",
 			});
 
 			expect(error).not.toBeNull();
@@ -242,7 +209,6 @@ describe("Validator", () => {
 			const error = Validator.runPreflightChecks({
 				entryFile,
 				tsConfig: "nonexistent-tsconfig.json",
-				format: "json",
 			});
 
 			expect(error).not.toBeNull();
@@ -256,7 +222,6 @@ describe("Validator", () => {
 			const error = Validator.runPreflightChecks({
 				entryFile,
 				output: path.join(testDir, "output", "graph.json"),
-				format: "json",
 			});
 
 			expect(error).toBeNull();

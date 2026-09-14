@@ -3,13 +3,18 @@ import { ModuleDepthAnalyzer } from "../analyzer/module-depth-analyzer";
 import { ProviderScopeAnalyzer } from "../analyzer/provider-scope-analyzer";
 import { UnusedProviderDetector } from "../analyzer/unused-provider-detector";
 import type {
+	GraphModuleNode,
+	GraphModuleReference,
+	GraphProviderNode,
+	NexusGraphModel,
+} from "../graph/nexus-graph-model";
+import type {
 	GraphMetadata,
 	GraphOutput,
 	ModuleInfo,
+	ModuleReferenceInfo,
 	ProviderInfo,
 } from "../interfaces/graph-output.interface";
-import type { ParseEntryFile } from "../parser/parse-entry-file";
-import type { ParseNsModule } from "../parser/parse-ns-module";
 
 /**
  * Formats dependency graphs as structured JSON output
@@ -19,7 +24,7 @@ import type { ParseNsModule } from "../parser/parse-ns-module";
  *
  * @example
  * ```typescript
- * const formatter = new JsonFormatter(modulesGraph, 'src/main.ts');
+ * const formatter = new JsonFormatter(graphModel, 'src/main.ts');
  * const output = formatter.format();
  *
  * console.log(`Modules: ${output.modules.length}`);
@@ -34,7 +39,7 @@ export class JsonFormatter {
 	/**
 	 * Create a new JsonFormatter instance
 	 *
-	 * @param graph - Map of module names to parsed modules
+	 * @param graphModel - The application's graph model
 	 * @param entryPoint - Path to application entry point file
 	 * @param checkCircular - Whether to perform circular dependency detection
 	 * @param checkUnused - Whether to perform unused provider detection
@@ -43,7 +48,7 @@ export class JsonFormatter {
 	 * @param checkScope - Whether to perform provider scope analysis
 	 */
 	constructor(
-		private readonly graph: Map<string, ParseNsModule | ParseEntryFile>,
+		private readonly graphModel: NexusGraphModel,
 		private readonly entryPoint: string,
 		private readonly checkCircular = false,
 		private readonly checkUnused = false,
@@ -83,41 +88,43 @@ export class JsonFormatter {
 	 * ```
 	 */
 	format(): GraphOutput {
-		const entryModule = this.graph.get("entry") as ParseEntryFile;
+		const entryModule = this.graphModel.modules.get(
+			this.graphModel.entryModuleId,
+		);
 
-		if (!entryModule || !entryModule.name) {
+		if (!entryModule) {
 			throw new Error("Empty entry module");
 		}
 
 		const modules: ModuleInfo[] = [];
 		const providers: ProviderInfo[] = [];
 		const visitedModules = new Set<string>();
-		const modulesToVisit = [entryModule.name];
+		const modulesToVisit = [entryModule.id];
 
 		// Traverse all modules
 		while (modulesToVisit.length > 0) {
-			const moduleName = modulesToVisit.shift();
-			if (!moduleName || visitedModules.has(moduleName)) {
+			const moduleId = modulesToVisit.shift();
+			if (!moduleId || visitedModules.has(moduleId)) {
 				continue;
 			}
 
-			visitedModules.add(moduleName);
-			const parseNsModule = this.graph.get(moduleName) as ParseNsModule;
+			visitedModules.add(moduleId);
+			const module = this.graphModel.modules.get(moduleId);
 
-			if (!parseNsModule) {
+			if (!module) {
 				continue;
 			}
 
 			// Add module info
-			modules.push(this.formatModule(parseNsModule, moduleName));
+			modules.push(this.formatModule(module));
 
 			// Add provider info
-			for (const provider of parseNsModule.providers) {
-				providers.push(this.formatProvider(provider, moduleName));
+			for (const provider of module.providers) {
+				providers.push(this.formatProvider(provider, module));
 			}
 
 			// Queue imported modules
-			modulesToVisit.push(...parseNsModule.imports);
+			modulesToVisit.push(...module.imports.map((entry) => entry.id));
 		}
 
 		// Create metadata
@@ -138,7 +145,7 @@ export class JsonFormatter {
 
 		// Add circular dependency analysis if enabled
 		if (this.checkCircular) {
-			const detector = new CircularDependencyDetector(this.graph);
+			const detector = new CircularDependencyDetector(this.graphModel);
 			const analysis = detector.analyze();
 
 			if (analysis.hasCircularDependencies) {
@@ -151,7 +158,7 @@ export class JsonFormatter {
 
 		// Add unused provider analysis if enabled
 		if (this.checkUnused) {
-			const detector = new UnusedProviderDetector(this.graph);
+			const detector = new UnusedProviderDetector(this.graphModel);
 			const analysis = detector.analyze();
 
 			if (analysis.hasUnusedProviders) {
@@ -165,7 +172,7 @@ export class JsonFormatter {
 		// Add module depth analysis if enabled
 		if (this.checkDepth) {
 			const analyzer = new ModuleDepthAnalyzer(
-				this.graph,
+				this.graphModel,
 				this.deepModuleThreshold,
 			);
 			const analysis = analyzer.analyze();
@@ -188,7 +195,7 @@ export class JsonFormatter {
 
 		// Add provider scope analysis if enabled
 		if (this.checkScope) {
-			const analyzer = new ProviderScopeAnalyzer(this.graph);
+			const analyzer = new ProviderScopeAnalyzer(this.graphModel);
 			const analysis = analyzer.analyze();
 
 			if (analysis.hasScopeAnalysis) {
@@ -211,19 +218,14 @@ export class JsonFormatter {
 	/**
 	 * Format a module as ModuleInfo
 	 */
-	private formatModule(
-		parseNsModule: ParseNsModule,
-		moduleName: string,
-	): ModuleInfo {
+	private formatModule(module: GraphModuleNode): ModuleInfo {
 		return {
-			name: moduleName,
-			path: parseNsModule.filePath || "",
-			imports: parseNsModule.imports,
-			exports: parseNsModule.exports,
-			providers: parseNsModule.providers
-				.map((p) => p.token)
-				.filter((token): token is string => token !== null),
-			isGlobal: parseNsModule.isGlobal,
+			name: module.name,
+			path: module.path,
+			imports: module.imports.map(toModuleReferenceInfo),
+			exports: module.exports.map(toModuleReferenceInfo),
+			providers: module.providers.map((provider) => provider.token),
+			isGlobal: module.isGlobal,
 		};
 	}
 
@@ -231,33 +233,32 @@ export class JsonFormatter {
 	 * Format a provider as ProviderInfo
 	 */
 	private formatProvider(
-		// biome-ignore lint/suspicious/noExplicitAny: Provider type is complex
-		provider: any,
-		moduleName: string,
+		provider: GraphProviderNode,
+		module: GraphModuleNode,
 	): ProviderInfo {
 		const providerInfo: ProviderInfo = {
 			token: provider.token,
 			type: provider.type,
-			module: moduleName,
-			dependencies: provider.dependencies || [],
+			module: { name: module.name, path: module.path },
+			dependencies: provider.dependencies.map(({ token, optional }) => ({
+				token,
+				optional,
+			})),
 		};
 
-		// Add scope if present
 		if (provider.scope) {
-			providerInfo.scope = provider.scope;
+			providerInfo.scope = provider.scope as
+				| "Singleton"
+				| "Request"
+				| "Transient";
 		}
 
-		// Add type-specific fields
-		if (provider.type === "UseValue" && provider.value !== undefined) {
-			providerInfo.value = String(provider.value);
+		if (provider.type === "UseClass" && provider.useClass) {
+			providerInfo.useClass = provider.useClass;
 		}
 
-		if (provider.type === "UseFactory" && provider.inject) {
-			providerInfo.factory = provider.inject;
-		}
-
-		if (provider.type === "UseClass" && provider.inject) {
-			providerInfo.useClass = provider.inject;
+		if (provider.undeclaredDependencies.length > 0) {
+			providerInfo.undeclaredDependencies = provider.undeclaredDependencies;
 		}
 
 		return providerInfo;
@@ -289,4 +290,10 @@ export class JsonFormatter {
 	formatAsString(indent = 2): string {
 		return JSON.stringify(this.format(), null, indent);
 	}
+}
+
+function toModuleReferenceInfo(
+	entry: GraphModuleReference,
+): ModuleReferenceInfo {
+	return { name: entry.name, path: entry.path };
 }

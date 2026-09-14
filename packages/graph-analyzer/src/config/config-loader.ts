@@ -161,10 +161,7 @@ export function generateConfigFile(
 				"Configuration for @nexus-ioc/graph-analyzer - see https://github.com/Isqanderm/ioc/tree/main/packages/graph-analyzer",
 			entryFile: "src/main.ts",
 			tsConfig: "./tsconfig.json",
-			output: "./graph",
-			format: "both",
-			ideProtocol: "vscode",
-			darkTheme: false,
+			output: "./graph.json",
 			verbose: false,
 			quiet: false,
 		};
@@ -189,31 +186,10 @@ module.exports = {
   tsConfig: './tsconfig.json',
 
   /**
-   * Output file path (extension will be added based on format)
+   * Output JSON file path
    * @type {string}
    */
-  output: './graph',
-
-  /**
-   * Output format: 'json', 'png', 'html', or 'both'
-   * @type {'json' | 'png' | 'html' | 'both'}
-   * @default 'both'
-   */
-  format: 'both',
-
-  /**
-   * IDE protocol for clickable links in HTML output
-   * @type {'vscode' | 'webstorm' | 'idea'}
-   * @default 'vscode'
-   */
-  ideProtocol: 'vscode',
-
-  /**
-   * Use dark theme for HTML output
-   * @type {boolean}
-   * @default false
-   */
-  darkTheme: false,
+  output: './graph.json',
 
   /**
    * Show detailed progress information

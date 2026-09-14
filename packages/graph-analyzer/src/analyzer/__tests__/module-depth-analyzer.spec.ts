@@ -1,49 +1,23 @@
 import { describe, expect, it } from "vitest";
-import type { ParseEntryFile } from "../../parser/parse-entry-file";
-import type { ParseNsModule } from "../../parser/parse-ns-module";
+import { buildGraphModel } from "../../graph/__tests__/graph-model-fixture";
 import { ModuleDepthAnalyzer } from "../module-depth-analyzer";
 
 describe("ModuleDepthAnalyzer", () => {
 	describe("Basic Depth Calculation", () => {
 		it("should calculate depth for a simple linear hierarchy", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: { imports: ["ModuleA"] },
+				ModuleA: { imports: ["ModuleB"] },
+				ModuleB: { imports: [] },
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: ["ModuleA"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("ModuleA", {
-				name: "ModuleA",
-				imports: ["ModuleB"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("ModuleB", {
-				name: "ModuleB",
-				imports: [],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const analyzer = new ModuleDepthAnalyzer(graph);
+			const analyzer = new ModuleDepthAnalyzer(graphModel);
 			const analysis = analyzer.analyze();
 
 			expect(analysis.hasDepthAnalysis).toBe(true);
 			expect(analysis.maxDepth).toBe(2);
 			expect(analysis.totalModules).toBe(3);
 
-			// Check individual module depths
 			const appModule = analysis.moduleDetails.find(
 				(m) => m.name === "AppModule",
 			);
@@ -56,51 +30,19 @@ describe("ModuleDepthAnalyzer", () => {
 		});
 
 		it("should calculate depth for a branching hierarchy", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: { imports: ["ModuleA", "ModuleB"] },
+				ModuleA: { imports: ["ModuleC"] },
+				ModuleB: { imports: [] },
+				ModuleC: { imports: [] },
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: ["ModuleA", "ModuleB"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("ModuleA", {
-				name: "ModuleA",
-				imports: ["ModuleC"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("ModuleB", {
-				name: "ModuleB",
-				imports: [],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("ModuleC", {
-				name: "ModuleC",
-				imports: [],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const analyzer = new ModuleDepthAnalyzer(graph);
+			const analyzer = new ModuleDepthAnalyzer(graphModel);
 			const analysis = analyzer.analyze();
 
 			expect(analysis.maxDepth).toBe(2);
 			expect(analysis.totalModules).toBe(4);
 
-			// Check depth levels
 			const level0 = analysis.depthLevels.find((l) => l.level === 0);
 			const level1 = analysis.depthLevels.find((l) => l.level === 1);
 			const level2 = analysis.depthLevels.find((l) => l.level === 2);
@@ -112,45 +54,14 @@ describe("ModuleDepthAnalyzer", () => {
 		});
 
 		it("should handle shared dependencies correctly", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: { imports: ["ModuleA", "ModuleB"] },
+				ModuleA: { imports: ["SharedModule"] },
+				ModuleB: { imports: ["SharedModule"] },
+				SharedModule: { imports: [] },
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: ["ModuleA", "ModuleB"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("ModuleA", {
-				name: "ModuleA",
-				imports: ["SharedModule"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("ModuleB", {
-				name: "ModuleB",
-				imports: ["SharedModule"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("SharedModule", {
-				name: "SharedModule",
-				imports: [],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const analyzer = new ModuleDepthAnalyzer(graph);
+			const analyzer = new ModuleDepthAnalyzer(graphModel);
 			const analysis = analyzer.analyze();
 
 			// SharedModule should be at depth 2 (first encountered via ModuleA or ModuleB)
@@ -163,45 +74,14 @@ describe("ModuleDepthAnalyzer", () => {
 
 	describe("Complexity Metrics", () => {
 		it("should calculate direct imports correctly", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: { imports: ["ModuleA", "ModuleB", "ModuleC"] },
+				ModuleA: { imports: [] },
+				ModuleB: { imports: [] },
+				ModuleC: { imports: [] },
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: ["ModuleA", "ModuleB", "ModuleC"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("ModuleA", {
-				name: "ModuleA",
-				imports: [],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("ModuleB", {
-				name: "ModuleB",
-				imports: [],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("ModuleC", {
-				name: "ModuleC",
-				imports: [],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const analyzer = new ModuleDepthAnalyzer(graph);
+			const analyzer = new ModuleDepthAnalyzer(graphModel);
 			const analysis = analyzer.analyze();
 
 			const appModule = analysis.moduleDetails.find(
@@ -212,45 +92,14 @@ describe("ModuleDepthAnalyzer", () => {
 		});
 
 		it("should calculate transitive dependencies correctly", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: { imports: ["ModuleA"] },
+				ModuleA: { imports: ["ModuleB"] },
+				ModuleB: { imports: ["ModuleC"] },
+				ModuleC: { imports: [] },
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: ["ModuleA"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("ModuleA", {
-				name: "ModuleA",
-				imports: ["ModuleB"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("ModuleB", {
-				name: "ModuleB",
-				imports: ["ModuleC"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("ModuleC", {
-				name: "ModuleC",
-				imports: [],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const analyzer = new ModuleDepthAnalyzer(graph);
+			const analyzer = new ModuleDepthAnalyzer(graphModel);
 			const analysis = analyzer.analyze();
 
 			const appModule = analysis.moduleDetails.find(
@@ -268,45 +117,14 @@ describe("ModuleDepthAnalyzer", () => {
 		});
 
 		it("should calculate fan-in correctly", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: { imports: ["SharedModule"] },
+				ModuleA: { imports: ["SharedModule"] },
+				ModuleB: { imports: ["SharedModule"] },
+				SharedModule: { imports: [] },
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: ["SharedModule"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("ModuleA", {
-				name: "ModuleA",
-				imports: ["SharedModule"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("ModuleB", {
-				name: "ModuleB",
-				imports: ["SharedModule"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("SharedModule", {
-				name: "SharedModule",
-				imports: [],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const analyzer = new ModuleDepthAnalyzer(graph);
+			const analyzer = new ModuleDepthAnalyzer(graphModel);
 			const analysis = analyzer.analyze();
 
 			const sharedModule = analysis.moduleDetails.find(
@@ -319,26 +137,17 @@ describe("ModuleDepthAnalyzer", () => {
 
 	describe("Deep Module Detection", () => {
 		it("should identify modules exceeding depth threshold", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
-
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
 			// Create a deep hierarchy: AppModule -> M1 -> M2 -> M3 -> M4 -> M5 -> M6
-			const modules = ["AppModule", "M1", "M2", "M3", "M4", "M5", "M6"];
-			for (let i = 0; i < modules.length; i++) {
-				const imports = i < modules.length - 1 ? [modules[i + 1]] : [];
-				graph.set(modules[i], {
-					name: modules[i],
-					imports,
-					providers: [],
-					exports: [],
-					isGlobal: false,
-				} as unknown as ParseNsModule);
+			const names = ["AppModule", "M1", "M2", "M3", "M4", "M5", "M6"];
+			const modules: Record<string, { imports: string[] }> = {};
+			for (let i = 0; i < names.length; i++) {
+				modules[names[i]] = {
+					imports: i < names.length - 1 ? [names[i + 1]] : [],
+				};
 			}
+			const graphModel = buildGraphModel("AppModule", modules);
 
-			const analyzer = new ModuleDepthAnalyzer(graph, 5);
+			const analyzer = new ModuleDepthAnalyzer(graphModel, 5);
 			const analysis = analyzer.analyze();
 
 			expect(analysis.maxDepth).toBe(6);
@@ -351,38 +160,14 @@ describe("ModuleDepthAnalyzer", () => {
 		});
 
 		it("should use custom threshold for deep module detection", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
-
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: ["M1"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("M1", {
-				name: "M1",
-				imports: ["M2"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("M2", {
-				name: "M2",
-				imports: [],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: { imports: ["M1"] },
+				M1: { imports: ["M2"] },
+				M2: { imports: [] },
+			});
 
 			// With threshold of 2, M2 (depth 2) should be flagged
-			const analyzer = new ModuleDepthAnalyzer(graph, 2);
+			const analyzer = new ModuleDepthAnalyzer(graphModel, 2);
 			const analysis = analyzer.analyze();
 
 			expect(analysis.deepModuleThreshold).toBe(2);
@@ -393,45 +178,14 @@ describe("ModuleDepthAnalyzer", () => {
 
 	describe("Statistics", () => {
 		it("should calculate average depth correctly", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: { imports: ["M1", "M2"] },
+				M1: { imports: ["M3"] },
+				M2: { imports: [] },
+				M3: { imports: [] },
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: ["M1", "M2"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("M1", {
-				name: "M1",
-				imports: ["M3"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("M2", {
-				name: "M2",
-				imports: [],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("M3", {
-				name: "M3",
-				imports: [],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const analyzer = new ModuleDepthAnalyzer(graph);
+			const analyzer = new ModuleDepthAnalyzer(graphModel);
 			const analysis = analyzer.analyze();
 
 			// Depths: AppModule=0, M1=1, M2=1, M3=2
@@ -440,37 +194,13 @@ describe("ModuleDepthAnalyzer", () => {
 		});
 
 		it("should group modules by depth level correctly", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: { imports: ["M1", "M2"] },
+				M1: { imports: [] },
+				M2: { imports: [] },
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: ["M1", "M2"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("M1", {
-				name: "M1",
-				imports: [],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("M2", {
-				name: "M2",
-				imports: [],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const analyzer = new ModuleDepthAnalyzer(graph);
+			const analyzer = new ModuleDepthAnalyzer(graphModel);
 			const analysis = analyzer.analyze();
 
 			expect(analysis.depthLevels).toHaveLength(2);
@@ -489,9 +219,9 @@ describe("ModuleDepthAnalyzer", () => {
 
 	describe("Edge Cases", () => {
 		it("should handle empty graph", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("", {});
 
-			const analyzer = new ModuleDepthAnalyzer(graph);
+			const analyzer = new ModuleDepthAnalyzer(graphModel);
 			const analysis = analyzer.analyze();
 
 			expect(analysis.hasDepthAnalysis).toBe(false);
@@ -502,21 +232,11 @@ describe("ModuleDepthAnalyzer", () => {
 		});
 
 		it("should handle single module", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: { imports: [] },
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: [],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const analyzer = new ModuleDepthAnalyzer(graph);
+			const analyzer = new ModuleDepthAnalyzer(graphModel);
 			const analysis = analyzer.analyze();
 
 			expect(analysis.hasDepthAnalysis).toBe(true);
@@ -526,17 +246,11 @@ describe("ModuleDepthAnalyzer", () => {
 		});
 
 		it("should handle modules with no entry point", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("", {
+				ModuleA: { imports: [] },
+			});
 
-			graph.set("ModuleA", {
-				name: "ModuleA",
-				imports: [],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const analyzer = new ModuleDepthAnalyzer(graph);
+			const analyzer = new ModuleDepthAnalyzer(graphModel);
 			const analysis = analyzer.analyze();
 
 			// Without entry point, no modules should be analyzed

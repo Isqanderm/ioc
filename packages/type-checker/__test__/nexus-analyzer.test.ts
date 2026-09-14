@@ -5,11 +5,13 @@ import { createNexusAnalyzer } from "../src";
 
 const SOURCE = `
 import {
+  DynamicModule,
   Global as NexusGlobal,
   Inject as Dependency,
   Injectable as Service,
   NsModule as Module,
   Optional as Maybe,
+  Scope,
 } from "@nexus-ioc/core";
 import { Inject as ForeignInject, Injectable as ForeignService } from "./foreign";
 
@@ -40,11 +42,87 @@ class AppModule {}
 @NexusGlobal()
 class GlobalModule {}
 
+@Service()
+class ProviderModuleService {}
+
+@Service()
+class ProviderModuleServiceImpl {}
+
+@Module({
+  providers: [
+    ProviderModuleService,
+    { provide: ProviderModuleService, useClass: ProviderModuleServiceImpl, scope: Scope.Transient },
+    { provide: "CONFIG", useValue: { debug: true } },
+    { provide: "DATABASE", useFactory: (config: unknown) => config, inject: ["CONFIG", DependencyA] },
+  ],
+})
+class ProviderModule {}
+
+const useValue = 42;
+
+@Module({
+  providers: [{ provide: "SHORTHAND_TOKEN", useValue }],
+})
+class ShorthandProviderModule {}
+
+@Module({
+  providers: [{ "provide": "QUOTED_TOKEN", "useValue": 1 }],
+})
+class QuotedKeyProviderModule {}
+
+@Service()
+class SpreadElementService {}
+
+const commonProviders = [SpreadElementService];
+
+@Module({
+  providers: [...commonProviders],
+})
+class SpreadProviderModule {}
+
+@Module({})
+class LocalImportedModule {}
+
+@Module({
+  imports: [LocalImportedModule],
+  exports: [ProviderModuleService, "CONFIG"],
+})
+class ExportingModule {}
+
+@Module({})
+class DynamicFeatureModule {
+  static forRoot(): DynamicModule {
+    return { module: DynamicFeatureModule };
+  }
+}
+
+@Module({
+  imports: [DynamicFeatureModule.forRoot()],
+})
+class DynamicImportingModule {}
+
 @ForeignService()
 class ForeignServiceClass {}
 
 class ForeignInjected {
   constructor(@ForeignInject(DependencyA) dependency: DependencyA) {}
+}
+
+@Service()
+class InjectableCandidate {}
+
+class PlainCandidate {}
+
+@Service()
+class ServiceWithUndeclaredDependency {
+  constructor(
+    @Dependency(DependencyA) declared: DependencyA,
+    injectable: InjectableCandidate,
+    plain: PlainCandidate,
+    primitive: string,
+  ) {}
+
+  plainProperty!: PlainCandidate;
 }
 `;
 
@@ -124,6 +202,73 @@ function createProgram(): { program: ts.Program; sourceFile: ts.SourceFile } {
 	return { program, sourceFile };
 }
 
+const NEXUS_IOC_SOURCE = `
+import { Injectable as Service } from "nexus-ioc";
+
+@Service()
+class PublishedService {}
+`;
+
+function createNexusIocProgram(): {
+	program: ts.Program;
+	sourceFile: ts.SourceFile;
+} {
+	const files = new Map<string, string>([
+		["/nexus-ioc-test.ts", NEXUS_IOC_SOURCE],
+	]);
+	const options: ts.CompilerOptions = {
+		target: ts.ScriptTarget.ES2022,
+		module: ts.ModuleKind.CommonJS,
+		moduleResolution: ts.ModuleResolutionKind.NodeJs,
+		experimentalDecorators: true,
+		strict: true,
+		skipLibCheck: true,
+	};
+	const nexusCoreTypes = path.resolve(
+		process.cwd(),
+		"../ioc/dist/types/index.d.ts",
+	);
+
+	const defaultHost = ts.createCompilerHost(options, true);
+	const host: ts.CompilerHost = {
+		...defaultHost,
+		fileExists: (fileName) =>
+			fileName === nexusCoreTypes ||
+			files.has(fileName) ||
+			defaultHost.fileExists(fileName),
+		readFile: (fileName) => {
+			if (fileName === nexusCoreTypes) return defaultHost.readFile(fileName);
+			return files.get(fileName) ?? defaultHost.readFile(fileName);
+		},
+		getSourceFile: (fileName, languageVersion) => {
+			const text = files.get(fileName);
+			if (text !== undefined) {
+				return ts.createSourceFile(fileName, text, languageVersion, true);
+			}
+			return defaultHost.getSourceFile(fileName, languageVersion);
+		},
+		resolveModuleNames: (moduleNames, containingFile) =>
+			moduleNames.map((moduleName) => {
+				if (moduleName === "nexus-ioc") {
+					return {
+						resolvedFileName: nexusCoreTypes,
+						extension: ts.Extension.Dts,
+						isExternalLibraryImport: true,
+					};
+				}
+
+				return ts.resolveModuleName(moduleName, containingFile, options, host)
+					.resolvedModule;
+			}),
+	};
+
+	const program = ts.createProgram(["/nexus-ioc-test.ts"], options, host);
+	const sourceFile = program.getSourceFile("/nexus-ioc-test.ts");
+	if (!sourceFile) throw new Error("Test source file was not created");
+
+	return { program, sourceFile };
+}
+
 function getClass(
 	sourceFile: ts.SourceFile,
 	name: string,
@@ -161,7 +306,7 @@ describe("NexusAnalyzer", () => {
 		expectSourceSpan(
 			sourceFile,
 			service.source,
-			"@Service()\nclass ServiceA {\n  constructor(\n    @Dependency(DependencyA) dependency: DependencyA,\n    @Dependency(\"config\") @Maybe() config: unknown,\n    @Dependency(SYMBOL_TOKEN) symbol: unknown,\n    @Dependency(AbstractDependency) abstractDependency: AbstractDependency,\n    @Dependency(FunctionDependency) functionDependency: typeof FunctionDependency,\n  ) {}\n\n  @Dependency(\"logger\")\n  private logger!: unknown;\n}",
+			'@Service()\nclass ServiceA {\n  constructor(\n    @Dependency(DependencyA) dependency: DependencyA,\n    @Dependency("config") @Maybe() config: unknown,\n    @Dependency(SYMBOL_TOKEN) symbol: unknown,\n    @Dependency(AbstractDependency) abstractDependency: AbstractDependency,\n    @Dependency(FunctionDependency) functionDependency: typeof FunctionDependency,\n  ) {}\n\n  @Dependency("logger")\n  private logger!: unknown;\n}',
 		);
 	});
 
@@ -221,8 +366,13 @@ describe("NexusAnalyzer", () => {
 		const analyzer = createNexusAnalyzer(program);
 
 		const service = analyzer.getClass(getClass(sourceFile, "ServiceA"));
-		const [classDependency, stringDependency, symbolDependency, abstractDependency, functionDependency] =
-			service.dependencies;
+		const [
+			classDependency,
+			stringDependency,
+			symbolDependency,
+			abstractDependency,
+			functionDependency,
+		] = service.dependencies;
 
 		expect(classDependency.token).toMatchObject({ kind: "reference" });
 		if (classDependency.token?.kind !== "reference") {
@@ -250,7 +400,9 @@ describe("NexusAnalyzer", () => {
 		if (abstractDependency.token?.kind !== "reference") {
 			throw new Error("Abstract token was not resolved");
 		}
-		expect(abstractDependency.token.symbol.getName()).toBe("AbstractDependency");
+		expect(abstractDependency.token.symbol.getName()).toBe(
+			"AbstractDependency",
+		);
 		expectSourceSpan(
 			sourceFile,
 			abstractDependency.token.source,
@@ -261,7 +413,9 @@ describe("NexusAnalyzer", () => {
 		if (functionDependency.token?.kind !== "reference") {
 			throw new Error("Function token was not resolved");
 		}
-		expect(functionDependency.token.symbol.getName()).toBe("FunctionDependency");
+		expect(functionDependency.token.symbol.getName()).toBe(
+			"FunctionDependency",
+		);
 		expectSourceSpan(
 			sourceFile,
 			functionDependency.token.source,
@@ -300,6 +454,17 @@ describe("NexusAnalyzer", () => {
 		expect(foreignInjected.dependencies).toHaveLength(0);
 	});
 
+	it('recognizes decorators imported from the published "nexus-ioc" package by default', () => {
+		const { program, sourceFile } = createNexusIocProgram();
+		const analyzer = createNexusAnalyzer(program);
+
+		const service = analyzer.getClass(getClass(sourceFile, "PublishedService"));
+
+		expect(service.isInjectable).toBe(true);
+		expect(service.decorators).toHaveLength(1);
+		expect(service.decorators[0].kind).toBe("Injectable");
+	});
+
 	it("keeps getClassModel as a compatibility wrapper", () => {
 		const { program, sourceFile } = createProgram();
 		const analyzer = createNexusAnalyzer(program);
@@ -308,5 +473,251 @@ describe("NexusAnalyzer", () => {
 
 		expect(service.name).toBe("ServiceA");
 		expect(service).not.toHaveProperty("node");
+	});
+
+	it("parses @NsModule providers into semantic NexusProvider entries", () => {
+		const { program, sourceFile } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+
+		const providers = analyzer.getModuleProviders(
+			getClass(sourceFile, "ProviderModule"),
+		);
+
+		expect(providers).toHaveLength(4);
+
+		const [
+			classProvider,
+			useClassProvider,
+			useValueProvider,
+			useFactoryProvider,
+		] = providers;
+
+		expect(classProvider.kind).toBe("class");
+		expect(classProvider.provide).toMatchObject({ kind: "reference" });
+		expect(classProvider.factoryInject).toEqual([]);
+
+		expect(useClassProvider.kind).toBe("useClass");
+		expect(useClassProvider.provide).toMatchObject({ kind: "reference" });
+		expect(useClassProvider.useClass).toMatchObject({ kind: "reference" });
+		expect(useClassProvider.scope).toMatchObject({ kind: "reference" });
+
+		expect(useValueProvider.kind).toBe("useValue");
+		expect(useValueProvider.provide).toMatchObject({
+			kind: "string",
+			value: "CONFIG",
+		});
+		expect(useValueProvider.useClass).toBeUndefined();
+
+		expect(useFactoryProvider.kind).toBe("useFactory");
+		expect(useFactoryProvider.provide).toMatchObject({
+			kind: "string",
+			value: "DATABASE",
+		});
+		expect(useFactoryProvider.factoryInject).toHaveLength(2);
+		expect(useFactoryProvider.factoryInject[0]).toMatchObject({
+			kind: "string",
+			value: "CONFIG",
+		});
+		expect(useFactoryProvider.factoryInject[1]).toMatchObject({
+			kind: "reference",
+		});
+
+		for (const provider of providers) {
+			expect(provider).not.toHaveProperty("declaration");
+			expect(provider).not.toHaveProperty("expression");
+		}
+	});
+
+	it("parses @NsModule imports and exports into semantic tokens", () => {
+		const { program, sourceFile } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+
+		const module = analyzer.getModule(getClass(sourceFile, "ExportingModule"));
+		if (!module)
+			throw new Error("Expected ExportingModule to be a NexusModule");
+
+		expect(module.imports).toHaveLength(1);
+		expect(module.imports[0].isDynamic).toBe(false);
+		expect(module.imports[0].module).toMatchObject({ kind: "reference" });
+		if (module.imports[0].module.kind !== "reference")
+			throw new Error("unreachable");
+		expect(module.imports[0].module.symbol.getName()).toBe(
+			"LocalImportedModule",
+		);
+
+		expect(module.exports).toHaveLength(2);
+		expect(module.exports[0].token).toMatchObject({ kind: "reference" });
+		expect(module.exports[1].token).toMatchObject({
+			kind: "string",
+			value: "CONFIG",
+		});
+	});
+
+	it("returns undefined for getModule() on a non-module class", () => {
+		const { program, sourceFile } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+
+		expect(
+			analyzer.getModule(getClass(sourceFile, "ServiceA")),
+		).toBeUndefined();
+	});
+
+	it("resolves a dynamic-module import (Foo.forRoot()) to the concrete module class", () => {
+		const { program, sourceFile } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+
+		const module = analyzer.getModule(
+			getClass(sourceFile, "DynamicImportingModule"),
+		);
+		if (!module) {
+			throw new Error("Expected DynamicImportingModule to be a NexusModule");
+		}
+
+		expect(module.imports).toHaveLength(1);
+		expect(module.imports[0].isDynamic).toBe(true);
+		expect(module.imports[0].module).toMatchObject({ kind: "reference" });
+		if (module.imports[0].module.kind !== "reference") {
+			throw new Error("unreachable");
+		}
+		expect(module.imports[0].module.symbol.getName()).toBe(
+			"DynamicFeatureModule",
+		);
+	});
+
+	it("attaches module metadata to NexusClass.module for @NsModule classes", () => {
+		const { program, sourceFile } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+
+		const exportingModule = analyzer.getClass(
+			getClass(sourceFile, "ExportingModule"),
+		);
+		expect(exportingModule.module).toBeDefined();
+		expect(exportingModule.module?.imports).toHaveLength(1);
+
+		const service = analyzer.getClass(getClass(sourceFile, "ServiceA"));
+		expect(service.module).toBeUndefined();
+	});
+
+	it("resolves a shorthand useValue provider property (`{ provide, useValue }`)", () => {
+		const { program, sourceFile } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+
+		const providers = analyzer.getModuleProviders(
+			getClass(sourceFile, "ShorthandProviderModule"),
+		);
+
+		expect(providers).toHaveLength(1);
+		const [provider] = providers;
+		expect(provider.kind).toBe("useValue");
+		expect(provider.provide).toMatchObject({
+			kind: "string",
+			value: "SHORTHAND_TOKEN",
+		});
+	});
+
+	it('resolves a quoted-key provider object literal (`{ "provide": ..., "useValue": ... }`)', () => {
+		const { program, sourceFile } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+
+		const providers = analyzer.getModuleProviders(
+			getClass(sourceFile, "QuotedKeyProviderModule"),
+		);
+
+		expect(providers).toHaveLength(1);
+		const [provider] = providers;
+		expect(provider.kind).toBe("useValue");
+		expect(provider.provide).toMatchObject({
+			kind: "string",
+			value: "QUOTED_TOKEN",
+		});
+	});
+
+	it("skips a spread element in a providers array instead of emitting a bogus class provider", () => {
+		const { program, sourceFile } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+
+		const providers = analyzer.getModuleProviders(
+			getClass(sourceFile, "SpreadProviderModule"),
+		);
+
+		expect(providers).toEqual([]);
+	});
+
+	it("assigns a stable file:line:col id to a class", () => {
+		const { program, sourceFile } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+		const node = getClass(sourceFile, "ServiceA");
+
+		const service = analyzer.getClass(node);
+		const { line, character } = ts.getLineAndCharacterOfPosition(
+			sourceFile,
+			node.getStart(),
+		);
+
+		expect(service.id).toBe(
+			`${sourceFile.fileName}:${line + 1}:${character + 1}`,
+		);
+	});
+
+	it("gives different classes in the same file different ids", () => {
+		const { program, sourceFile } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+
+		const service = analyzer.getClass(getClass(sourceFile, "ServiceA"));
+		const appModule = analyzer.getClass(getClass(sourceFile, "AppModule"));
+
+		expect(service.id).not.toBe(appModule.id);
+	});
+
+	it("flags typed constructor parameters and properties without @Inject as undeclared dependencies", () => {
+		const { program, sourceFile } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+
+		const service = analyzer.getClass(
+			getClass(sourceFile, "ServiceWithUndeclaredDependency"),
+		);
+
+		expect(service.dependencies).toHaveLength(1);
+		expect(service.dependencies[0]).toMatchObject({
+			name: "declared",
+			index: 0,
+		});
+
+		const [injectable, plainParameter, plainProperty] =
+			service.undeclaredDependencies;
+
+		expect(injectable).toMatchObject({
+			location: "constructor",
+			name: "injectable",
+			index: 1,
+			isInferredTypeInjectable: true,
+		});
+		if (injectable.inferredType.kind !== "reference") {
+			throw new Error(
+				"Expected InjectableCandidate to resolve to a reference token",
+			);
+		}
+		expect(injectable.inferredType.symbol.getName()).toBe(
+			"InjectableCandidate",
+		);
+
+		expect(plainParameter).toMatchObject({
+			location: "constructor",
+			name: "plain",
+			index: 2,
+			isInferredTypeInjectable: false,
+		});
+
+		expect(plainProperty).toMatchObject({
+			location: "property",
+			name: "plainProperty",
+			isInferredTypeInjectable: false,
+		});
+		expect(plainProperty.index).toBeUndefined();
+
+		expect(
+			service.undeclaredDependencies.some((item) => item.name === "primitive"),
+		).toBe(false);
+		expect(service.undeclaredDependencies).toHaveLength(3);
 	});
 });

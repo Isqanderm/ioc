@@ -30,7 +30,6 @@ describe("Config Loader", () => {
 			const configPath = path.join(testDir, "test.json");
 			const config = {
 				entryFile: "src/main.ts",
-				format: "json" as const,
 				verbose: true,
 			};
 
@@ -44,8 +43,7 @@ describe("Config Loader", () => {
 			const configPath = path.join(testDir, "test.config.js");
 			const config = {
 				entryFile: "src/main.ts",
-				format: "png" as const,
-				darkTheme: true,
+				checkCircular: true,
 			};
 
 			fs.writeFileSync(
@@ -72,10 +70,10 @@ describe("Config Loader", () => {
 			);
 		});
 
-		it("should validate configuration and throw on invalid format", () => {
-			const configPath = path.join(testDir, "invalid-format.json");
+		it("should validate configuration and throw on invalid deepModuleThreshold", () => {
+			const configPath = path.join(testDir, "invalid-threshold.json");
 			const config = {
-				format: "invalid",
+				deepModuleThreshold: -1,
 			};
 
 			fs.writeFileSync(configPath, JSON.stringify(config));
@@ -83,10 +81,10 @@ describe("Config Loader", () => {
 			expect(() => loadConfigFile(configPath)).toThrow("Invalid configuration");
 		});
 
-		it("should validate configuration and throw on invalid ideProtocol", () => {
-			const configPath = path.join(testDir, "invalid-ide.json");
+		it("should validate configuration and throw on non-boolean verbose", () => {
+			const configPath = path.join(testDir, "invalid-verbose.json");
 			const config = {
-				ideProtocol: "invalid",
+				verbose: "invalid",
 			};
 
 			fs.writeFileSync(configPath, JSON.stringify(config));
@@ -189,7 +187,7 @@ describe("Config Loader", () => {
 			const config = JSON.parse(content);
 
 			expect(config).toHaveProperty("entryFile");
-			expect(config).toHaveProperty("format");
+			expect(config).toHaveProperty("output");
 			expect(config).toHaveProperty("verbose");
 		});
 

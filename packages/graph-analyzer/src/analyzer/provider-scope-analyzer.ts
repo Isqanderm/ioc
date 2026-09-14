@@ -1,6 +1,7 @@
-import type { Dependency } from "../parser/dependency-extractor";
-import type { ParseEntryFile } from "../parser/parse-entry-file";
-import type { ParseNsModule } from "../parser/parse-ns-module";
+import type {
+	GraphProviderNode,
+	NexusGraphModel,
+} from "../graph/nexus-graph-model";
 
 /**
  * Provider scope types
@@ -72,9 +73,7 @@ export interface ProviderScopeAnalysis {
  * - Scope optimization opportunities
  */
 export class ProviderScopeAnalyzer {
-	constructor(
-		private readonly graph: Map<string, ParseNsModule | ParseEntryFile>,
-	) {}
+	constructor(private readonly graphModel: NexusGraphModel) {}
 
 	/**
 	 * Analyze provider scopes and detect issues
@@ -84,7 +83,7 @@ export class ProviderScopeAnalyzer {
 		const providerScopes = this.buildProviderScopeMap();
 
 		// Detect scope mismatches
-		const scopeMismatches = this.detectScopeMismatches(providerScopes);
+		const scopeMismatches = this.detectScopeMismatches();
 
 		// Calculate statistics
 		const singletonCount = providerScopes.filter(
@@ -110,27 +109,18 @@ export class ProviderScopeAnalyzer {
 	private buildProviderScopeMap(): ProviderScopeInfo[] {
 		const providerScopes: ProviderScopeInfo[] = [];
 
-		for (const [key, value] of this.graph.entries()) {
-			if (key === "entry") continue;
-
-			const parseNsModule = value as ParseNsModule;
-			if (!parseNsModule.providers) continue;
-
-			for (const provider of parseNsModule.providers) {
-				if (!provider.token) continue;
-
+		for (const module of this.graphModel.modules.values()) {
+			for (const provider of module.providers) {
 				const scope = this.extractProviderScope(provider);
-				const dependencies = this.extractDependencyTokens(provider);
+				const dependencies = provider.dependencies
+					.filter((dep) => !dep.optional)
+					.map((dep) => dep.token);
 
 				providerScopes.push({
 					token: provider.token,
-					module: parseNsModule.name || key,
+					module: module.name,
 					scope,
-					type: provider.type as
-						| "Class"
-						| "UseValue"
-						| "UseFactory"
-						| "UseClass",
+					type: provider.type,
 					dependencies,
 				});
 			}
@@ -142,10 +132,7 @@ export class ProviderScopeAnalyzer {
 	/**
 	 * Extract scope from provider
 	 */
-	private extractProviderScope(provider: {
-		type: string;
-		scope?: string | null;
-	}): ProviderScope {
+	private extractProviderScope(provider: GraphProviderNode): ProviderScope {
 		// Check if scope is explicitly defined (applies to all provider types)
 		if (provider.scope) {
 			const scopeStr = provider.scope.toLowerCase();
@@ -159,71 +146,61 @@ export class ProviderScopeAnalyzer {
 	}
 
 	/**
-	 * Extract dependency tokens from provider
+	 * Detect scope mismatches in provider dependencies. Walks the graph
+	 * model directly (rather than the flattened, display-only
+	 * `ProviderScopeInfo[]`) so it can match dependencies by
+	 * `GraphProviderNode.id`/`GraphProviderDependency.tokenId` — two
+	 * different provider classes named alike must not collapse into one
+	 * `scopeMap` entry.
 	 */
-	private extractDependencyTokens(provider: {
-		dependencies?: Dependency[];
-		inject?: string[];
-	}): string[] {
-		const tokens: string[] = [];
-
-		// Extract from dependencies array (Class and UseClass providers)
-		if (provider.dependencies && Array.isArray(provider.dependencies)) {
-			for (const dep of provider.dependencies as Dependency[]) {
-				if (dep.token && !dep.optional) {
-					tokens.push(dep.token);
-				}
-			}
-		}
-
-		// Extract from inject array (UseFactory providers)
-		if (provider.inject && Array.isArray(provider.inject)) {
-			tokens.push(...provider.inject);
-		}
-
-		return tokens;
-	}
-
-	/**
-	 * Detect scope mismatches in provider dependencies
-	 */
-	private detectScopeMismatches(
-		providerScopes: ProviderScopeInfo[],
-	): ScopeMismatch[] {
+	private detectScopeMismatches(): ScopeMismatch[] {
 		const mismatches: ScopeMismatch[] = [];
-		const scopeMap = new Map<string, ProviderScopeInfo>();
+		const scopeMap = new Map<
+			string,
+			{ token: string; module: string; scope: ProviderScope }
+		>();
 
-		// Build lookup map
-		for (const provider of providerScopes) {
-			scopeMap.set(provider.token, provider);
+		// Build lookup map, keyed by provider id
+		for (const module of this.graphModel.modules.values()) {
+			for (const provider of module.providers) {
+				scopeMap.set(provider.id, {
+					token: provider.token,
+					module: module.name,
+					scope: this.extractProviderScope(provider),
+				});
+			}
 		}
 
 		// Check each provider's dependencies
-		for (const provider of providerScopes) {
-			// Only check Singleton providers (they shouldn't depend on Request-scoped)
-			if (provider.scope !== "Singleton") {
-				continue;
-			}
+		for (const module of this.graphModel.modules.values()) {
+			for (const provider of module.providers) {
+				const scope = this.extractProviderScope(provider);
+				// Only check Singleton providers (they shouldn't depend on Request-scoped)
+				if (scope !== "Singleton") {
+					continue;
+				}
 
-			for (const depToken of provider.dependencies) {
-				const dependency = scopeMap.get(depToken);
+				for (const dep of provider.dependencies) {
+					if (dep.optional || !dep.tokenId) continue;
+					const dependency = scopeMap.get(dep.tokenId);
 
-				// If dependency is Request-scoped, this is a scope mismatch
-				if (dependency && dependency.scope === "Request") {
-					mismatches.push({
-						provider: provider.token,
-						providerScope: provider.scope,
-						module: provider.module,
-						dependency: depToken,
-						dependencyScope: dependency.scope,
-						severity: "error",
-						message: `Singleton provider '${provider.token}' depends on Request-scoped provider '${depToken}'. This can cause memory leaks and unexpected behavior.`,
-						suggestions: [
-							`Change '${provider.token}' to Request scope`,
-							`Change '${depToken}' to Singleton scope if it doesn't need request-specific state`,
-							"Use a factory or lazy injection to resolve the dependency per request",
-						],
-					});
+					// If dependency is Request-scoped, this is a scope mismatch
+					if (dependency && dependency.scope === "Request") {
+						mismatches.push({
+							provider: provider.token,
+							providerScope: scope,
+							module: module.name,
+							dependency: dependency.token,
+							dependencyScope: dependency.scope,
+							severity: "error",
+							message: `Singleton provider '${provider.token}' depends on Request-scoped provider '${dependency.token}'. This can cause memory leaks and unexpected behavior.`,
+							suggestions: [
+								`Change '${provider.token}' to Request scope`,
+								`Change '${dependency.token}' to Singleton scope if it doesn't need request-specific state`,
+								"Use a factory or lazy injection to resolve the dependency per request",
+							],
+						});
+					}
 				}
 			}
 		}

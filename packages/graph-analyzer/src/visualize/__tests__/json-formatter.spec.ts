@@ -1,79 +1,40 @@
-import type { ParseEntryFile } from "../../parser/parse-entry-file";
-import type { ParseNsModule } from "../../parser/parse-ns-module";
+import {
+	buildGraphModel,
+	provider,
+} from "../../graph/__tests__/graph-model-fixture";
+import type {
+	GraphModuleNode,
+	NexusGraphModel,
+} from "../../graph/nexus-graph-model";
 import { JsonFormatter } from "../json-formatter";
 
 describe("JsonFormatter", () => {
-	function createMockGraph(): Map<string, ParseNsModule | ParseEntryFile> {
-		const graph = new Map<string, ParseNsModule | ParseEntryFile>();
-
-		// Create mock entry file
-		const entryFile = {
-			name: "AppModule",
-			imports: ["AppModule"],
-			exports: [],
-			deps: [],
-			filePath: "/test/entry.ts",
-		} as unknown as ParseEntryFile;
-
-		// Create mock module
-		const mockModule = {
-			name: "AppModule",
-			imports: ["UserModule"],
-			exports: ["UserService"],
-			providers: [
-				{
-					token: "UserService",
-					type: "Class",
-					scope: "Singleton",
-					dependencies: [
-						{
-							type: "constructor",
-							index: 0,
-							token: "DatabaseService",
-							tokenType: "class",
-							optional: false,
-						},
-					],
-				},
-				{
-					token: "CONFIG",
-					type: "UseValue",
-					value: "test-config",
-					dependencies: [],
-				},
-			],
-			deps: [],
-			isGlobal: false,
-			filePath: "/test/app.module.ts",
-		} as unknown as ParseNsModule;
-
-		const userModule = {
-			name: "UserModule",
-			imports: [],
-			exports: [],
-			providers: [
-				{
-					token: "DatabaseService",
-					type: "Class",
-					dependencies: [],
-				},
-			],
-			deps: [],
-			isGlobal: true,
-			filePath: "/test/user.module.ts",
-		} as unknown as ParseNsModule;
-
-		graph.set("entry", entryFile);
-		graph.set("AppModule", mockModule);
-		graph.set("UserModule", userModule);
-
-		return graph;
+	function createMockGraph(): NexusGraphModel {
+		return buildGraphModel("AppModule", {
+			AppModule: {
+				path: "/test/app.module.ts",
+				imports: ["UserModule"],
+				exports: ["UserService"],
+				providers: [
+					provider("UserService", {
+						scope: "Singleton",
+						dependencies: [{ token: "DatabaseService", optional: false }],
+					}),
+					provider("CONFIG", { type: "UseValue" }),
+				],
+			},
+			UserModule: {
+				path: "/test/user.module.ts",
+				isGlobal: true,
+				providers: [provider("DatabaseService")],
+			},
+		});
 	}
 
 	describe("format", () => {
 		it("should format graph as GraphOutput", () => {
-			const graph = createMockGraph();
-			const formatter = new JsonFormatter(graph, "/test/entry.ts");
+			const graphModel = createMockGraph();
+			const formatter = new JsonFormatter(graphModel, "/test/entry.ts");
 
 			const output = formatter.format();
 
@@ -83,8 +44,8 @@ describe("JsonFormatter", () => {
 		});
 
 		it("should include correct metadata", () => {
-			const graph = createMockGraph();
-			const formatter = new JsonFormatter(graph, "/test/entry.ts");
+			const graphModel = createMockGraph();
+			const formatter = new JsonFormatter(graphModel, "/test/entry.ts");
 
 			const output = formatter.format();
 
@@ -99,8 +60,8 @@ describe("JsonFormatter", () => {
 		});
 
 		it("should format modules correctly", () => {
-			const graph = createMockGraph();
-			const formatter = new JsonFormatter(graph, "/test/entry.ts");
+			const graphModel = createMockGraph();
+			const formatter = new JsonFormatter(graphModel, "/test/entry.ts");
 
 			const output = formatter.format();
 
@@ -110,8 +71,8 @@ describe("JsonFormatter", () => {
 			expect(appModule).toMatchObject({
 				name: "AppModule",
 				path: "/test/app.module.ts",
-				imports: ["UserModule"],
-				exports: ["UserService"],
+				imports: [{ name: "UserModule", path: "/test/user.module.ts" }],
+				exports: [{ name: "UserService", path: undefined }],
 				providers: ["UserService", "CONFIG"],
 				isGlobal: false,
 			});
@@ -128,8 +89,8 @@ describe("JsonFormatter", () => {
 		});
 
 		it("should format providers correctly", () => {
-			const graph = createMockGraph();
-			const formatter = new JsonFormatter(graph, "/test/entry.ts");
+			const graphModel = createMockGraph();
+			const formatter = new JsonFormatter(graphModel, "/test/entry.ts");
 
 			const output = formatter.format();
 
@@ -141,15 +102,12 @@ describe("JsonFormatter", () => {
 			expect(userService).toMatchObject({
 				token: "UserService",
 				type: "Class",
-				module: "AppModule",
+				module: { name: "AppModule", path: "/test/app.module.ts" },
 				scope: "Singleton",
 			});
 			expect(userService?.dependencies).toHaveLength(1);
 			expect(userService?.dependencies[0]).toMatchObject({
-				type: "constructor",
-				index: 0,
 				token: "DatabaseService",
-				tokenType: "class",
 				optional: false,
 			});
 
@@ -157,99 +115,56 @@ describe("JsonFormatter", () => {
 			expect(config).toMatchObject({
 				token: "CONFIG",
 				type: "UseValue",
-				module: "AppModule",
-				value: "test-config",
+				module: { name: "AppModule", path: "/test/app.module.ts" },
 			});
 		});
 
 		it("should handle empty graph", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
-			const entryFile = {
-				name: null,
-				imports: [],
-				exports: [],
-				deps: [],
-			} as unknown as ParseEntryFile;
-			graph.set("entry", entryFile);
-
-			const formatter = new JsonFormatter(graph, "/test/entry.ts");
+			const graphModel = buildGraphModel("", {});
+			const formatter = new JsonFormatter(graphModel, "/test/entry.ts");
 
 			expect(() => formatter.format()).toThrow("Empty entry module");
 		});
 
-		it("should format UseFactory providers correctly", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
-			const entryFile = {
-				name: "AppModule",
-				imports: ["AppModule"],
-				exports: [],
-				deps: [],
-				filePath: "/test/entry.ts",
-			} as unknown as ParseEntryFile;
+		it("should include factory-inject tokens as provider dependencies for UseFactory providers", () => {
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [
+						provider("LOGGER", {
+							type: "UseFactory",
+							dependencies: [{ token: "ConfigService", optional: false }],
+						}),
+					],
+				},
+			});
 
-			const mockModule = {
-				name: "AppModule",
-				imports: [],
-				exports: [],
-				providers: [
-					{
-						token: "LOGGER",
-						type: "UseFactory",
-						inject: ["ConfigService"],
-						dependencies: [],
-					},
-				],
-				deps: [],
-				isGlobal: false,
-				filePath: "/test/app.module.ts",
-			} as unknown as ParseNsModule;
-
-			graph.set("entry", entryFile);
-			graph.set("AppModule", mockModule);
-
-			const formatter = new JsonFormatter(graph, "/test/entry.ts");
+			const formatter = new JsonFormatter(graphModel, "/test/entry.ts");
 			const output = formatter.format();
 
 			const logger = output.providers.find((p) => p.token === "LOGGER");
 			expect(logger).toMatchObject({
 				token: "LOGGER",
 				type: "UseFactory",
-				module: "AppModule",
-				factory: ["ConfigService"],
+				module: { name: "AppModule", path: "/app/AppModule.ts" },
 			});
+			expect(logger?.dependencies).toEqual([
+				{ token: "ConfigService", optional: false },
+			]);
 		});
 
 		it("should format UseClass providers correctly", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
-			const entryFile = {
-				name: "AppModule",
-				imports: ["AppModule"],
-				exports: [],
-				deps: [],
-				filePath: "/test/entry.ts",
-			} as unknown as ParseEntryFile;
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [
+						provider("UserService", {
+							type: "UseClass",
+							useClass: "UserServiceImpl",
+						}),
+					],
+				},
+			});
 
-			const mockModule = {
-				name: "AppModule",
-				imports: [],
-				exports: [],
-				providers: [
-					{
-						token: "UserService",
-						type: "UseClass",
-						inject: ["UserServiceImpl"],
-						dependencies: [],
-					},
-				],
-				deps: [],
-				isGlobal: false,
-				filePath: "/test/app.module.ts",
-			} as unknown as ParseNsModule;
-
-			graph.set("entry", entryFile);
-			graph.set("AppModule", mockModule);
-
-			const formatter = new JsonFormatter(graph, "/test/entry.ts");
+			const formatter = new JsonFormatter(graphModel, "/test/entry.ts");
 			const output = formatter.format();
 
 			const userService = output.providers.find(
@@ -258,57 +173,98 @@ describe("JsonFormatter", () => {
 			expect(userService).toMatchObject({
 				token: "UserService",
 				type: "UseClass",
-				module: "AppModule",
-				useClass: ["UserServiceImpl"],
+				module: { name: "AppModule", path: "/app/AppModule.ts" },
+				useClass: "UserServiceImpl",
 			});
 		});
 
 		it("should handle circular module dependencies", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
-			const entryFile = {
-				name: "AppModule",
-				imports: ["AppModule"],
-				exports: [],
-				deps: [],
-				filePath: "/test/entry.ts",
-			} as unknown as ParseEntryFile;
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					path: "/test/app.module.ts",
+					imports: ["UserModule"],
+				},
+				UserModule: {
+					path: "/test/user.module.ts",
+					imports: ["AppModule"], // Circular dependency
+				},
+			});
 
-			const appModule = {
-				name: "AppModule",
-				imports: ["UserModule"],
-				exports: [],
-				providers: [],
-				deps: [],
-				isGlobal: false,
-				filePath: "/test/app.module.ts",
-			} as unknown as ParseNsModule;
-
-			const userModule = {
-				name: "UserModule",
-				imports: ["AppModule"], // Circular dependency
-				exports: [],
-				providers: [],
-				deps: [],
-				isGlobal: false,
-				filePath: "/test/user.module.ts",
-			} as unknown as ParseNsModule;
-
-			graph.set("entry", entryFile);
-			graph.set("AppModule", appModule);
-			graph.set("UserModule", userModule);
-
-			const formatter = new JsonFormatter(graph, "/test/entry.ts");
+			const formatter = new JsonFormatter(graphModel, "/test/entry.ts");
 			const output = formatter.format();
 
 			// Should handle circular dependencies without infinite loop
 			expect(output.modules).toHaveLength(2);
 		});
+
+		it("does not lose or confuse two modules that share a display name", () => {
+			// Hand-built model (not via buildGraphModel's name-as-id shorthand):
+			// two distinct "SharedModule" declarations in different files, each
+			// imported by AppModule under the same display name.
+			const sharedA: GraphModuleNode = {
+				name: "SharedModule",
+				id: "/a/shared.module.ts:1:1",
+				path: "/a/shared.module.ts",
+				isGlobal: false,
+				imports: [],
+				exports: [],
+				providers: [provider("ServiceA")],
+			};
+			const sharedB: GraphModuleNode = {
+				name: "SharedModule",
+				id: "/b/shared.module.ts:1:1",
+				path: "/b/shared.module.ts",
+				isGlobal: false,
+				imports: [],
+				exports: [],
+				providers: [provider("ServiceB")],
+			};
+			const appModule: GraphModuleNode = {
+				name: "AppModule",
+				id: "/app/app.module.ts:1:1",
+				path: "/app/app.module.ts",
+				isGlobal: false,
+				imports: [
+					{ id: sharedA.id, name: sharedA.name, path: sharedA.path },
+					{ id: sharedB.id, name: sharedB.name, path: sharedB.path },
+				],
+				exports: [],
+				providers: [],
+			};
+			const graphModel: NexusGraphModel = {
+				entryModuleId: appModule.id,
+				modules: new Map([
+					[appModule.id, appModule],
+					[sharedA.id, sharedA],
+					[sharedB.id, sharedB],
+				]),
+			};
+
+			const formatter = new JsonFormatter(graphModel, "/test/entry.ts");
+			const output = formatter.format();
+
+			// Both same-named modules are present — neither dedup nor
+			// overwrite-by-name lost one of them.
+			expect(
+				output.modules.filter((m) => m.name === "SharedModule"),
+			).toHaveLength(2);
+			expect(output.providers.map((p) => p.token).sort()).toEqual([
+				"ServiceA",
+				"ServiceB",
+			]);
+			// AppModule's imports correctly distinguish the two by path.
+			const app = output.modules.find((m) => m.name === "AppModule");
+			expect(app?.imports.map((i) => i.path).sort()).toEqual([
+				"/a/shared.module.ts",
+				"/b/shared.module.ts",
+			]);
+		});
 	});
 
 	describe("formatAsString", () => {
 		it("should format graph as JSON string", () => {
-			const graph = createMockGraph();
-			const formatter = new JsonFormatter(graph, "/test/entry.ts");
+			const graphModel = createMockGraph();
+			const formatter = new JsonFormatter(graphModel, "/test/entry.ts");
 
 			const jsonString = formatter.formatAsString();
 
@@ -322,8 +278,8 @@ describe("JsonFormatter", () => {
 		});
 
 		it("should respect indent parameter", () => {
-			const graph = createMockGraph();
-			const formatter = new JsonFormatter(graph, "/test/entry.ts");
+			const graphModel = createMockGraph();
+			const formatter = new JsonFormatter(graphModel, "/test/entry.ts");
 
 			const jsonString = formatter.formatAsString(4);
 

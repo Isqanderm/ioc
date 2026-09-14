@@ -8,7 +8,7 @@ import type {
 	ScopeMismatch,
 } from "../analyzer/provider-scope-analyzer";
 import type { UnusedProvider } from "../analyzer/unused-provider-detector";
-import type { Dependency } from "../parser/dependency-extractor";
+import type { GraphUndeclaredDependency } from "../graph/nexus-graph-model";
 
 /**
  * Complete dependency graph output format
@@ -92,6 +92,29 @@ export interface GraphMetadata {
 }
 
 /**
+ * A reference to a module or exported token, as shown in `ModuleInfo.imports`/
+ * `exports` and `ProviderInfo.module`. `path` disambiguates two same-named
+ * modules/tokens declared in different files — the file path where the
+ * referenced module/token is itself declared, when known.
+ *
+ * NOTE: this replaces the plain `string` shape these fields used before —
+ * a deliberate breaking change, since without a path a reader (human or
+ * renderer) has no way to tell two same-named modules apart.
+ */
+export interface ModuleReferenceInfo {
+	name: string;
+	path?: string;
+}
+
+/**
+ * Dependency of a provider, as shown in `ProviderInfo.dependencies`.
+ */
+export interface DependencyInfo {
+	token: string;
+	optional: boolean;
+}
+
+/**
  * Information about a single module in the dependency graph
  *
  * Represents a Nexus IoC module decorated with @NsModule.
@@ -101,10 +124,10 @@ export interface ModuleInfo {
 	name: string;
 	/** File path where the module is defined */
 	path: string;
-	/** Names of modules imported by this module */
-	imports: string[];
+	/** Modules imported by this module */
+	imports: ModuleReferenceInfo[];
 	/** Tokens of providers exported by this module */
-	exports: string[];
+	exports: ModuleReferenceInfo[];
 	/** Tokens of providers registered in this module */
 	providers: string[];
 	/** Whether this module is marked as global */
@@ -122,12 +145,15 @@ export interface ProviderInfo {
 	token: string;
 	/** Type of provider */
 	type: "Class" | "UseValue" | "UseFactory" | "UseClass";
-	/** Name of the module that registers this provider */
-	module: string;
+	/** The module that registers this provider */
+	module: ModuleReferenceInfo;
 	/** Lifecycle scope of the provider (only for class providers) */
 	scope?: "Singleton" | "Request" | "Transient";
 	/** Dependencies required by this provider */
-	dependencies: Dependency[];
+	dependencies: DependencyInfo[];
+	/** Constructor parameters/properties that look like dependencies but have
+	 * no `@Inject` — present only when non-empty. */
+	undeclaredDependencies?: GraphUndeclaredDependency[];
 	/** Static value (only for UseValue providers) */
 	value?: string;
 	/** Factory function name (only for UseFactory providers) */

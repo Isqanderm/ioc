@@ -15,26 +15,9 @@ export interface GraphAnalyzerConfig {
 
 	/**
 	 * Output file path
+	 * @default "./graph.json"
 	 */
 	output?: string;
-
-	/**
-	 * Output format: json, png, html, or both
-	 * @default "both"
-	 */
-	format?: "json" | "png" | "html" | "both";
-
-	/**
-	 * IDE protocol for clickable links in HTML output
-	 * @default "vscode"
-	 */
-	ideProtocol?: "vscode" | "webstorm" | "idea";
-
-	/**
-	 * Use dark theme for HTML output
-	 * @default false
-	 */
-	darkTheme?: boolean;
 
 	/**
 	 * Show detailed progress information
@@ -83,9 +66,6 @@ export interface GraphAnalyzerConfig {
  * Default configuration values
  */
 export const DEFAULT_CONFIG: Partial<GraphAnalyzerConfig> = {
-	format: "both",
-	ideProtocol: "vscode",
-	darkTheme: false,
 	verbose: false,
 	quiet: false,
 	checkCircular: false,
@@ -110,29 +90,8 @@ export function validateConfig(config: unknown): string[] {
 
 	const cfg = config as Record<string, unknown>;
 
-	// Validate format
-	if (cfg.format !== undefined) {
-		const validFormats = ["json", "png", "html", "both"];
-		if (!validFormats.includes(cfg.format as string)) {
-			errors.push(
-				`Invalid format: ${cfg.format}. Must be one of: ${validFormats.join(", ")}`,
-			);
-		}
-	}
-
-	// Validate ideProtocol
-	if (cfg.ideProtocol !== undefined) {
-		const validProtocols = ["vscode", "webstorm", "idea"];
-		if (!validProtocols.includes(cfg.ideProtocol as string)) {
-			errors.push(
-				`Invalid ideProtocol: ${cfg.ideProtocol}. Must be one of: ${validProtocols.join(", ")}`,
-			);
-		}
-	}
-
 	// Validate boolean fields
 	const booleanFields = [
-		"darkTheme",
 		"verbose",
 		"quiet",
 		"checkCircular",

@@ -23,7 +23,12 @@
     "graph-visualizer"
   ],
   "files": [
-    "dist",
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/**/*.js.map",
+    "!dist/**/__tests__",
+    "!dist/**/*.spec.*",
+    "!dist/**/*.test.*",
     "package.json",
     "LICENSE",
     "README.md"
@@ -33,24 +38,23 @@
   "types": "./dist/index.d.ts",
   "type": "commonjs",
   "license": "MIT",
-  "peerDependencies": {
-    "nexus-ioc": "^0.3.0",
-    "reflect-metadata": "^0.1.12 || ^0.2.0"
+  "dependencies": {
+    "@nexus-ioc/graph-analyzer": "*",
+    "@nexus-ioc/type-checker": "*",
+    "typescript": "^5.9.3"
   },
   "devDependencies": {
     "@types/node": "^22.5.4",
-    "nexus-ioc": "^0.3.0",
     "prettier": "^3.6.2",
-    "reflect-metadata": "^0.2.2",
     "sinon": "^21.0.0",
     "ts-node": "^10.9.2",
     "tslib": "^2.7.0",
-    "typescript": "^5.9.3"
+    "vitest": "^2.1.8"
   },
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf ./dist && rm tsconfig.tsbuildinfo",
-    "test": "",
+    "test": "vitest run",
     "code:format": "npx @biomejs/biome format --write",
     "code:lint": "npx @biomejs/biome lint --write",
     "code:check": "npx @biomejs/biome check",

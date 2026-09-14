@@ -1,5 +1,4 @@
-import type { ParseEntryFile } from "../parser/parse-entry-file";
-import type { ParseNsModule } from "../parser/parse-ns-module";
+import type { NexusGraphModel } from "../graph/nexus-graph-model";
 
 /**
  * Information about a module's position in the hierarchy
@@ -63,7 +62,7 @@ export interface ModuleDepthAnalysis {
  *
  * @example
  * ```typescript
- * const analyzer = new ModuleDepthAnalyzer(modulesGraph);
+ * const analyzer = new ModuleDepthAnalyzer(graphModel);
  * const analysis = analyzer.analyze();
  *
  * console.log(`Max depth: ${analysis.maxDepth}`);
@@ -78,11 +77,11 @@ export class ModuleDepthAnalyzer {
 	/**
 	 * Create a new ModuleDepthAnalyzer instance
 	 *
-	 * @param graph - Map of module names to parsed modules
+	 * @param graphModel - The application's graph model
 	 * @param deepModuleThreshold - Custom threshold for deep modules (optional)
 	 */
 	constructor(
-		private readonly graph: Map<string, ParseNsModule | ParseEntryFile>,
+		private readonly graphModel: NexusGraphModel,
 		private readonly deepModuleThreshold: number = 5,
 	) {}
 
@@ -92,14 +91,16 @@ export class ModuleDepthAnalyzer {
 	 * @returns ModuleDepthAnalysis with all calculated metrics
 	 */
 	analyze(): ModuleDepthAnalysis {
-		const modules = this.getModules();
-
-		if (modules.length === 0) {
+		if (this.graphModel.modules.size === 0) {
 			return this.createEmptyAnalysis();
 		}
 
 		// Calculate depth for each module
 		const moduleDepths = this.calculateModuleDepths();
+
+		if (moduleDepths.size === 0) {
+			return this.createEmptyAnalysis();
+		}
 
 		// Calculate complexity metrics
 		const moduleDetails = this.calculateComplexityMetrics(moduleDepths);
@@ -130,57 +131,42 @@ export class ModuleDepthAnalyzer {
 	}
 
 	/**
-	 * Get all modules from the graph (excluding entry file)
-	 */
-	private getModules(): ParseNsModule[] {
-		const modules: ParseNsModule[] = [];
-
-		for (const [key, value] of this.graph.entries()) {
-			if (key !== "entry" && "imports" in value) {
-				modules.push(value as ParseNsModule);
-			}
-		}
-
-		return modules;
-	}
-
-	/**
-	 * Calculate depth for each module using BFS from entry point
+	 * Calculate depth for each module (by id) using BFS from entry point
 	 */
 	private calculateModuleDepths(): Map<string, number> {
 		const depths = new Map<string, number>();
-		const entry = this.graph.get("entry") as ParseEntryFile | undefined;
+		const entryModuleId = this.graphModel.entryModuleId;
 
-		if (!entry || !entry.name) {
+		if (!entryModuleId || !this.graphModel.modules.has(entryModuleId)) {
 			return depths;
 		}
 
 		// Start BFS from entry module
-		const queue: Array<{ name: string; depth: number }> = [
-			{ name: entry.name, depth: 0 },
+		const queue: Array<{ id: string; depth: number }> = [
+			{ id: entryModuleId, depth: 0 },
 		];
 		const visited = new Set<string>();
 
 		while (queue.length > 0) {
 			const current = queue.shift()!;
 
-			if (visited.has(current.name)) {
+			if (visited.has(current.id)) {
 				continue;
 			}
 
-			visited.add(current.name);
-			depths.set(current.name, current.depth);
+			visited.add(current.id);
+			depths.set(current.id, current.depth);
 
 			// Get module from graph
-			const module = this.graph.get(current.name) as ParseNsModule | undefined;
-			if (!module || !("imports" in module)) {
+			const module = this.graphModel.modules.get(current.id);
+			if (!module) {
 				continue;
 			}
 
 			// Add all imports to queue with incremented depth
-			for (const importName of module.imports) {
-				if (!visited.has(importName)) {
-					queue.push({ name: importName, depth: current.depth + 1 });
+			for (const importedModule of module.imports) {
+				if (!visited.has(importedModule.id)) {
+					queue.push({ id: importedModule.id, depth: current.depth + 1 });
 				}
 			}
 		}
@@ -189,7 +175,8 @@ export class ModuleDepthAnalyzer {
 	}
 
 	/**
-	 * Calculate complexity metrics for each module
+	 * Calculate complexity metrics for each module. `moduleDepths` is keyed
+	 * by id; the returned `ModuleDepthInfo[]` reports display names, as before.
 	 */
 	private calculateComplexityMetrics(
 		moduleDepths: Map<string, number>,
@@ -197,20 +184,20 @@ export class ModuleDepthAnalyzer {
 		const moduleDetails: ModuleDepthInfo[] = [];
 		const fanInMap = this.calculateFanIn();
 
-		for (const [moduleName, depth] of moduleDepths.entries()) {
-			const module = this.graph.get(moduleName) as ParseNsModule | undefined;
-			if (!module || !("imports" in module)) {
+		for (const [moduleId, depth] of moduleDepths.entries()) {
+			const module = this.graphModel.modules.get(moduleId);
+			if (!module) {
 				continue;
 			}
 
 			const directImports = module.imports.length;
 			const transitiveDependencies =
-				this.calculateTransitiveDependencies(moduleName);
-			const fanIn = fanInMap.get(moduleName) || 0;
+				this.calculateTransitiveDependencies(moduleId);
+			const fanIn = fanInMap.get(moduleId) || 0;
 			const fanOut = directImports;
 
 			moduleDetails.push({
-				name: moduleName,
+				name: module.name,
 				depth,
 				directImports,
 				transitiveDependencies,
@@ -223,19 +210,18 @@ export class ModuleDepthAnalyzer {
 	}
 
 	/**
-	 * Calculate fan-in for all modules (how many modules depend on each module)
+	 * Calculate fan-in for all modules (how many modules depend on each
+	 * module), keyed by id
 	 */
 	private calculateFanIn(): Map<string, number> {
 		const fanInMap = new Map<string, number>();
 
-		for (const [key, value] of this.graph.entries()) {
-			if (key === "entry" || !("imports" in value)) {
-				continue;
-			}
-
-			const module = value as ParseNsModule;
-			for (const importName of module.imports) {
-				fanInMap.set(importName, (fanInMap.get(importName) || 0) + 1);
+		for (const module of this.graphModel.modules.values()) {
+			for (const importedModule of module.imports) {
+				fanInMap.set(
+					importedModule.id,
+					(fanInMap.get(importedModule.id) || 0) + 1,
+				);
 			}
 		}
 
@@ -245,9 +231,9 @@ export class ModuleDepthAnalyzer {
 	/**
 	 * Calculate transitive dependencies for a module (all modules it depends on)
 	 */
-	private calculateTransitiveDependencies(moduleName: string): number {
+	private calculateTransitiveDependencies(moduleId: string): number {
 		const visited = new Set<string>();
-		const queue = [moduleName];
+		const queue = [moduleId];
 
 		while (queue.length > 0) {
 			const current = queue.shift()!;
@@ -258,14 +244,14 @@ export class ModuleDepthAnalyzer {
 
 			visited.add(current);
 
-			const module = this.graph.get(current) as ParseNsModule | undefined;
-			if (!module || !("imports" in module)) {
+			const module = this.graphModel.modules.get(current);
+			if (!module) {
 				continue;
 			}
 
-			for (const importName of module.imports) {
-				if (!visited.has(importName)) {
-					queue.push(importName);
+			for (const importedModule of module.imports) {
+				if (!visited.has(importedModule.id)) {
+					queue.push(importedModule.id);
 				}
 			}
 		}

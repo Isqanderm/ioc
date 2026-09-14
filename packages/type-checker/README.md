@@ -17,6 +17,7 @@ This package provides the core type-checking, parsing, and analysis logic for Ne
 
 - **NexusAnalyzer** - Converts TypeScript classes into AST-independent Nexus semantic entities
 - **NexusApplicationAnalyzer** - Discovers reachable Nexus classes from an application entry point
+- **NexusApplicationGraphBuilder** - Resolves dependencies to concrete providers across module scopes and detects provider cycles
 
 ### Parsers
 
@@ -42,6 +43,10 @@ This package provides the core type-checking, parsing, and analysis logic for Ne
 - **NexusToken** - Semantic injection token information
 - **NexusSourceSpan** - Source location information
 - **NexusApplication** - Semantic representation of classes reachable from an application entry point
+- **NexusModule** - Semantic representation of an `@NsModule` class's `providers`/`imports`/`exports`
+- **NexusProvider** - Semantic representation of one `providers` array entry (`class`/`useClass`/`useValue`/`useFactory`)
+- **NexusApplicationGraph** - Resolved view of a `NexusApplication`: which provider satisfies each dependency, plus unresolved dependencies and provider cycles
+- **NexusProviderCycle** - A detected `useFactory` `inject` cycle
 - **ILogger** - Minimal logger interface for framework-agnostic logging
 - **NoOpLogger** - No-op logger implementation
 
@@ -80,6 +85,42 @@ console.log(nexusClass.dependencies);
 
 The TypeScript AST is accepted at the analyzer boundary, but `NexusClass`, `NexusDependency`, and `NexusDecorator` do not expose TypeScript AST nodes.
 
+### Module-level semantic analysis
+
+```typescript
+import * as ts from "typescript";
+import {
+  createNexusAnalyzer,
+  type NexusModule,
+} from "@nexus-ioc/type-checker";
+
+const program = ts.createProgram(["src/app.ts"], {
+  target: ts.ScriptTarget.ES2022,
+  module: ts.ModuleKind.CommonJS,
+});
+
+const sourceFile = program.getSourceFile("src/app.ts");
+if (!sourceFile) throw new Error("Source file not found");
+
+const moduleDeclaration = sourceFile.statements.find(
+  (node): node is ts.ClassDeclaration =>
+    ts.isClassDeclaration(node) && node.name?.text === "UsersModule",
+);
+if (!moduleDeclaration) throw new Error("UsersModule not found");
+
+const analyzer = createNexusAnalyzer(program);
+const nexusModule: NexusModule | undefined =
+  analyzer.getModule(moduleDeclaration);
+
+console.log(nexusModule?.providers);
+console.log(nexusModule?.imports);
+console.log(nexusModule?.exports);
+```
+
+`getModule()` parses an `@NsModule({ providers, imports, exports })` decorator argument into `providers: readonly NexusProvider[]`, `imports: readonly NexusModuleImport[]`, and `exports: readonly NexusModuleExport[]`. Each `NexusProvider` captures one `providers` entry — a bare class reference (`kind: "class"`) or an object literal (`useClass`/`useValue`/`useFactory`, the latter carrying its `inject` tokens on `factoryInject`). `getClass()` calls `getModule()` internally and exposes the result as `NexusClass.module`, which is populated only for classes carrying an `@NsModule(...)` decorator — every other class has `module: undefined`.
+
+A dynamic-module import (`FooModule.forRoot(...)` inside `imports: [...]`) resolves to the concrete module class via the factory's inferred return type, so this works for any body shape as long as the factory has no explicit return-type annotation. A factory explicitly annotated `: DynamicModule` erases that inferred type, so it only resolves when the body is a single, unconditional `return { module: FooModule, ... };` statement — anything more complex falls back to an unresolvable `expression`-kind token for that import.
+
 ### Application-level semantic analysis
 
 ```typescript
@@ -112,7 +153,53 @@ for (const nexusClass of application.classes) {
 }
 ```
 
-`NexusApplicationAnalyzer` starts from the supplied class and follows resolvable class-reference injection tokens. Results are deterministic and de-duplicated; unrelated classes are excluded.
+`NexusApplicationAnalyzer` starts from the supplied class and follows resolvable class-reference injection tokens, as well as module structure (`imports`, `providers`) as reachability edges. Results are deterministic and de-duplicated; unrelated classes are excluded.
+
+### Application graph
+
+```typescript
+import * as ts from "typescript";
+import {
+  createNexusAnalyzer,
+  createNexusApplicationAnalyzer,
+  createNexusApplicationGraphBuilder,
+} from "@nexus-ioc/type-checker";
+
+const program = ts.createProgram(["src/app.ts"], {
+  target: ts.ScriptTarget.ES2022,
+  module: ts.ModuleKind.CommonJS,
+});
+
+const sourceFile = program.getSourceFile("src/app.ts");
+if (!sourceFile) throw new Error("Source file not found");
+
+const entryPoint = sourceFile.statements.find(
+  (node): node is ts.ClassDeclaration =>
+    ts.isClassDeclaration(node) && node.name?.text === "AppModule",
+);
+if (!entryPoint) throw new Error("AppModule not found");
+
+const analyzer = createNexusAnalyzer(program);
+const applicationAnalyzer = createNexusApplicationAnalyzer(analyzer);
+const application = applicationAnalyzer.analyze(entryPoint);
+
+const graphBuilder = createNexusApplicationGraphBuilder(analyzer);
+const graph = graphBuilder.build(application);
+
+for (const dependency of graph.resolved) {
+  console.log(dependency.class.name, "->", dependency.provider.provide);
+}
+for (const dependency of graph.unresolved) {
+  console.log("unresolved:", dependency.class.name, dependency.dependencyName);
+}
+for (const cycle of graph.cycles) {
+  console.log("cycle:", cycle.path.map((provider) => provider.provide));
+}
+```
+
+`NexusApplicationGraphBuilder.build()` resolves every class's dependency tokens to the concrete `NexusProvider` that satisfies them, honoring module scoping: a module's own `providers`, providers its imported modules `export` (including transitively re-exported ones), and providers exported by any `@Global()` module anywhere in the application. Each match is reported as a `NexusResolvedDependency` (`class`, `dependencyName`, `provider`, `providingModule`); a *required* dependency with no match is reported as a `NexusUnresolvedDependency` instead — an unmatched optional dependency is silently skipped. `NexusProviderCycle` reports a cycle found among `useFactory` providers' `inject` tokens, matched by `ts.Symbol`/token identity rather than class-name strings.
+
+Cycle detection is scoped per module: it walks each module's own `providers` registrations independently, so it will not detect a cycle that spans factory `inject` tokens registered as *own* providers of two different modules — only cycles within a single module's own provider registrations are found. This is a deliberate, documented limitation (see the `detectCycles()` comment in `nexus-application-graph-builder.ts`).
 
 ### Custom logger
 
@@ -141,20 +228,52 @@ class NexusAnalyzer {
 
   /** @deprecated Use getClass() instead. */
   getClassModel(node: ts.ClassDeclaration): NexusClass;
+
+  getModule(node: ts.ClassDeclaration): NexusModule | undefined;
 }
 ```
 
+### NexusModule
+
+```typescript
+type NexusModule = {
+  providers: readonly NexusProvider[];
+  imports: readonly NexusModuleImport[];
+  exports: readonly NexusModuleExport[];
+};
+
+type NexusProvider = {
+  kind: "class" | "useClass" | "useValue" | "useFactory";
+  provide: NexusToken;
+  useClass?: NexusToken;
+  factoryInject: readonly NexusToken[];
+  scope?: NexusToken;
+  source: NexusSourceSpan;
+};
+
+type NexusModuleImport = {
+  module: NexusToken;
+  isDynamic: boolean;
+  source: NexusSourceSpan;
+};
+
+type NexusModuleExport = {
+  token: NexusToken;
+  source: NexusSourceSpan;
+};
+```
+
+`undefined` for `NexusAnalyzer.getModule()` (and `NexusClass.module`) means the class has no `@NsModule(...)` decorator; `providers`/`imports`/`exports` are otherwise always present, defaulting to `[]` when the corresponding decorator property is omitted.
+
 ### NexusApplicationAnalyzer
 
-Performs whole-application semantic traversal starting from an explicit root class.
+Performs whole-application semantic traversal starting from an explicit root class, discovering classes reachable both through direct `@Inject()` references and through module structure (`imports`, `providers`).
 
 ```typescript
 class NexusApplicationAnalyzer {
   analyze(entryPoint: ts.ClassDeclaration): NexusApplication;
 }
 ```
-
-The current implementation intentionally stops at semantic reachability. It does not define provider resolution, a full application graph, lifecycle analysis, or circular dependency reporting.
 
 ### NexusApplication
 
@@ -164,6 +283,48 @@ type NexusApplication = {
   classes: readonly NexusClass[];
 };
 ```
+
+### NexusApplicationGraphBuilder
+
+Resolves a `NexusApplication` into a module-scoped dependency graph: which `NexusProvider` satisfies each class's dependency tokens, and which provider registrations form a cycle.
+
+```typescript
+class NexusApplicationGraphBuilder {
+  build(application: NexusApplication): NexusApplicationGraph;
+}
+```
+
+### NexusApplicationGraph
+
+```typescript
+type NexusApplicationGraph = {
+  resolved: readonly NexusResolvedDependency[];
+  unresolved: readonly NexusUnresolvedDependency[];
+  cycles: readonly NexusProviderCycle[];
+};
+
+type NexusResolvedDependency = {
+  class: NexusClass;
+  dependencyName: string;
+  provider: NexusProvider;
+  providingModule: NexusClass;
+};
+
+type NexusUnresolvedDependency = {
+  class: NexusClass;
+  dependencyName: string;
+  token: NexusToken | undefined;
+  source: NexusSourceSpan;
+};
+
+type NexusProviderCycle = {
+  path: readonly NexusProvider[];
+};
+```
+
+`unresolved` only ever contains *required* (non-optional) dependencies — see the "Application graph" usage section above for how module `imports`/`exports` scoping and `@Global()` modules affect resolution, and for the known per-module scoping limit on cycle detection.
+
+This package now covers `@NsModule` metadata, module-structure-aware reachability, module-scoped provider resolution (own/imported/global), and per-module `ts.Symbol`-identity cycle detection. It intentionally does not cover: migrating `packages/language-service` off its legacy AST/tsquery parser stack (`NsModuleParser`, `NsModulesParser`, `InjectParser`, `InjectableParser`, `CircularDependencyDetectorHelper`, `checkTypesHelper`, `compareTypes`, `findTypeReferences`) onto this model; `Scope.Singleton`/`Request`/`Transient` instance semantics, which are captured only as inert token metadata on `NexusProvider.scope` and are never interpreted; and ESLint rules or compiler code generation consuming the graph.
 
 ### InjectParser
 
