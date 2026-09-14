@@ -2,49 +2,73 @@
  * @packageDocumentation
  * Nexus IoC Graph Analyzer - Static analysis tool for dependency injection graphs
  *
- * This package provides tools to analyze and visualize Nexus IoC dependency injection graphs
- * without executing code. It uses TypeScript's AST to extract metadata about modules, providers,
- * and their dependencies.
+ * This package statically analyzes Nexus IoC dependency injection graphs
+ * without executing code. Graph construction and semantic resolution are
+ * delegated to `@nexus-ioc/type-checker`; this package builds a string-keyed
+ * `NexusGraphModel` on top of it and runs analyses that don't belong in a
+ * generic semantic layer: circular dependency detection (modules and
+ * providers), unused-provider detection, module depth/fan-in/fan-out
+ * metrics, and provider scope-mismatch detection.
  *
  * @example
  * ```typescript
- * import { GraphAnalyzer, ParseEntryFile, ParseTsConfig } from 'graph-analyzer';
+ * import {
+ *   createNexusAnalyzer,
+ *   createNexusApplicationAnalyzer,
+ *   createNexusProgram,
+ *   findApplicationEntryPoint,
+ * } from '@nexus-ioc/type-checker';
+ * import { buildNexusGraphModel, JsonFormatter } from '@nexus-ioc/graph-analyzer';
  *
- * // Parse entry file
- * const tsConfig = new ParseTsConfig(configContent, basePath);
- * const entryFile = new ParseEntryFile(sourceFile, 'src/main.ts', tsConfig);
- * entryFile.parse();
+ * const program = createNexusProgram(['src/main.ts'], './tsconfig.json');
+ * const entryPoint = findApplicationEntryPoint(program, 'src/main.ts')!;
+ * const analyzer = createNexusAnalyzer(program);
+ * const application = createNexusApplicationAnalyzer(analyzer).analyze(entryPoint);
+ * const graphModel = buildNexusGraphModel(application, program);
  *
- * // Build graph and analyze
- * const graph = new Map();
- * graph.set('entry', entryFile);
- *
- * const analyzer = new GraphAnalyzer(graph, 'src/main.ts', {
- *   outputFormat: 'json'
- * });
- *
- * const output = analyzer.parse();
+ * const output = new JsonFormatter(graphModel, 'src/main.ts', true).format();
  * ```
  */
 
+// Analyzers
+export {
+	type CircularDependency,
+	type CircularDependencyAnalysis,
+	CircularDependencyDetector,
+} from "./analyzer/circular-dependency-detector";
+export {
+	type DepthLevel,
+	type ModuleDepthAnalysis,
+	ModuleDepthAnalyzer,
+	type ModuleDepthInfo,
+} from "./analyzer/module-depth-analyzer";
+export {
+	type ProviderScope,
+	type ProviderScopeAnalysis,
+	ProviderScopeAnalyzer,
+	type ProviderScopeInfo,
+	type ScopeMismatch,
+} from "./analyzer/provider-scope-analyzer";
+export {
+	type UnusedProvider,
+	type UnusedProviderAnalysis,
+	UnusedProviderDetector,
+} from "./analyzer/unused-provider-detector";
+// Graph construction (built on top of @nexus-ioc/type-checker)
+export { buildNexusGraphModel } from "./graph/build-nexus-graph-model";
+export type {
+	GraphModuleNode,
+	GraphProviderDependency,
+	GraphProviderNode,
+	NexusGraphModel,
+} from "./graph/nexus-graph-model";
 // Interface exports
 export type {
+	GraphAnalysis,
 	GraphMetadata,
 	GraphOutput,
 	ModuleInfo,
 	ProviderInfo,
 } from "./interfaces/graph-output.interface";
-export type { ProvidersInterface } from "./interfaces/providers.interface";
-export type { Dependency } from "./parser/dependency-extractor";
-export { DependencyExtractor } from "./parser/dependency-extractor";
-// Parser exports
-export { ParseEntryFile } from "./parser/parse-entry-file";
-export { ParseNsModule } from "./parser/parse-ns-module";
-export { ParseTsConfig } from "./parser/parse-ts-config";
-export { GraphGenerator } from "./visualize/generator";
-export type { GraphAnalyzerOptions } from "./visualize/graph-analyzer";
-// Main exports for programmatic use
-export { GraphAnalyzer } from "./visualize/graph-analyzer";
-export type { HtmlGeneratorOptions } from "./visualize/html-generator";
-export { HtmlGenerator } from "./visualize/html-generator";
+// Report output (data only — no rendering; see @nexus-ioc/graph-visualizer for PNG/HTML)
 export { JsonFormatter } from "./visualize/json-formatter";

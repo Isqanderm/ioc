@@ -1,6 +1,7 @@
-import type { Dependency } from "../parser/dependency-extractor";
-import type { ParseEntryFile } from "../parser/parse-entry-file";
-import type { ParseNsModule } from "../parser/parse-ns-module";
+import type {
+	GraphProviderNode,
+	NexusGraphModel,
+} from "../graph/nexus-graph-model";
 
 /**
  * Provider scope types
@@ -72,9 +73,7 @@ export interface ProviderScopeAnalysis {
  * - Scope optimization opportunities
  */
 export class ProviderScopeAnalyzer {
-	constructor(
-		private readonly graph: Map<string, ParseNsModule | ParseEntryFile>,
-	) {}
+	constructor(private readonly graphModel: NexusGraphModel) {}
 
 	/**
 	 * Analyze provider scopes and detect issues
@@ -110,27 +109,18 @@ export class ProviderScopeAnalyzer {
 	private buildProviderScopeMap(): ProviderScopeInfo[] {
 		const providerScopes: ProviderScopeInfo[] = [];
 
-		for (const [key, value] of this.graph.entries()) {
-			if (key === "entry") continue;
-
-			const parseNsModule = value as ParseNsModule;
-			if (!parseNsModule.providers) continue;
-
-			for (const provider of parseNsModule.providers) {
-				if (!provider.token) continue;
-
+		for (const module of this.graphModel.modules.values()) {
+			for (const provider of module.providers) {
 				const scope = this.extractProviderScope(provider);
-				const dependencies = this.extractDependencyTokens(provider);
+				const dependencies = provider.dependencies
+					.filter((dep) => !dep.optional)
+					.map((dep) => dep.token);
 
 				providerScopes.push({
 					token: provider.token,
-					module: parseNsModule.name || key,
+					module: module.name,
 					scope,
-					type: provider.type as
-						| "Class"
-						| "UseValue"
-						| "UseFactory"
-						| "UseClass",
+					type: provider.type,
 					dependencies,
 				});
 			}
@@ -142,10 +132,7 @@ export class ProviderScopeAnalyzer {
 	/**
 	 * Extract scope from provider
 	 */
-	private extractProviderScope(provider: {
-		type: string;
-		scope?: string | null;
-	}): ProviderScope {
+	private extractProviderScope(provider: GraphProviderNode): ProviderScope {
 		// Check if scope is explicitly defined (applies to all provider types)
 		if (provider.scope) {
 			const scopeStr = provider.scope.toLowerCase();
@@ -156,32 +143,6 @@ export class ProviderScopeAnalyzer {
 
 		// Default to Singleton for all provider types
 		return "Singleton";
-	}
-
-	/**
-	 * Extract dependency tokens from provider
-	 */
-	private extractDependencyTokens(provider: {
-		dependencies?: Dependency[];
-		inject?: string[];
-	}): string[] {
-		const tokens: string[] = [];
-
-		// Extract from dependencies array (Class and UseClass providers)
-		if (provider.dependencies && Array.isArray(provider.dependencies)) {
-			for (const dep of provider.dependencies as Dependency[]) {
-				if (dep.token && !dep.optional) {
-					tokens.push(dep.token);
-				}
-			}
-		}
-
-		// Extract from inject array (UseFactory providers)
-		if (provider.inject && Array.isArray(provider.inject)) {
-			tokens.push(...provider.inject);
-		}
-
-		return tokens;
 	}
 
 	/**

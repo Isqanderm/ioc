@@ -79,7 +79,8 @@
 		"url": "https://github.com/Isqanderm/ioc/issues"
 	},
 	"dependencies": {
-		"@phenomnomnominal/tsquery": "^6.1.3",
-		"cli-spinners": "^2.9.2"
+		"@nexus-ioc/type-checker": "*",
+		"cli-spinners": "^2.9.2",
+		"typescript": "^5.9.3"
 	}
 }

@@ -220,50 +220,6 @@ export class ImportedModule {}
 	],
 ]);
 
-const FACTORY_CYCLE_FILES = new Map<string, string>([
-	[
-		"/app/app.module.ts",
-		`import { NsModule as Module } from "@nexus-ioc/core";
-
-@Module({
-  providers: [
-    { provide: "A", useFactory: (b: unknown) => b, inject: ["B"] },
-    { provide: "B", useFactory: (a: unknown) => a, inject: ["A"] },
-  ],
-})
-export class AppModule {}
-`,
-	],
-]);
-
-const CROSS_MODULE_TOKEN_COLLISION_FILES = new Map<string, string>([
-	[
-		"/app/app.module.ts",
-		`import { NsModule as Module } from "@nexus-ioc/core";
-import { OtherModule } from "./other.module";
-
-@Module({
-  imports: [OtherModule],
-  providers: [
-    { provide: "TOKEN", useFactory: (a: unknown) => a, inject: ["A"] },
-    { provide: "A", useFactory: (t: unknown) => t, inject: ["TOKEN"] },
-  ],
-})
-export class AppModule {}
-`,
-	],
-	[
-		"/app/other.module.ts",
-		`import { NsModule as Module } from "@nexus-ioc/core";
-
-@Module({
-  providers: [{ provide: "TOKEN", useValue: 1 }],
-})
-export class OtherModule {}
-`,
-	],
-]);
-
 const END_TO_END_FILES = new Map<string, string>([
 	[
 		"/app/app.module.ts",
@@ -364,7 +320,6 @@ describe("NexusApplicationGraphBuilder", () => {
 
 		expect(graph.resolved).toEqual([]);
 		expect(graph.unresolved).toEqual([]);
-		expect(graph.cycles).toEqual([]);
 	});
 
 	it("resolves a dependency through an imported module's exported provider", () => {
@@ -439,46 +394,6 @@ describe("NexusApplicationGraphBuilder", () => {
 		expect(graph.resolved[0].provider.kind).toBe("useValue");
 	});
 
-	it("detects a cycle between two factory providers by token identity", () => {
-		const { program, entryPoint } = createProgram(
-			"/app/app.module.ts",
-			"AppModule",
-			FACTORY_CYCLE_FILES,
-		);
-		const analyzer = createNexusAnalyzer(program);
-		const application =
-			createNexusApplicationAnalyzer(analyzer).analyze(entryPoint);
-		const graph =
-			createNexusApplicationGraphBuilder(analyzer).build(application);
-
-		expect(graph.cycles).toHaveLength(1);
-		const [cycle] = graph.cycles;
-		const provideValues = cycle.path.map((provider) =>
-			provider.provide.kind === "string" ? provider.provide.value : undefined,
-		);
-		expect(provideValues).toEqual(["A", "B", "A"]);
-	});
-
-	it("still finds a module's own factory cycle when another module reuses the same token name", () => {
-		const { program, entryPoint } = createProgram(
-			"/app/app.module.ts",
-			"AppModule",
-			CROSS_MODULE_TOKEN_COLLISION_FILES,
-		);
-		const analyzer = createNexusAnalyzer(program);
-		const application =
-			createNexusApplicationAnalyzer(analyzer).analyze(entryPoint);
-		const graph =
-			createNexusApplicationGraphBuilder(analyzer).build(application);
-
-		expect(graph.cycles).toHaveLength(1);
-		const [cycle] = graph.cycles;
-		const provideValues = cycle.path.map((provider) =>
-			provider.provide.kind === "string" ? provider.provide.value : undefined,
-		);
-		expect(provideValues).toEqual(["TOKEN", "A", "TOKEN"]);
-	});
-
 	it("resolves an individual token re-exported through an imported module (not the whole module)", () => {
 		const { program, entryPoint } = createProgram(
 			"/app/app.module.ts",
@@ -520,6 +435,5 @@ describe("NexusApplicationGraphBuilder", () => {
 			"LoggerModule",
 		);
 		expect(graph.unresolved).toEqual([]);
-		expect(graph.cycles).toEqual([]);
 	});
 });

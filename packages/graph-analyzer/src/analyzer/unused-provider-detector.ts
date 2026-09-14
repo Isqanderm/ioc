@@ -1,5 +1,4 @@
-import type { ParseEntryFile } from "../parser/parse-entry-file";
-import type { ParseNsModule } from "../parser/parse-ns-module";
+import type { NexusGraphModel } from "../graph/nexus-graph-model";
 
 /**
  * Information about an unused provider
@@ -41,7 +40,7 @@ export interface UnusedProviderAnalysis {
  *
  * @example
  * ```typescript
- * const detector = new UnusedProviderDetector(modulesGraph);
+ * const detector = new UnusedProviderDetector(graphModel);
  * const analysis = detector.analyze();
  *
  * if (analysis.hasUnusedProviders) {
@@ -53,9 +52,7 @@ export interface UnusedProviderAnalysis {
  * ```
  */
 export class UnusedProviderDetector {
-	constructor(
-		private readonly graph: Map<string, ParseNsModule | ParseEntryFile>,
-	) {}
+	constructor(private readonly graphModel: NexusGraphModel) {}
 
 	/**
 	 * Analyze the graph for unused providers
@@ -72,18 +69,10 @@ export class UnusedProviderDetector {
 		const exportedTokens = this.buildExportedTokensSet();
 
 		// Check each module for unused providers
-		for (const [moduleName, module] of this.graph) {
-			if (moduleName === "entry") continue;
-
-			const nsModule = module as ParseNsModule;
-			if (!nsModule.providers || nsModule.providers.length === 0) continue;
-
+		for (const module of this.graphModel.modules.values()) {
 			// Check each provider in the module
-			for (const provider of nsModule.providers) {
+			for (const provider of module.providers) {
 				const token = provider.token;
-
-				// Skip providers with null tokens
-				if (!token) continue;
 
 				// Skip if the provider is injected somewhere
 				if (injectedTokens.has(token)) continue;
@@ -92,29 +81,22 @@ export class UnusedProviderDetector {
 				if (exportedTokens.has(token)) continue;
 
 				// Skip if the module is global (providers may be used across the app)
-				if (nsModule.isGlobal) continue;
+				if (module.isGlobal) continue;
 
 				// This provider is unused
 				const suggestions = this.generateSuggestions(
 					token,
-					moduleName,
+					module.name,
 					exportedTokens.has(token),
-					nsModule.isGlobal,
+					module.isGlobal,
 				);
-
-				// Normalize provider type to match expected union type
-				const providerType = provider.type as
-					| "Class"
-					| "UseValue"
-					| "UseFactory"
-					| "UseClass";
 
 				unusedProviders.push({
 					token,
-					module: moduleName,
-					type: providerType,
+					module: module.name,
+					type: provider.type,
 					severity: "warning",
-					message: `Provider '${token}' is registered in '${moduleName}' but never injected`,
+					message: `Provider '${token}' is registered in '${module.name}' but never injected`,
 					suggestions,
 				});
 			}
@@ -133,16 +115,8 @@ export class UnusedProviderDetector {
 	private buildInjectedTokensSet(): Set<string> {
 		const injectedTokens = new Set<string>();
 
-		for (const [moduleName, module] of this.graph) {
-			if (moduleName === "entry") continue;
-
-			const nsModule = module as ParseNsModule;
-			if (!nsModule.providers) continue;
-
-			// Check dependencies of each provider
-			for (const provider of nsModule.providers) {
-				if (!provider.dependencies) continue;
-
+		for (const module of this.graphModel.modules.values()) {
+			for (const provider of module.providers) {
 				for (const dependency of provider.dependencies) {
 					// Skip optional dependencies as they may not be required
 					if (!dependency.optional) {
@@ -161,14 +135,8 @@ export class UnusedProviderDetector {
 	private buildExportedTokensSet(): Set<string> {
 		const exportedTokens = new Set<string>();
 
-		for (const [moduleName, module] of this.graph) {
-			if (moduleName === "entry") continue;
-
-			const nsModule = module as ParseNsModule;
-			if (!nsModule.exports) continue;
-
-			// Add all exported tokens
-			for (const exportedToken of nsModule.exports) {
+		for (const module of this.graphModel.modules.values()) {
+			for (const exportedToken of module.exports) {
 				exportedTokens.add(exportedToken);
 			}
 		}

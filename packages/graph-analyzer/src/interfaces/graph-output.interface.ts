@@ -8,7 +8,7 @@ import type {
 	ScopeMismatch,
 } from "../analyzer/provider-scope-analyzer";
 import type { UnusedProvider } from "../analyzer/unused-provider-detector";
-import type { Dependency } from "../parser/dependency-extractor";
+import type { GraphProviderDependency } from "../graph/nexus-graph-model";
 
 /**
  * Complete dependency graph output format
@@ -127,7 +127,7 @@ export interface ProviderInfo {
 	/** Lifecycle scope of the provider (only for class providers) */
 	scope?: "Singleton" | "Request" | "Transient";
 	/** Dependencies required by this provider */
-	dependencies: Dependency[];
+	dependencies: GraphProviderDependency[];
 	/** Static value (only for UseValue providers) */
 	value?: string;
 	/** Factory function name (only for UseFactory providers) */

@@ -11,7 +11,6 @@ describe("Config Schema", () => {
 		it("should validate a valid configuration", () => {
 			const config: GraphAnalyzerConfig = {
 				entryFile: "src/main.ts",
-				format: "json",
 				verbose: true,
 			};
 
@@ -29,56 +28,6 @@ describe("Config Schema", () => {
 			const errors = validateConfig(null);
 			expect(errors).toHaveLength(1);
 			expect(errors[0]).toContain("must be an object");
-		});
-
-		it("should reject invalid format", () => {
-			const config = {
-				format: "invalid",
-			};
-
-			const errors = validateConfig(config);
-			expect(errors).toHaveLength(1);
-			expect(errors[0]).toContain("Invalid format");
-		});
-
-		it("should accept valid formats", () => {
-			const formats = ["json", "png", "html", "both"];
-
-			for (const format of formats) {
-				const config = { format };
-				const errors = validateConfig(config);
-				expect(errors).toEqual([]);
-			}
-		});
-
-		it("should reject invalid ideProtocol", () => {
-			const config = {
-				ideProtocol: "invalid",
-			};
-
-			const errors = validateConfig(config);
-			expect(errors).toHaveLength(1);
-			expect(errors[0]).toContain("Invalid ideProtocol");
-		});
-
-		it("should accept valid ideProtocols", () => {
-			const protocols = ["vscode", "webstorm", "idea"];
-
-			for (const ideProtocol of protocols) {
-				const config = { ideProtocol };
-				const errors = validateConfig(config);
-				expect(errors).toEqual([]);
-			}
-		});
-
-		it("should reject non-boolean darkTheme", () => {
-			const config = {
-				darkTheme: "true",
-			};
-
-			const errors = validateConfig(config);
-			expect(errors).toHaveLength(1);
-			expect(errors[0]).toContain("darkTheme must be a boolean");
 		});
 
 		it("should reject non-boolean verbose", () => {
@@ -131,11 +80,22 @@ describe("Config Schema", () => {
 			expect(errors[0]).toContain("output must be a string");
 		});
 
+		it("should reject non-positive deepModuleThreshold", () => {
+			const config = {
+				deepModuleThreshold: 0,
+			};
+
+			const errors = validateConfig(config);
+			expect(errors).toHaveLength(1);
+			expect(errors[0]).toContain(
+				"deepModuleThreshold must be a positive number",
+			);
+		});
+
 		it("should collect multiple errors", () => {
 			const config = {
-				format: "invalid",
-				ideProtocol: "bad",
 				verbose: "not-boolean",
+				quiet: "not-boolean",
 			};
 
 			const errors = validateConfig(config);
@@ -147,11 +107,10 @@ describe("Config Schema", () => {
 		it("should merge multiple configurations", () => {
 			const config1 = {
 				entryFile: "src/main.ts",
-				format: "json" as const,
+				verbose: false,
 			};
 
 			const config2 = {
-				format: "png" as const,
 				verbose: true,
 			};
 
@@ -159,19 +118,18 @@ describe("Config Schema", () => {
 
 			expect(merged).toEqual({
 				entryFile: "src/main.ts",
-				format: "png",
 				verbose: true,
 			});
 		});
 
 		it("should give priority to later configurations", () => {
 			const config1 = {
-				format: "json" as const,
 				verbose: false,
+				checkCircular: false,
 			};
 
 			const config2 = {
-				format: "png" as const,
+				checkCircular: true,
 			};
 
 			const config3 = {
@@ -180,25 +138,24 @@ describe("Config Schema", () => {
 
 			const merged = mergeConfigs(config1, config2, config3);
 
-			expect(merged.format).toBe("png");
+			expect(merged.checkCircular).toBe(true);
 			expect(merged.verbose).toBe(true);
 		});
 
 		it("should skip undefined values", () => {
 			const config1 = {
 				entryFile: "src/main.ts",
-				format: "json" as const,
+				verbose: false,
 			};
 
 			const config2 = {
-				format: undefined,
-				verbose: true,
+				verbose: undefined,
 			};
 
 			const merged = mergeConfigs(config1, config2);
 
-			expect(merged.format).toBe("json");
-			expect(merged.verbose).toBe(true);
+			expect(merged.entryFile).toBe("src/main.ts");
+			expect(merged.verbose).toBe(false);
 		});
 
 		it("should handle empty configurations", () => {
@@ -214,18 +171,19 @@ describe("Config Schema", () => {
 			const merged = mergeConfigs(DEFAULT_CONFIG, userConfig);
 
 			expect(merged.entryFile).toBe("src/app.ts");
-			expect(merged.format).toBe("both");
-			expect(merged.ideProtocol).toBe("vscode");
+			expect(merged.deepModuleThreshold).toBe(5);
 		});
 	});
 
 	describe("DEFAULT_CONFIG", () => {
 		it("should have expected default values", () => {
-			expect(DEFAULT_CONFIG.format).toBe("both");
-			expect(DEFAULT_CONFIG.ideProtocol).toBe("vscode");
-			expect(DEFAULT_CONFIG.darkTheme).toBe(false);
 			expect(DEFAULT_CONFIG.verbose).toBe(false);
 			expect(DEFAULT_CONFIG.quiet).toBe(false);
+			expect(DEFAULT_CONFIG.checkCircular).toBe(false);
+			expect(DEFAULT_CONFIG.checkUnused).toBe(false);
+			expect(DEFAULT_CONFIG.checkDepth).toBe(false);
+			expect(DEFAULT_CONFIG.deepModuleThreshold).toBe(5);
+			expect(DEFAULT_CONFIG.checkScope).toBe(false);
 		});
 	});
 });

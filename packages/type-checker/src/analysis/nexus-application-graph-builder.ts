@@ -2,7 +2,6 @@ import * as ts from "typescript";
 import type { NexusAnalyzer } from "./nexus-analyzer";
 import type {
 	NexusApplicationGraph,
-	NexusProviderCycle,
 	NexusResolvedDependency,
 	NexusUnresolvedDependency,
 } from "./nexus-application-graph-model";
@@ -114,7 +113,6 @@ export class NexusApplicationGraphBuilder {
 		return {
 			resolved,
 			unresolved,
-			cycles: this.detectCycles(moduleClasses),
 		};
 	}
 
@@ -373,62 +371,6 @@ export class NexusApplicationGraphBuilder {
 		}
 
 		return undefined;
-	}
-
-	/** Detects `useFactory` `inject` cycles within each module's own provider
-	 * registrations. Scoped per module (not merged across the application)
-	 * so that two unrelated modules reusing the same token identity can't
-	 * shadow one another's providers and silently hide a real cycle. This
-	 * means a cycle that spans factory `inject` tokens registered as *own*
-	 * providers of two *different* modules is not detected — accepted as
-	 * out of scope, since cross-module token reuse for factory injection is
-	 * already dubious DI design. */
-	private detectCycles(
-		moduleClasses: readonly NexusClass[],
-	): NexusProviderCycle[] {
-		const cycles: NexusProviderCycle[] = [];
-
-		for (const moduleClass of moduleClasses) {
-			const providersByIdentity = this.resolveOwnProviderMap(moduleClass);
-			const visited = new Set<TokenIdentity>();
-			const stack = new Set<TokenIdentity>();
-
-			const visit = (identity: TokenIdentity, path: NexusProvider[]): void => {
-				if (stack.has(identity)) {
-					const cycleStart = path.findIndex(
-						(provider) => getTokenIdentity(provider.provide) === identity,
-					);
-					const cyclePath = path.slice(cycleStart);
-					const closingProvider = providersByIdentity.get(identity);
-					cycles.push({
-						path: closingProvider ? [...cyclePath, closingProvider] : cyclePath,
-					});
-					return;
-				}
-				if (visited.has(identity)) return;
-
-				visited.add(identity);
-				stack.add(identity);
-
-				const provider = providersByIdentity.get(identity);
-				if (provider) {
-					for (const injectToken of provider.factoryInject) {
-						const nextIdentity = getTokenIdentity(injectToken);
-						if (nextIdentity !== undefined) {
-							visit(nextIdentity, [...path, provider]);
-						}
-					}
-				}
-
-				stack.delete(identity);
-			};
-
-			for (const identity of providersByIdentity.keys()) {
-				if (!visited.has(identity)) visit(identity, []);
-			}
-		}
-
-		return cycles;
 	}
 }
 

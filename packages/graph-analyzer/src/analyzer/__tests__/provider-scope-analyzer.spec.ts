@@ -1,37 +1,23 @@
 import { describe, expect, it } from "vitest";
-import type { ParseEntryFile } from "../../parser/parse-entry-file";
-import type { ParseNsModule } from "../../parser/parse-ns-module";
+import {
+	buildGraphModel,
+	provider,
+} from "../../graph/__tests__/graph-model-fixture";
 import { ProviderScopeAnalyzer } from "../provider-scope-analyzer";
 
 describe("ProviderScopeAnalyzer", () => {
 	describe("Basic Scope Detection", () => {
 		it("should detect singleton providers", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [
+						provider("UserService"),
+						provider("CONFIG", { type: "UseValue" }),
+					],
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: [],
-				providers: [
-					{
-						token: "UserService",
-						type: "Class",
-						dependencies: [],
-					},
-					{
-						token: "CONFIG",
-						type: "UseValue",
-						dependencies: [],
-					},
-				],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const analyzer = new ProviderScopeAnalyzer(graph);
+			const analyzer = new ProviderScopeAnalyzer(graphModel);
 			const result = analyzer.analyze();
 
 			expect(result.hasScopeAnalysis).toBe(true);
@@ -41,34 +27,19 @@ describe("ProviderScopeAnalyzer", () => {
 		});
 
 		it("should detect request-scoped providers", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [
+						provider("RequestService", {
+							type: "UseClass",
+							scope: "Scope.REQUEST",
+						}),
+						provider("AnotherRequestService", { scope: "Scope.Request" }),
+					],
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: [],
-				providers: [
-					{
-						token: "RequestService",
-						type: "UseClass",
-						scope: "Scope.REQUEST",
-						dependencies: [],
-					},
-					{
-						token: "AnotherRequestService",
-						type: "Class",
-						scope: "Scope.Request",
-						dependencies: [],
-					},
-				],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const analyzer = new ProviderScopeAnalyzer(graph);
+			const analyzer = new ProviderScopeAnalyzer(graphModel);
 			const result = analyzer.analyze();
 
 			expect(result.totalProviders).toBe(2);
@@ -77,38 +48,17 @@ describe("ProviderScopeAnalyzer", () => {
 		});
 
 		it("should handle mixed scopes", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [
+						provider("SingletonService"),
+						provider("RequestService", { scope: "Scope.REQUEST" }),
+						provider("CONFIG", { type: "UseValue" }),
+					],
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: [],
-				providers: [
-					{
-						token: "SingletonService",
-						type: "Class",
-						dependencies: [],
-					},
-					{
-						token: "RequestService",
-						type: "Class",
-						scope: "Scope.REQUEST",
-						dependencies: [],
-					},
-					{
-						token: "CONFIG",
-						type: "UseValue",
-						dependencies: [],
-					},
-				],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const analyzer = new ProviderScopeAnalyzer(graph);
+			const analyzer = new ProviderScopeAnalyzer(graphModel);
 			const result = analyzer.analyze();
 
 			expect(result.totalProviders).toBe(3);
@@ -119,42 +69,18 @@ describe("ProviderScopeAnalyzer", () => {
 
 	describe("Scope Mismatch Detection", () => {
 		it("should detect singleton depending on request-scoped provider", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [
+						provider("SingletonService", {
+							dependencies: [{ token: "RequestService", optional: false }],
+						}),
+						provider("RequestService", { scope: "Scope.REQUEST" }),
+					],
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: [],
-				providers: [
-					{
-						token: "SingletonService",
-						type: "Class",
-						dependencies: [
-							{
-								type: "constructor",
-								index: 0,
-								token: "RequestService",
-								tokenType: "class",
-								optional: false,
-								hasExplicitDecorator: false,
-							},
-						],
-					},
-					{
-						token: "RequestService",
-						type: "Class",
-						scope: "Scope.REQUEST",
-						dependencies: [],
-					},
-				],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const analyzer = new ProviderScopeAnalyzer(graph);
+			const analyzer = new ProviderScopeAnalyzer(graphModel);
 			const result = analyzer.analyze();
 
 			expect(result.scopeMismatches).toHaveLength(1);
@@ -170,104 +96,41 @@ describe("ProviderScopeAnalyzer", () => {
 		});
 
 		it("should not flag request-scoped depending on singleton", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [
+						provider("RequestService", {
+							scope: "Scope.REQUEST",
+							dependencies: [{ token: "SingletonService", optional: false }],
+						}),
+						provider("SingletonService"),
+					],
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: [],
-				providers: [
-					{
-						token: "RequestService",
-						type: "Class",
-						scope: "Scope.REQUEST",
-						dependencies: [
-							{
-								type: "constructor",
-								index: 0,
-								token: "SingletonService",
-								tokenType: "class",
-								optional: false,
-								hasExplicitDecorator: false,
-							},
-						],
-					},
-					{
-						token: "SingletonService",
-						type: "Class",
-						dependencies: [],
-					},
-				],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const analyzer = new ProviderScopeAnalyzer(graph);
+			const analyzer = new ProviderScopeAnalyzer(graphModel);
 			const result = analyzer.analyze();
 
 			expect(result.scopeMismatches).toHaveLength(0);
 		});
 
 		it("should detect multiple scope mismatches", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [
+						provider("ServiceA", {
+							dependencies: [{ token: "RequestService1", optional: false }],
+						}),
+						provider("ServiceB", {
+							dependencies: [{ token: "RequestService2", optional: false }],
+						}),
+						provider("RequestService1", { scope: "Scope.REQUEST" }),
+						provider("RequestService2", { scope: "Scope.REQUEST" }),
+					],
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: [],
-				providers: [
-					{
-						token: "ServiceA",
-						type: "Class",
-						dependencies: [
-							{
-								type: "constructor",
-								index: 0,
-								token: "RequestService1",
-								tokenType: "class",
-								optional: false,
-								hasExplicitDecorator: false,
-							},
-						],
-					},
-					{
-						token: "ServiceB",
-						type: "Class",
-						dependencies: [
-							{
-								type: "constructor",
-								index: 0,
-								token: "RequestService2",
-								tokenType: "class",
-								optional: false,
-								hasExplicitDecorator: false,
-							},
-						],
-					},
-					{
-						token: "RequestService1",
-						type: "Class",
-						scope: "Scope.REQUEST",
-						dependencies: [],
-					},
-					{
-						token: "RequestService2",
-						type: "Class",
-						scope: "Scope.REQUEST",
-						dependencies: [],
-					},
-				],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const analyzer = new ProviderScopeAnalyzer(graph);
+			const analyzer = new ProviderScopeAnalyzer(graphModel);
 			const result = analyzer.analyze();
 
 			expect(result.scopeMismatches).toHaveLength(2);
@@ -276,42 +139,18 @@ describe("ProviderScopeAnalyzer", () => {
 		});
 
 		it("should ignore optional dependencies in scope mismatch detection", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [
+						provider("SingletonService", {
+							dependencies: [{ token: "RequestService", optional: true }],
+						}),
+						provider("RequestService", { scope: "Scope.REQUEST" }),
+					],
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: [],
-				providers: [
-					{
-						token: "SingletonService",
-						type: "Class",
-						dependencies: [
-							{
-								type: "constructor",
-								index: 0,
-								token: "RequestService",
-								tokenType: "class",
-								optional: true,
-								hasExplicitDecorator: false,
-							},
-						],
-					},
-					{
-						token: "RequestService",
-						type: "Class",
-						scope: "Scope.REQUEST",
-						dependencies: [],
-					},
-				],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const analyzer = new ProviderScopeAnalyzer(graph);
+			const analyzer = new ProviderScopeAnalyzer(graphModel);
 			const result = analyzer.analyze();
 
 			// Optional dependencies should not cause scope mismatches
@@ -321,29 +160,19 @@ describe("ProviderScopeAnalyzer", () => {
 
 	describe("UseFactory Provider Scope", () => {
 		it("should detect scope for UseFactory providers", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [
+						provider("FACTORY_TOKEN", {
+							type: "UseFactory",
+							scope: "Scope.REQUEST",
+							dependencies: [{ token: "ConfigService", optional: false }],
+						}),
+					],
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: [],
-				providers: [
-					{
-						token: "FACTORY_TOKEN",
-						type: "UseFactory",
-						scope: "Scope.REQUEST",
-						inject: ["ConfigService"],
-						dependencies: [],
-					},
-				],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const analyzer = new ProviderScopeAnalyzer(graph);
+			const analyzer = new ProviderScopeAnalyzer(graphModel);
 			const result = analyzer.analyze();
 
 			expect(result.requestProviders).toBe(1);
@@ -351,34 +180,19 @@ describe("ProviderScopeAnalyzer", () => {
 		});
 
 		it("should detect scope mismatch with UseFactory dependencies", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [
+						provider("FACTORY_TOKEN", {
+							type: "UseFactory",
+							dependencies: [{ token: "RequestService", optional: false }],
+						}),
+						provider("RequestService", { scope: "Scope.REQUEST" }),
+					],
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: [],
-				providers: [
-					{
-						token: "FACTORY_TOKEN",
-						type: "UseFactory",
-						inject: ["RequestService"],
-						dependencies: [],
-					},
-					{
-						token: "RequestService",
-						type: "Class",
-						scope: "Scope.REQUEST",
-						dependencies: [],
-					},
-				],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const analyzer = new ProviderScopeAnalyzer(graph);
+			const analyzer = new ProviderScopeAnalyzer(graphModel);
 			const result = analyzer.analyze();
 
 			expect(result.scopeMismatches).toHaveLength(1);
@@ -389,13 +203,9 @@ describe("ProviderScopeAnalyzer", () => {
 
 	describe("Edge Cases", () => {
 		it("should handle empty graph", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			const analyzer = new ProviderScopeAnalyzer(graph);
+			const analyzer = new ProviderScopeAnalyzer(graphModel);
 			const result = analyzer.analyze();
 
 			expect(result.hasScopeAnalysis).toBe(true);
@@ -404,33 +214,16 @@ describe("ProviderScopeAnalyzer", () => {
 		});
 
 		it("should handle providers without dependencies", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [
+						provider("ServiceA"),
+						provider("ServiceB", { scope: "Scope.REQUEST" }),
+					],
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: [],
-				providers: [
-					{
-						token: "ServiceA",
-						type: "Class",
-						dependencies: [],
-					},
-					{
-						token: "ServiceB",
-						type: "Class",
-						scope: "Scope.REQUEST",
-						dependencies: [],
-					},
-				],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const analyzer = new ProviderScopeAnalyzer(graph);
+			const analyzer = new ProviderScopeAnalyzer(graphModel);
 			const result = analyzer.analyze();
 
 			expect(result.totalProviders).toBe(2);
@@ -438,36 +231,17 @@ describe("ProviderScopeAnalyzer", () => {
 		});
 
 		it("should handle dependency on non-existent provider", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [
+						provider("ServiceA", {
+							dependencies: [{ token: "NonExistentService", optional: false }],
+						}),
+					],
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: [],
-				providers: [
-					{
-						token: "ServiceA",
-						type: "Class",
-						dependencies: [
-							{
-								type: "constructor",
-								index: 0,
-								token: "NonExistentService",
-								tokenType: "class",
-								optional: false,
-								hasExplicitDecorator: false,
-							},
-						],
-					},
-				],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const analyzer = new ProviderScopeAnalyzer(graph);
+			const analyzer = new ProviderScopeAnalyzer(graphModel);
 			const result = analyzer.analyze();
 
 			// Should not crash, just no scope mismatch detected

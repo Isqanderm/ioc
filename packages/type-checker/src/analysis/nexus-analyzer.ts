@@ -25,19 +25,43 @@ export type {
 	NexusToken,
 } from "./nexus-semantic-model";
 
-const NEXUS_CORE_PACKAGE = "@nexus-ioc/core";
+/**
+ * Module specifiers recognized as "the Nexus core package" when deciding
+ * whether a decorator is a genuine Nexus decorator. `@nexus-ioc/core` is the
+ * in-monorepo package name; `nexus-ioc` is the same framework's published
+ * unscoped npm package name that real consumer projects import from.
+ */
+const DEFAULT_NEXUS_CORE_PACKAGES: readonly string[] = [
+	"@nexus-ioc/core",
+	"nexus-ioc",
+];
 
 type ResolvedNexusDecorator = {
 	kind: NexusDecoratorKind;
 	expression: ts.Expression;
 };
 
+export interface NexusAnalyzerOptions {
+	/**
+	 * Module specifiers treated as the Nexus core package for decorator
+	 * recognition. Defaults to {@link DEFAULT_NEXUS_CORE_PACKAGES}.
+	 */
+	corePackageNames?: readonly string[];
+}
+
 /** Shared semantic model used by Nexus IDE, lint and compiler tooling. */
 export class NexusAnalyzer {
 	private readonly checker: ts.TypeChecker;
+	private readonly corePackageNames: ReadonlySet<string>;
 
-	public constructor(private readonly program: ts.Program) {
+	public constructor(
+		private readonly program: ts.Program,
+		options: NexusAnalyzerOptions = {},
+	) {
 		this.checker = program.getTypeChecker();
+		this.corePackageNames = new Set(
+			options.corePackageNames ?? DEFAULT_NEXUS_CORE_PACKAGES,
+		);
 	}
 
 	public getProgram(): ts.Program {
@@ -539,7 +563,9 @@ export class NexusAnalyzer {
 					importDeclaration?.moduleSpecifier &&
 					ts.isStringLiteral(importDeclaration.moduleSpecifier)
 				) {
-					return importDeclaration.moduleSpecifier.text === NEXUS_CORE_PACKAGE;
+					return this.corePackageNames.has(
+						importDeclaration.moduleSpecifier.text,
+					);
 				}
 			}
 			if ((current.flags & ts.SymbolFlags.Alias) === 0) break;
@@ -562,6 +588,9 @@ export class NexusAnalyzer {
 	}
 }
 
-export function createNexusAnalyzer(program: ts.Program): NexusAnalyzer {
-	return new NexusAnalyzer(program);
+export function createNexusAnalyzer(
+	program: ts.Program,
+	options?: NexusAnalyzerOptions,
+): NexusAnalyzer {
+	return new NexusAnalyzer(program, options);
 }

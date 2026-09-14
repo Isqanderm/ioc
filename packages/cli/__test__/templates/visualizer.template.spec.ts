@@ -8,31 +8,23 @@ describe("VisualizerTemplate", () => {
 			const result = template.generate();
 
 			expect(result).toContain(
-				'import { NexusApplicationsServer } from "@nexus-ioc/core/dist/server"',
+				'import { StaticGraphVisualizer } from "nexus-ioc-graph-visualizer"',
 			);
 			expect(result).toContain(
-				"import { GraphScannerVisualizer } from 'nexus-ioc-graph-visualizer'",
+				'new StaticGraphVisualizer(\n        path.join(__dirname, "bootstrap.ts")',
 			);
-			expect(result).toContain('import { AppModule } from "./app.module"');
 			expect(result).toContain(
-				"const visualizer = new GraphScannerVisualizer('graph.png')",
+				'tsConfigPath: path.join(__dirname, "tsconfig.json")',
 			);
-			expect(result).toContain("async function bootstrap()");
-			expect(result).toContain("NexusApplicationsServer.create(AppModule)");
-			expect(result).toContain(".addScannerPlugin(visualizer)");
-			expect(result).toContain(".bootstrap()");
-			expect(result).toContain("bootstrap()");
+			expect(result).toContain("visualizer.renderPng(");
 		});
 
 		it("should generate valid TypeScript code", () => {
 			const template = new VisualizerTemplate();
 			const result = template.generate();
 
-			// Check for proper function structure
-			expect(result).toMatch(/async function bootstrap\(\)/);
-			expect(result).toMatch(/bootstrap\(\);/);
-			// Check for visualizer initialization
-			expect(result).toMatch(/new GraphScannerVisualizer\('graph\.png'\)/);
+			expect(result).toMatch(/const visualizer = new StaticGraphVisualizer\(/);
+			expect(result).toMatch(/visualizer\.renderPng\(/);
 		});
 	});
 });

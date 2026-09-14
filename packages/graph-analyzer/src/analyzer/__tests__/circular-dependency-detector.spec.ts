@@ -1,39 +1,20 @@
 import { describe, expect, it } from "vitest";
-import type { ParseEntryFile } from "../../parser/parse-entry-file";
-import type { ParseNsModule } from "../../parser/parse-ns-module";
+import {
+	buildGraphModel,
+	provider,
+} from "../../graph/__tests__/graph-model-fixture";
 import { CircularDependencyDetector } from "../circular-dependency-detector";
 
 describe("CircularDependencyDetector", () => {
 	describe("Module Circular Dependencies", () => {
 		it("should detect no circular dependencies in linear module chain", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: { imports: ["ModuleA"] },
+				ModuleA: { imports: ["ModuleB"] },
+				ModuleB: { imports: [] },
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				imports: ["ModuleA"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("ModuleA", {
-				imports: ["ModuleB"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("ModuleB", {
-				imports: [],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const detector = new CircularDependencyDetector(graph);
+			const detector = new CircularDependencyDetector(graphModel);
 			const analysis = detector.analyze();
 
 			expect(analysis.hasCircularDependencies).toBe(false);
@@ -43,27 +24,12 @@ describe("CircularDependencyDetector", () => {
 		});
 
 		it("should detect simple circular dependency (A -> B -> A)", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("ModuleA", {
+				ModuleA: { imports: ["ModuleB"] },
+				ModuleB: { imports: ["ModuleA"] },
+			});
 
-			graph.set("entry", {
-				name: "ModuleA",
-			} as unknown as ParseEntryFile);
-
-			graph.set("ModuleA", {
-				imports: ["ModuleB"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("ModuleB", {
-				imports: ["ModuleA"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const detector = new CircularDependencyDetector(graph);
+			const detector = new CircularDependencyDetector(graphModel);
 			const analysis = detector.analyze();
 
 			expect(analysis.hasCircularDependencies).toBe(true);
@@ -78,34 +44,13 @@ describe("CircularDependencyDetector", () => {
 		});
 
 		it("should detect complex circular dependency (A -> B -> C -> A)", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("ModuleA", {
+				ModuleA: { imports: ["ModuleB"] },
+				ModuleB: { imports: ["ModuleC"] },
+				ModuleC: { imports: ["ModuleA"] },
+			});
 
-			graph.set("entry", {
-				name: "ModuleA",
-			} as unknown as ParseEntryFile);
-
-			graph.set("ModuleA", {
-				imports: ["ModuleB"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("ModuleB", {
-				imports: ["ModuleC"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("ModuleC", {
-				imports: ["ModuleA"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const detector = new CircularDependencyDetector(graph);
+			const detector = new CircularDependencyDetector(graphModel);
 			const analysis = detector.analyze();
 
 			expect(analysis.hasCircularDependencies).toBe(true);
@@ -116,20 +61,11 @@ describe("CircularDependencyDetector", () => {
 		});
 
 		it("should detect self-referencing module", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("ModuleA", {
+				ModuleA: { imports: ["ModuleA"] },
+			});
 
-			graph.set("entry", {
-				name: "ModuleA",
-			} as unknown as ParseEntryFile);
-
-			graph.set("ModuleA", {
-				imports: ["ModuleA"],
-				providers: [],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const detector = new CircularDependencyDetector(graph);
+			const detector = new CircularDependencyDetector(graphModel);
 			const analysis = detector.analyze();
 
 			expect(analysis.hasCircularDependencies).toBe(true);
@@ -142,36 +78,21 @@ describe("CircularDependencyDetector", () => {
 
 	describe("Provider Circular Dependencies", () => {
 		it("should detect no circular dependencies in linear provider chain", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [
+						provider("ServiceA", {
+							dependencies: [{ token: "ServiceB", optional: false }],
+						}),
+						provider("ServiceB", {
+							dependencies: [{ token: "ServiceC", optional: false }],
+						}),
+						provider("ServiceC", { dependencies: [] }),
+					],
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				imports: [],
-				providers: [
-					{
-						token: "ServiceA",
-						type: "Class",
-						dependencies: [{ token: "ServiceB", optional: false }],
-					},
-					{
-						token: "ServiceB",
-						type: "Class",
-						dependencies: [{ token: "ServiceC", optional: false }],
-					},
-					{
-						token: "ServiceC",
-						type: "Class",
-						dependencies: [],
-					},
-				],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const detector = new CircularDependencyDetector(graph);
+			const detector = new CircularDependencyDetector(graphModel);
 			const analysis = detector.analyze();
 
 			expect(analysis.hasCircularDependencies).toBe(false);
@@ -179,31 +100,20 @@ describe("CircularDependencyDetector", () => {
 		});
 
 		it("should detect simple provider circular dependency (A -> B -> A)", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [
+						provider("ServiceA", {
+							dependencies: [{ token: "ServiceB", optional: false }],
+						}),
+						provider("ServiceB", {
+							dependencies: [{ token: "ServiceA", optional: false }],
+						}),
+					],
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				imports: [],
-				providers: [
-					{
-						token: "ServiceA",
-						type: "Class",
-						dependencies: [{ token: "ServiceB", optional: false }],
-					},
-					{
-						token: "ServiceB",
-						type: "Class",
-						dependencies: [{ token: "ServiceA", optional: false }],
-					},
-				],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const detector = new CircularDependencyDetector(graph);
+			const detector = new CircularDependencyDetector(graphModel);
 			const analysis = detector.analyze();
 
 			expect(analysis.hasCircularDependencies).toBe(true);
@@ -217,36 +127,23 @@ describe("CircularDependencyDetector", () => {
 		});
 
 		it("should detect complex provider circular dependency (A -> B -> C -> A)", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [
+						provider("ServiceA", {
+							dependencies: [{ token: "ServiceB", optional: false }],
+						}),
+						provider("ServiceB", {
+							dependencies: [{ token: "ServiceC", optional: false }],
+						}),
+						provider("ServiceC", {
+							dependencies: [{ token: "ServiceA", optional: false }],
+						}),
+					],
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				imports: [],
-				providers: [
-					{
-						token: "ServiceA",
-						type: "Class",
-						dependencies: [{ token: "ServiceB", optional: false }],
-					},
-					{
-						token: "ServiceB",
-						type: "Class",
-						dependencies: [{ token: "ServiceC", optional: false }],
-					},
-					{
-						token: "ServiceC",
-						type: "Class",
-						dependencies: [{ token: "ServiceA", optional: false }],
-					},
-				],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const detector = new CircularDependencyDetector(graph);
+			const detector = new CircularDependencyDetector(graphModel);
 			const analysis = detector.analyze();
 
 			expect(analysis.hasCircularDependencies).toBe(true);
@@ -262,74 +159,76 @@ describe("CircularDependencyDetector", () => {
 		});
 
 		it("should ignore optional dependencies in circular detection", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [
+						provider("ServiceA", {
+							dependencies: [{ token: "ServiceB", optional: false }],
+						}),
+						provider("ServiceB", {
+							dependencies: [{ token: "ServiceA", optional: true }], // Optional
+						}),
+					],
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				imports: [],
-				providers: [
-					{
-						token: "ServiceA",
-						type: "Class",
-						dependencies: [{ token: "ServiceB", optional: false }],
-					},
-					{
-						token: "ServiceB",
-						type: "Class",
-						dependencies: [{ token: "ServiceA", optional: true }], // Optional
-					},
-				],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const detector = new CircularDependencyDetector(graph);
+			const detector = new CircularDependencyDetector(graphModel);
 			const analysis = detector.analyze();
 
 			// Optional dependencies break the cycle
 			expect(analysis.hasCircularDependencies).toBe(false);
 			expect(analysis.providerCircularCount).toBe(0);
 		});
+
+		it("should detect a factory-inject cycle", () => {
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [
+						provider("A", {
+							type: "UseFactory",
+							dependencies: [{ token: "B", optional: false }],
+						}),
+						provider("B", {
+							type: "UseFactory",
+							dependencies: [{ token: "A", optional: false }],
+						}),
+					],
+				},
+			});
+
+			const detector = new CircularDependencyDetector(graphModel);
+			const analysis = detector.analyze();
+
+			expect(analysis.hasCircularDependencies).toBe(true);
+			expect(analysis.providerCircularCount).toBe(1);
+
+			const cycle = analysis.circularDependencies[0];
+			expect(cycle.cycle).toEqual(["A", "B", "A"]);
+		});
 	});
 
 	describe("Mixed Scenarios", () => {
 		it("should detect both module and provider circular dependencies", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("ModuleA", {
+				ModuleA: {
+					imports: ["ModuleB"],
+					providers: [
+						provider("ServiceA", {
+							dependencies: [{ token: "ServiceB", optional: false }],
+						}),
+					],
+				},
+				ModuleB: {
+					imports: ["ModuleA"], // Module circular
+					providers: [
+						provider("ServiceB", {
+							dependencies: [{ token: "ServiceA", optional: false }], // Provider circular
+						}),
+					],
+				},
+			});
 
-			graph.set("entry", {
-				name: "ModuleA",
-			} as unknown as ParseEntryFile);
-
-			graph.set("ModuleA", {
-				imports: ["ModuleB"],
-				providers: [
-					{
-						token: "ServiceA",
-						type: "Class",
-						dependencies: [{ token: "ServiceB", optional: false }],
-					},
-				],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("ModuleB", {
-				imports: ["ModuleA"], // Module circular
-				providers: [
-					{
-						token: "ServiceB",
-						type: "Class",
-						dependencies: [{ token: "ServiceA", optional: false }], // Provider circular
-					},
-				],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const detector = new CircularDependencyDetector(graph);
+			const detector = new CircularDependencyDetector(graphModel);
 			const analysis = detector.analyze();
 
 			expect(analysis.hasCircularDependencies).toBe(true);

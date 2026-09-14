@@ -185,6 +185,73 @@ function createProgram(): { program: ts.Program; sourceFile: ts.SourceFile } {
 	return { program, sourceFile };
 }
 
+const NEXUS_IOC_SOURCE = `
+import { Injectable as Service } from "nexus-ioc";
+
+@Service()
+class PublishedService {}
+`;
+
+function createNexusIocProgram(): {
+	program: ts.Program;
+	sourceFile: ts.SourceFile;
+} {
+	const files = new Map<string, string>([
+		["/nexus-ioc-test.ts", NEXUS_IOC_SOURCE],
+	]);
+	const options: ts.CompilerOptions = {
+		target: ts.ScriptTarget.ES2022,
+		module: ts.ModuleKind.CommonJS,
+		moduleResolution: ts.ModuleResolutionKind.NodeJs,
+		experimentalDecorators: true,
+		strict: true,
+		skipLibCheck: true,
+	};
+	const nexusCoreTypes = path.resolve(
+		process.cwd(),
+		"../ioc/dist/types/index.d.ts",
+	);
+
+	const defaultHost = ts.createCompilerHost(options, true);
+	const host: ts.CompilerHost = {
+		...defaultHost,
+		fileExists: (fileName) =>
+			fileName === nexusCoreTypes ||
+			files.has(fileName) ||
+			defaultHost.fileExists(fileName),
+		readFile: (fileName) => {
+			if (fileName === nexusCoreTypes) return defaultHost.readFile(fileName);
+			return files.get(fileName) ?? defaultHost.readFile(fileName);
+		},
+		getSourceFile: (fileName, languageVersion) => {
+			const text = files.get(fileName);
+			if (text !== undefined) {
+				return ts.createSourceFile(fileName, text, languageVersion, true);
+			}
+			return defaultHost.getSourceFile(fileName, languageVersion);
+		},
+		resolveModuleNames: (moduleNames, containingFile) =>
+			moduleNames.map((moduleName) => {
+				if (moduleName === "nexus-ioc") {
+					return {
+						resolvedFileName: nexusCoreTypes,
+						extension: ts.Extension.Dts,
+						isExternalLibraryImport: true,
+					};
+				}
+
+				return ts.resolveModuleName(moduleName, containingFile, options, host)
+					.resolvedModule;
+			}),
+	};
+
+	const program = ts.createProgram(["/nexus-ioc-test.ts"], options, host);
+	const sourceFile = program.getSourceFile("/nexus-ioc-test.ts");
+	if (!sourceFile) throw new Error("Test source file was not created");
+
+	return { program, sourceFile };
+}
+
 function getClass(
 	sourceFile: ts.SourceFile,
 	name: string,
@@ -368,6 +435,17 @@ describe("NexusAnalyzer", () => {
 		expect(foreignService.isInjectable).toBe(false);
 		expect(foreignService.decorators).toHaveLength(0);
 		expect(foreignInjected.dependencies).toHaveLength(0);
+	});
+
+	it('recognizes decorators imported from the published "nexus-ioc" package by default', () => {
+		const { program, sourceFile } = createNexusIocProgram();
+		const analyzer = createNexusAnalyzer(program);
+
+		const service = analyzer.getClass(getClass(sourceFile, "PublishedService"));
+
+		expect(service.isInjectable).toBe(true);
+		expect(service.decorators).toHaveLength(1);
+		expect(service.decorators[0].kind).toBe("Injectable");
 	});
 
 	it("keeps getClassModel as a compatibility wrapper", () => {

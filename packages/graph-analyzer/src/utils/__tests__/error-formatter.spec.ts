@@ -99,14 +99,6 @@ describe("ErrorFormatter", () => {
 			expect(formatted).toContain("@NsModule");
 		});
 
-		it("should provide suggestions for invalid format errors", () => {
-			const error = new Error("Invalid format: xyz");
-
-			const formatted = ErrorFormatter.formatError(error);
-
-			expect(formatted).toContain("Use one of: json, png, html, or both");
-		});
-
 		it("should provide suggestions for configuration errors", () => {
 			const error = new Error("Invalid configuration: format must be string");
 

@@ -126,12 +126,6 @@ export class ErrorFormatter {
 			suggestions.push("  const app = NexusFactory.create(AppModule);");
 		}
 
-		// Invalid format errors
-		else if (errorMessage.includes("Invalid format")) {
-			suggestions.push("Use one of: json, png, html, or both");
-			suggestions.push("Example: graph-analyzer -f json src/main.ts");
-		}
-
 		// Invalid configuration errors
 		else if (errorMessage.includes("Invalid configuration")) {
 			suggestions.push("Check your configuration file syntax");

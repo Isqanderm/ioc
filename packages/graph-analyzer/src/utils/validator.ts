@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -124,66 +123,6 @@ export class Validator {
 	}
 
 	/**
-	 * Check if Graphviz is installed (required for PNG generation)
-	 */
-	static validateGraphvizInstalled(
-		format: string | undefined,
-	): ValidationError | null {
-		// Only check if PNG output is requested
-		if (format !== "png" && format !== "both" && format !== undefined) {
-			return null;
-		}
-
-		try {
-			const result = spawnSync("dot", ["-V"], {
-				stdio: "pipe",
-				encoding: "utf8",
-			});
-
-			// Graphviz returns version info on stderr
-			if (result.error || (!result.stdout && !result.stderr)) {
-				return {
-					type: "GRAPHVIZ_NOT_FOUND",
-					message: "Graphviz is not installed or not in PATH",
-					suggestions: [
-						"Install Graphviz to generate PNG visualizations",
-						"",
-						"Installation instructions:",
-						"  • macOS: brew install graphviz",
-						"  • Ubuntu/Debian: sudo apt-get install graphviz",
-						"  • Windows: choco install graphviz",
-						"  • Or download from: https://graphviz.org/download/",
-						"",
-						"Alternatively, use JSON or HTML format instead:",
-						"  graph-analyzer -f json src/main.ts",
-						"  graph-analyzer -f html src/main.ts",
-					],
-				};
-			}
-
-			return null;
-		} catch (_error) {
-			return {
-				type: "GRAPHVIZ_NOT_FOUND",
-				message: "Graphviz is not installed or not in PATH",
-				suggestions: [
-					"Install Graphviz to generate PNG visualizations",
-					"",
-					"Installation instructions:",
-					"  • macOS: brew install graphviz",
-					"  • Ubuntu/Debian: sudo apt-get install graphviz",
-					"  • Windows: choco install graphviz",
-					"  • Or download from: https://graphviz.org/download/",
-					"",
-					"Alternatively, use JSON or HTML format instead:",
-					"  graph-analyzer -f json src/main.ts",
-					"  graph-analyzer -f html src/main.ts",
-				],
-			};
-		}
-	}
-
-	/**
 	 * Validate entry file comprehensively
 	 */
 	static validateEntryFile(filePath: string): ValidationError | null {
@@ -253,7 +192,6 @@ export class Validator {
 		entryFile: string;
 		tsConfig?: string;
 		output?: string;
-		format?: string;
 	}): ValidationError | null {
 		// Validate entry file
 		const entryError = Validator.validateEntryFile(options.entryFile);
@@ -262,10 +200,6 @@ export class Validator {
 		// Validate tsconfig if provided
 		const tsConfigError = Validator.validateTsConfig(options.tsConfig);
 		if (tsConfigError) return tsConfigError;
-
-		// Validate Graphviz for PNG generation
-		const graphvizError = Validator.validateGraphvizInstalled(options.format);
-		if (graphvizError) return graphvizError;
 
 		// Validate output directory if provided
 		if (options.output) {

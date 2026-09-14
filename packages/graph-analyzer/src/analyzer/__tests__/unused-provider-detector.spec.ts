@@ -1,58 +1,28 @@
 import { describe, expect, it } from "vitest";
-import type { ParseEntryFile } from "../../parser/parse-entry-file";
-import type { ParseNsModule } from "../../parser/parse-ns-module";
+import {
+	buildGraphModel,
+	provider,
+} from "../../graph/__tests__/graph-model-fixture";
 import { UnusedProviderDetector } from "../unused-provider-detector";
 
 describe("UnusedProviderDetector", () => {
 	describe("Basic Detection", () => {
 		it("should detect no unused providers when all are injected", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [
+						provider("ServiceA"),
+						provider("ServiceB", {
+							dependencies: [{ token: "ServiceA", optional: false }],
+						}),
+						provider("ServiceC", {
+							dependencies: [{ token: "ServiceB", optional: false }],
+						}),
+					],
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: [],
-				providers: [
-					{
-						token: "ServiceA",
-						type: "Class",
-						dependencies: [],
-					},
-					{
-						token: "ServiceB",
-						type: "Class",
-						dependencies: [
-							{
-								type: "constructor",
-								index: 0,
-								token: "ServiceA",
-								tokenType: "class",
-								optional: false,
-							},
-						],
-					},
-					{
-						token: "ServiceC",
-						type: "Class",
-						dependencies: [
-							{
-								type: "constructor",
-								index: 0,
-								token: "ServiceB",
-								tokenType: "class",
-								optional: false,
-							},
-						],
-					},
-				],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const detector = new UnusedProviderDetector(graph);
+			const detector = new UnusedProviderDetector(graphModel);
 			const analysis = detector.analyze();
 
 			// ServiceC is unused, but ServiceA and ServiceB are used
@@ -62,40 +32,18 @@ describe("UnusedProviderDetector", () => {
 		});
 
 		it("should detect unused provider when not injected anywhere", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [
+						provider("UsedService"),
+						provider("UnusedService", {
+							dependencies: [{ token: "UsedService", optional: false }],
+						}),
+					],
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: [],
-				providers: [
-					{
-						token: "UsedService",
-						type: "Class",
-						dependencies: [],
-					},
-					{
-						token: "UnusedService",
-						type: "Class",
-						dependencies: [
-							{
-								type: "constructor",
-								index: 0,
-								token: "UsedService",
-								tokenType: "class",
-								optional: false,
-							},
-						],
-					},
-				],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const detector = new UnusedProviderDetector(graph);
+			const detector = new UnusedProviderDetector(graphModel);
 			const analysis = detector.analyze();
 
 			expect(analysis.hasUnusedProviders).toBe(true);
@@ -108,37 +56,17 @@ describe("UnusedProviderDetector", () => {
 		});
 
 		it("should detect multiple unused providers", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [
+						provider("UnusedServiceA"),
+						provider("UnusedServiceB", { type: "UseValue" }),
+						provider("UnusedServiceC", { type: "UseFactory" }),
+					],
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: [],
-				providers: [
-					{
-						token: "UnusedServiceA",
-						type: "Class",
-						dependencies: [],
-					},
-					{
-						token: "UnusedServiceB",
-						type: "UseValue",
-						dependencies: [],
-					},
-					{
-						token: "UnusedServiceC",
-						type: "UseFactory",
-						dependencies: [],
-					},
-				],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const detector = new UnusedProviderDetector(graph);
+			const detector = new UnusedProviderDetector(graphModel);
 			const analysis = detector.analyze();
 
 			expect(analysis.hasUnusedProviders).toBe(true);
@@ -154,27 +82,14 @@ describe("UnusedProviderDetector", () => {
 
 	describe("Exported Providers", () => {
 		it("should not mark exported providers as unused", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [provider("ExportedService")],
+					exports: ["ExportedService"],
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: [],
-				providers: [
-					{
-						token: "ExportedService",
-						type: "Class",
-						dependencies: [],
-					},
-				],
-				exports: ["ExportedService"],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const detector = new UnusedProviderDetector(graph);
+			const detector = new UnusedProviderDetector(graphModel);
 			const analysis = detector.analyze();
 
 			expect(analysis.hasUnusedProviders).toBe(false);
@@ -182,32 +97,14 @@ describe("UnusedProviderDetector", () => {
 		});
 
 		it("should detect unused non-exported providers even when module has exports", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [provider("ExportedService"), provider("UnusedService")],
+					exports: ["ExportedService"],
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: [],
-				providers: [
-					{
-						token: "ExportedService",
-						type: "Class",
-						dependencies: [],
-					},
-					{
-						token: "UnusedService",
-						type: "Class",
-						dependencies: [],
-					},
-				],
-				exports: ["ExportedService"],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const detector = new UnusedProviderDetector(graph);
+			const detector = new UnusedProviderDetector(graphModel);
 			const analysis = detector.analyze();
 
 			expect(analysis.hasUnusedProviders).toBe(true);
@@ -218,27 +115,14 @@ describe("UnusedProviderDetector", () => {
 
 	describe("Global Modules", () => {
 		it("should not mark providers in global modules as unused", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [provider("GlobalService")],
+					isGlobal: true,
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: [],
-				providers: [
-					{
-						token: "GlobalService",
-						type: "Class",
-						dependencies: [],
-					},
-				],
-				exports: [],
-				isGlobal: true,
-			} as unknown as ParseNsModule);
-
-			const detector = new UnusedProviderDetector(graph);
+			const detector = new UnusedProviderDetector(graphModel);
 			const analysis = detector.analyze();
 
 			expect(analysis.hasUnusedProviders).toBe(false);
@@ -248,71 +132,30 @@ describe("UnusedProviderDetector", () => {
 
 	describe("Cross-Module Dependencies", () => {
 		it("should detect usage across multiple modules", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					imports: ["ModuleA", "ModuleB"],
+					providers: [
+						provider("ServiceC", {
+							dependencies: [{ token: "ServiceB", optional: false }],
+						}),
+					],
+				},
+				ModuleA: {
+					providers: [provider("ServiceA")],
+					exports: ["ServiceA"],
+				},
+				ModuleB: {
+					providers: [
+						provider("ServiceB", {
+							dependencies: [{ token: "ServiceA", optional: false }],
+						}),
+					],
+					exports: ["ServiceB"],
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: ["ModuleA", "ModuleB"],
-				providers: [
-					{
-						token: "ServiceC",
-						type: "Class",
-						dependencies: [
-							{
-								type: "constructor",
-								index: 0,
-								token: "ServiceB",
-								tokenType: "class",
-								optional: false,
-							},
-						],
-					},
-				],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("ModuleA", {
-				name: "ModuleA",
-				imports: [],
-				providers: [
-					{
-						token: "ServiceA",
-						type: "Class",
-						dependencies: [],
-					},
-				],
-				exports: ["ServiceA"],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			graph.set("ModuleB", {
-				name: "ModuleB",
-				imports: [],
-				providers: [
-					{
-						token: "ServiceB",
-						type: "Class",
-						dependencies: [
-							{
-								type: "constructor",
-								index: 0,
-								token: "ServiceA",
-								tokenType: "class",
-								optional: false,
-							},
-						],
-					},
-				],
-				exports: ["ServiceB"],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const detector = new UnusedProviderDetector(graph);
+			const detector = new UnusedProviderDetector(graphModel);
 			const analysis = detector.analyze();
 
 			// ServiceA is exported and used in ModuleB, so it's not unused
@@ -326,40 +169,18 @@ describe("UnusedProviderDetector", () => {
 
 	describe("Optional Dependencies", () => {
 		it("should not count optional dependencies as usage", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [
+						provider("ServiceA"),
+						provider("ServiceB", {
+							dependencies: [{ token: "ServiceA", optional: true }],
+						}),
+					],
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: [],
-				providers: [
-					{
-						token: "ServiceA",
-						type: "Class",
-						dependencies: [],
-					},
-					{
-						token: "ServiceB",
-						type: "Class",
-						dependencies: [
-							{
-								type: "constructor",
-								index: 0,
-								token: "ServiceA",
-								tokenType: "class",
-								optional: true, // Optional dependency
-							},
-						],
-					},
-				],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const detector = new UnusedProviderDetector(graph);
+			const detector = new UnusedProviderDetector(graphModel);
 			const analysis = detector.analyze();
 
 			// ServiceA is only used as optional dependency, so it's marked as unused
@@ -375,42 +196,18 @@ describe("UnusedProviderDetector", () => {
 
 	describe("Provider Types", () => {
 		it("should detect unused providers of all types", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [
+						provider("UnusedClass"),
+						provider("UnusedValue", { type: "UseValue" }),
+						provider("UnusedFactory", { type: "UseFactory" }),
+						provider("UnusedUseClass", { type: "UseClass" }),
+					],
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: [],
-				providers: [
-					{
-						token: "UnusedClass",
-						type: "Class",
-						dependencies: [],
-					},
-					{
-						token: "UnusedValue",
-						type: "UseValue",
-						dependencies: [],
-					},
-					{
-						token: "UnusedFactory",
-						type: "UseFactory",
-						dependencies: [],
-					},
-					{
-						token: "UnusedUseClass",
-						type: "UseClass",
-						dependencies: [],
-					},
-				],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const detector = new UnusedProviderDetector(graph);
+			const detector = new UnusedProviderDetector(graphModel);
 			const analysis = detector.analyze();
 
 			expect(analysis.hasUnusedProviders).toBe(true);
@@ -426,27 +223,13 @@ describe("UnusedProviderDetector", () => {
 
 	describe("Suggestions", () => {
 		it("should provide removal suggestions for unused providers", () => {
-			const graph = new Map<string, ParseNsModule | ParseEntryFile>();
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [provider("UnusedService")],
+				},
+			});
 
-			graph.set("entry", {
-				name: "AppModule",
-			} as unknown as ParseEntryFile);
-
-			graph.set("AppModule", {
-				name: "AppModule",
-				imports: [],
-				providers: [
-					{
-						token: "UnusedService",
-						type: "Class",
-						dependencies: [],
-					},
-				],
-				exports: [],
-				isGlobal: false,
-			} as unknown as ParseNsModule);
-
-			const detector = new UnusedProviderDetector(graph);
+			const detector = new UnusedProviderDetector(graphModel);
 			const analysis = detector.analyze();
 
 			expect(analysis.unusedProviders[0].suggestions).toBeDefined();

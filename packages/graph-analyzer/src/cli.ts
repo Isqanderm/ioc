@@ -2,30 +2,30 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import {
+	createNexusAnalyzer,
+	createNexusApplicationAnalyzer,
+	createNexusProgram,
+	findApplicationEntryPoint,
+} from "@nexus-ioc/type-checker";
 import * as cliSpinners from "cli-spinners";
-import * as ts from "typescript";
 import {
 	findConfigFile,
 	generateConfigFile,
 	loadConfig,
 } from "./config/config-loader";
 import { DEFAULT_CONFIG, mergeConfigs } from "./config/config-schema";
-import { ParseEntryFile } from "./parser/parse-entry-file";
-import { ParseNsModule } from "./parser/parse-ns-module";
-import { ParseTsConfig } from "./parser/parse-ts-config";
+import { buildNexusGraphModel } from "./graph/build-nexus-graph-model";
 import { ErrorFormatter } from "./utils/error-formatter";
 import { Validator } from "./utils/validator";
-import { GraphAnalyzer } from "./visualize/graph-analyzer";
+import { JsonFormatter } from "./visualize/json-formatter";
 
 interface CliOptions {
 	entryFile: string;
 	tsConfig?: string;
 	output?: string;
-	format?: "json" | "png" | "html" | "both";
 	help?: boolean;
 	version?: boolean;
-	ideProtocol?: "vscode" | "webstorm" | "idea";
-	darkTheme?: boolean;
 	verbose?: boolean;
 	quiet?: boolean;
 	configFile?: string;
@@ -159,7 +159,12 @@ Nexus IoC Graph Analyzer v${VERSION}
 Usage: graph-analyzer [options] <entry-file>
        graph-analyzer --init [json|js]
 
-Analyzes Nexus IoC dependency injection graphs and generates visualizations.
+Statically analyzes Nexus IoC dependency injection graphs and reports
+circular dependencies, unused providers, module depth metrics, and provider
+scope mismatches as JSON.
+
+For PNG or interactive HTML visualization of the graph, use the separate
+@nexus-ioc/graph-visualizer package.
 
 Arguments:
   <entry-file>              Path to the entry point file (e.g., src/main.ts)
@@ -167,10 +172,7 @@ Arguments:
 Options:
   -c, --config <path>       Path to tsconfig.json (default: ./tsconfig.json)
   --config-file <path>      Path to configuration file (.graph-analyzer.json or .js)
-  -o, --output <path>       Output file path (default: ./graph.json, ./graph.png, or ./graph.html)
-  -f, --format <format>     Output format: json, png, html, or both (default: both)
-  --ide <protocol>          IDE protocol for clickable links: vscode, webstorm, idea (default: vscode)
-  --dark                    Use dark theme for HTML output
+  -o, --output <path>       Output JSON file path (default: ./graph.json)
   --check-circular          Detect circular dependencies in modules and providers
   --check-unused            Detect providers that are registered but never injected
   --check-depth             Analyze module hierarchy depth and complexity metrics
@@ -191,20 +193,11 @@ Configuration File:
   CLI arguments override configuration file settings.
 
 Examples:
-  # Analyze and generate both JSON and PNG
+  # Analyze and generate graph.json
   graph-analyzer src/main.ts
 
-  # Generate only JSON output
-  graph-analyzer -f json -o output.json src/main.ts
-
-  # Generate only PNG visualization
-  graph-analyzer -f png -o graph.png src/main.ts
-
-  # Generate interactive HTML visualization
-  graph-analyzer -f html -o graph.html src/main.ts
-
-  # Generate HTML with dark theme and WebStorm links
-  graph-analyzer -f html --ide webstorm --dark src/main.ts
+  # Generate JSON output at a custom path
+  graph-analyzer -o output.json src/main.ts
 
   # Specify custom tsconfig.json
   graph-analyzer -c ./tsconfig.app.json src/main.ts
@@ -253,35 +246,6 @@ function parseArgs(args: string[]): Partial<CliOptions> {
 			case "-o":
 			case "--output":
 				options.output = args[++i];
-				break;
-			case "-f":
-			case "--format": {
-				const format = args[++i];
-				if (
-					format !== "json" &&
-					format !== "png" &&
-					format !== "html" &&
-					format !== "both"
-				) {
-					throw new Error(
-						`Invalid format: ${format}. Must be json, png, html, or both`,
-					);
-				}
-				options.format = format;
-				break;
-			}
-			case "--ide": {
-				const ide = args[++i];
-				if (ide !== "vscode" && ide !== "webstorm" && ide !== "idea") {
-					throw new Error(
-						`Invalid IDE protocol: ${ide}. Must be vscode, webstorm, or idea`,
-					);
-				}
-				options.ideProtocol = ide;
-				break;
-			}
-			case "--dark":
-				options.darkTheme = true;
 				break;
 			case "--verbose":
 				options.verbose = true;
@@ -332,38 +296,6 @@ function parseArgs(args: string[]): Partial<CliOptions> {
 	return options;
 }
 
-async function buildDependencyGraph(
-	entryFile: string,
-	tsConfig: ParseTsConfig,
-	modulesGraph: Map<string, ParseNsModule | ParseEntryFile>,
-): Promise<void> {
-	const filesToProcess: string[] = [entryFile];
-	const processed = new Set<string>();
-
-	while (filesToProcess.length) {
-		const currentFile = filesToProcess.pop() as string;
-		if (processed.has(currentFile)) {
-			continue;
-		}
-
-		processed.add(currentFile);
-
-		const content = fs.readFileSync(currentFile, "utf8");
-		const sourceFile = ts.createSourceFile(
-			currentFile,
-			content,
-			ts.ScriptTarget.Latest,
-			true,
-		);
-
-		const nsModuleParser = new ParseNsModule(sourceFile, currentFile, tsConfig);
-		nsModuleParser.parse();
-
-		modulesGraph.set(nsModuleParser.name as string, nsModuleParser);
-		filesToProcess.push(...nsModuleParser.deps);
-	}
-}
-
 async function analyzeGraph(options: CliOptions): Promise<void> {
 	const startTime = Date.now();
 	const logger = new Logger(options.verbose || false, options.quiet || false);
@@ -385,7 +317,6 @@ async function analyzeGraph(options: CliOptions): Promise<void> {
 		entryFile: options.entryFile,
 		tsConfig: options.tsConfig,
 		output: options.output,
-		format: options.format,
 	});
 
 	if (validationError) {
@@ -442,55 +373,33 @@ async function analyzeGraph(options: CliOptions): Promise<void> {
 		logger.verbose(`Using tsconfig: ${tsConfigPath}`);
 	}
 
-	// Parse entry file
+	// Build the semantic application graph via @nexus-ioc/type-checker
 	spinner = options.quiet ? null : new Spinner("Parsing entry file...").start();
-	logger.verbose(`Reading: ${entryPath}`);
 
-	const entryContent = fs.readFileSync(entryPath, "utf8");
-	const entrySourceFile = ts.createSourceFile(
-		entryPath,
-		entryContent,
-		ts.ScriptTarget.Latest,
-		true,
-	);
+	const program = createNexusProgram([entryPath], tsConfigPath || undefined);
+	const entryPoint = findApplicationEntryPoint(program, entryPath);
 
-	const basePath = tsConfigPath ? path.dirname(tsConfigPath) : process.cwd();
-	const configContent = tsConfigPath
-		? fs.readFileSync(tsConfigPath, "utf8")
-		: "{}";
-	const parseTsConfig = new ParseTsConfig(configContent, basePath);
-
-	const parseEntryFile = new ParseEntryFile(
-		entrySourceFile,
-		entryPath,
-		parseTsConfig,
-	);
-	parseEntryFile.parse();
-
-	if (!parseEntryFile.name) {
+	if (!entryPoint) {
 		if (spinner) spinner.fail("No entry module found");
 		throw new Error("No entry module found in entry file");
 	}
 
-	if (spinner) {
-		spinner.succeed(`Entry file parsed (root module: ${parseEntryFile.name})`);
-	}
-	logger.verbose(`Root module: ${parseEntryFile.name}`);
+	const analyzer = createNexusAnalyzer(program);
+	const application =
+		createNexusApplicationAnalyzer(analyzer).analyze(entryPoint);
+	const graphModel = buildNexusGraphModel(application, program);
 
-	// Build dependency graph
+	const rootModuleName = graphModel.entryModuleName;
+	if (spinner) {
+		spinner.succeed(`Entry file parsed (root module: ${rootModuleName})`);
+	}
+	logger.verbose(`Root module: ${rootModuleName}`);
+
 	spinner = options.quiet
 		? null
 		: new Spinner("Building module graph...").start();
-	const modulesGraph = new Map<string, ParseNsModule | ParseEntryFile>();
-	modulesGraph.set("entry", parseEntryFile);
 
-	await buildDependencyGraph(
-		parseEntryFile.imports[0],
-		parseTsConfig,
-		modulesGraph,
-	);
-
-	stats.modulesCount = modulesGraph.size - 1; // Exclude 'entry'
+	stats.modulesCount = graphModel.modules.size;
 	if (spinner) {
 		spinner.succeed(`Module graph built (${stats.modulesCount} modules)`);
 	}
@@ -500,14 +409,10 @@ async function analyzeGraph(options: CliOptions): Promise<void> {
 	spinner = options.quiet
 		? null
 		: new Spinner("Analyzing dependencies...").start();
-	for (const [key, module] of modulesGraph) {
-		if (key === "entry") continue;
-		const nsModule = module as ParseNsModule;
-		stats.providersCount += nsModule.providers?.length || 0;
-
-		// Count dependencies
-		for (const provider of nsModule.providers || []) {
-			stats.dependenciesCount += provider.dependencies?.length || 0;
+	for (const module of graphModel.modules.values()) {
+		stats.providersCount += module.providers.length;
+		for (const provider of module.providers) {
+			stats.dependenciesCount += provider.dependencies.length;
 		}
 	}
 
@@ -519,45 +424,21 @@ async function analyzeGraph(options: CliOptions): Promise<void> {
 	logger.verbose(`Providers: ${stats.providersCount}`);
 	logger.verbose(`Dependencies: ${stats.dependenciesCount}`);
 
-	// Determine output format and paths
-	const format = options.format || "both";
-	const outputPath = options.output;
-
-	// biome-ignore lint/suspicious/noExplicitAny: GraphAnalyzerOptions type is complex
-	const analyzerOptions: any = {
-		outputFormat: format,
-		checkCircular: options.checkCircular || false,
-		checkUnused: options.checkUnused || false,
-		checkDepth: options.checkDepth || false,
-		deepModuleThreshold: options.deepModuleThreshold || 5,
-		checkScope: options.checkScope || false,
-	};
-
-	if (format === "json") {
-		analyzerOptions.jsonOutputPath = outputPath || "./graph.json";
-		stats.outputFiles.push(analyzerOptions.jsonOutputPath);
-	} else if (format === "png") {
-		analyzerOptions.pngOutputPath = outputPath || "./graph.png";
-		stats.outputFiles.push(analyzerOptions.pngOutputPath);
-	} else if (format === "html") {
-		analyzerOptions.htmlOutputPath = outputPath || "./graph.html";
-		stats.outputFiles.push(analyzerOptions.htmlOutputPath);
-		analyzerOptions.htmlOptions = {
-			ideProtocol: options.ideProtocol || "vscode",
-			darkTheme: options.darkTheme || false,
-			title: "Dependency Graph",
-		};
-	} else {
-		// both
-		analyzerOptions.jsonOutputPath = "./graph.json";
-		analyzerOptions.pngOutputPath = "./graph.png";
-		stats.outputFiles.push("./graph.json", "./graph.png");
-	}
-
-	// Generate output
+	// Generate JSON output
 	spinner = options.quiet ? null : new Spinner("Generating output...").start();
-	const analyzer = new GraphAnalyzer(modulesGraph, entryPath, analyzerOptions);
-	analyzer.parse();
+	const outputPath = options.output || "./graph.json";
+	stats.outputFiles.push(outputPath);
+
+	const formatter = new JsonFormatter(
+		graphModel,
+		entryPath,
+		options.checkCircular || false,
+		options.checkUnused || false,
+		options.checkDepth || false,
+		options.deepModuleThreshold || 5,
+		options.checkScope || false,
+	);
+	fs.writeFileSync(outputPath, formatter.formatAsString(), "utf8");
 
 	if (spinner) {
 		spinner.succeed("Output generated");

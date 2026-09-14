@@ -1,6 +1,4 @@
-import type { Dependency } from "../parser/dependency-extractor";
-import type { ParseEntryFile } from "../parser/parse-entry-file";
-import type { ParseNsModule } from "../parser/parse-ns-module";
+import type { NexusGraphModel } from "../graph/nexus-graph-model";
 
 /**
  * Represents a circular dependency cycle
@@ -34,11 +32,14 @@ export interface CircularDependencyAnalysis {
  * Detects circular dependencies in module imports and provider dependencies
  *
  * Uses depth-first search (DFS) to detect cycles in the dependency graph.
- * Can detect both module-level circular imports and provider-level circular dependencies.
+ * Can detect both module-level circular imports and provider-level circular
+ * dependencies — the latter covering both constructor-injected dependencies
+ * and `useFactory` `inject` tokens, since `NexusGraphModel` merges both into
+ * a single provider dependency list.
  *
  * @example
  * ```typescript
- * const detector = new CircularDependencyDetector(modulesGraph);
+ * const detector = new CircularDependencyDetector(graphModel);
  * const analysis = detector.analyze();
  *
  * if (analysis.hasCircularDependencies) {
@@ -53,11 +54,9 @@ export class CircularDependencyDetector {
 	/**
 	 * Create a new CircularDependencyDetector instance
 	 *
-	 * @param graph - Map of module names to parsed modules
+	 * @param graphModel - The application's graph model
 	 */
-	constructor(
-		private readonly graph: Map<string, ParseNsModule | ParseEntryFile>,
-	) {}
+	constructor(private readonly graphModel: NexusGraphModel) {}
 
 	/**
 	 * Analyze the dependency graph for circular dependencies
@@ -99,13 +98,13 @@ export class CircularDependencyDetector {
 		const recursionStack = new Set<string>();
 		const path: string[] = [];
 
-		const entryModule = this.graph.get("entry") as ParseEntryFile;
-		if (!entryModule || !entryModule.name) {
+		const entryModuleName = this.graphModel.entryModuleName;
+		if (!entryModuleName) {
 			return cycles;
 		}
 
 		// Start DFS from entry module
-		this.dfsModules(entryModule.name, visited, recursionStack, path, cycles);
+		this.dfsModules(entryModuleName, visited, recursionStack, path, cycles);
 
 		return cycles;
 	}
@@ -125,8 +124,8 @@ export class CircularDependencyDetector {
 		recursionStack.add(moduleName);
 		path.push(moduleName);
 
-		const parseNsModule = this.graph.get(moduleName) as ParseNsModule;
-		if (!parseNsModule) {
+		const module = this.graphModel.modules.get(moduleName);
+		if (!module) {
 			// Clean up and return
 			recursionStack.delete(moduleName);
 			path.pop();
@@ -134,7 +133,7 @@ export class CircularDependencyDetector {
 		}
 
 		// Visit all imported modules
-		for (const importedModule of parseNsModule.imports) {
+		for (const importedModule of module.imports) {
 			if (!visited.has(importedModule)) {
 				// Recursively visit unvisited module
 				this.dfsModules(importedModule, visited, recursionStack, path, cycles);
@@ -193,31 +192,17 @@ export class CircularDependencyDetector {
 	}
 
 	/**
-	 * Build a map of provider tokens to their dependencies
+	 * Build a map of provider tokens to their dependencies, across every
+	 * module in the graph.
 	 */
 	private buildProviderDependencyMap(): Map<string, string[]> {
 		const providerDeps = new Map<string, string[]>();
 
-		// Traverse all modules
-		for (const [key, value] of this.graph.entries()) {
-			if (key === "entry") continue;
-
-			const parseNsModule = value as ParseNsModule;
-			if (!parseNsModule.providers) continue;
-
-			// Extract dependencies for each provider
-			for (const provider of parseNsModule.providers) {
-				if (!provider.token) continue;
-
-				const dependencies: string[] = [];
-
-				if (provider.dependencies && Array.isArray(provider.dependencies)) {
-					for (const dep of provider.dependencies as Dependency[]) {
-						if (dep.token && !dep.optional) {
-							dependencies.push(dep.token);
-						}
-					}
-				}
+		for (const module of this.graphModel.modules.values()) {
+			for (const provider of module.providers) {
+				const dependencies = provider.dependencies
+					.filter((dependency) => !dependency.optional)
+					.map((dependency) => dependency.token);
 
 				providerDeps.set(provider.token, dependencies);
 			}
