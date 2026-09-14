@@ -15,12 +15,11 @@ export default createRule<Options, MessageIds>({
 	meta: {
 		type: "problem",
 		docs: {
-			description:
-				"Ensures classes with providers are decorated with @NsModule",
+			description: "Ensures classes with providers are decorated with @Module",
 		},
 		messages: {
 			moduleRequired:
-				"Class '{{className}}' appears to be a module but is not decorated with @NsModule. Add @NsModule() decorator to this class.",
+				"Class '{{className}}' appears to be a module but is not decorated with @Module. Add @Module() decorator to this class.",
 		},
 		schema: [],
 	},

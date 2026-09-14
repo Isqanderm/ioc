@@ -5,7 +5,7 @@ ESLint plugin for [Nexus IoC](https://github.com/Isqanderm/ioc) dependency injec
 ## Features
 
 - ✅ **Decorator Validation**: Ensure classes using `@Inject` are decorated with `@Injectable`
-- 🎯 **Module Validation**: Validate that classes ending with "Module" are decorated with `@NsModule`
+- 🎯 **Module Validation**: Validate that classes ending with "Module" are decorated with `@Module`
 - 🚀 **IDE Integration**: Works seamlessly with WebStorm, VS Code, and other IDEs that support ESLint
 - 📦 **Shared Type Checker**: Built on top of `@nexus-ioc/type-checker` for consistent validation across tools
 
@@ -89,18 +89,18 @@ Placeholder rule for detecting circular dependencies between modules and service
 
 ### `valid-provider-config`
 
-Ensures that classes with names ending in "Module" are decorated with `@NsModule`.
+Ensures that classes with names ending in "Module" are decorated with `@Module`.
 
 **❌ Incorrect:**
 ```typescript
 class AppModule {
-  // Error: Class name ends with 'Module' but is not decorated with @NsModule
+  // Error: Class name ends with 'Module' but is not decorated with @Module
 }
 ```
 
 **✅ Correct:**
 ```typescript
-@NsModule({
+@Module({
   providers: [UserService],
   exports: [UserService]
 })

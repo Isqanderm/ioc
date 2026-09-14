@@ -21,11 +21,11 @@ const ruleTester = new RuleTester({
 ruleTester.run("valid-provider-config", rule, {
 	valid: [
 		{
-			name: "module with @NsModule decorator",
+			name: "module with @Module decorator",
 			code: `
-				import { NsModule } from '@nexus-ioc/core';
-				
-				@NsModule({
+				import { Module } from '@nexus-ioc/core';
+
+				@Module({
 					providers: [],
 				})
 				class AppModule {}
@@ -40,7 +40,7 @@ ruleTester.run("valid-provider-config", rule, {
 	],
 	invalid: [
 		{
-			name: "class ending with Module but no @NsModule",
+			name: "class ending with Module but no @Module",
 			code: `
 				class AppModule {}
 			`,

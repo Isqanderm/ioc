@@ -79,7 +79,7 @@ export function isModuleClass(
 ): node is ts.ClassDeclaration {
 	return (
 		ts.isClassDeclaration(node) &&
-		(hasNexusDecorator(analyzer, node, "NsModule") ||
+		(hasNexusDecorator(analyzer, node, "Module") ||
 			hasNexusDecorator(analyzer, node, "Global"))
 	);
 }
