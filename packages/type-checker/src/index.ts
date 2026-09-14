@@ -8,6 +8,16 @@ export {
 	createNexusApplicationAnalyzer,
 	NexusApplicationAnalyzer,
 } from "./analysis/nexus-application-analyzer";
+export {
+	createNexusApplicationGraphBuilder,
+	NexusApplicationGraphBuilder,
+} from "./analysis/nexus-application-graph-builder";
+export type {
+	NexusApplicationGraph,
+	NexusProviderCycle,
+	NexusResolvedDependency,
+	NexusUnresolvedDependency,
+} from "./analysis/nexus-application-graph-model";
 export type { NexusApplication } from "./analysis/nexus-application-model";
 export type {
 	NexusClass,
