@@ -1,4 +1,4 @@
-import type * as ts from "typescript";
+import * as ts from "typescript";
 import type { NexusAnalyzer } from "./nexus-analyzer";
 import type {
 	NexusApplicationGraph,
@@ -42,7 +42,6 @@ function isSymbolIdentity(identity: TokenIdentity): identity is ts.Symbol {
 
 /** Resolves a `NexusApplication` into a module-scoped dependency graph. */
 export class NexusApplicationGraphBuilder {
-	// biome-ignore lint/correctness/noUnusedPrivateClassMembers: wired up by Task 6's classSymbol() implementation
 	public constructor(private readonly analyzer: NexusAnalyzer) {}
 
 	public build(application: NexusApplication): NexusApplicationGraph {
@@ -299,10 +298,33 @@ export class NexusApplicationGraphBuilder {
 		return visible;
 	}
 
-	private classSymbol(_nexusClass: NexusClass): ts.Symbol | undefined {
-		// Placeholder until Task 6 wires this to the real class declaration;
-		// Task 5 only needs module-to-module identity, resolved via imports/exports
-		// tokens which already carry `ts.Symbol`, so this is filled in Task 6.
+	private classSymbol(nexusClass: NexusClass): ts.Symbol | undefined {
+		const sourceFile = this.analyzer
+			.getProgram()
+			.getSourceFile(nexusClass.source.fileName);
+		if (!sourceFile) return undefined;
+
+		const declaration = this.findClassDeclarationAtSpan(
+			sourceFile,
+			nexusClass.source.start,
+		);
+		if (!declaration?.name) return undefined;
+
+		return this.analyzer.getTypeChecker().getSymbolAtLocation(declaration.name);
+	}
+
+	private findClassDeclarationAtSpan(
+		node: ts.Node,
+		start: number,
+	): ts.ClassDeclaration | undefined {
+		if (ts.isClassDeclaration(node) && node.getStart() === start) return node;
+
+		for (const child of node.getChildren()) {
+			if (child.getFullStart() > start || child.getEnd() < start) continue;
+			const match = this.findClassDeclarationAtSpan(child, start);
+			if (match) return match;
+		}
+
 		return undefined;
 	}
 
