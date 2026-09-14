@@ -240,4 +240,41 @@ describe("UnusedProviderDetector", () => {
 			expect(suggestions).toContain("UnusedService");
 		});
 	});
+
+	describe("Name Collisions", () => {
+		it("does not conflate two different provider classes that share a display name", () => {
+			// ModuleA's "Service" is actually injected (by Consumer). ModuleB's
+			// "Service" is a different, unrelated class that is never injected.
+			// Before matching by id, a flat `Set<string>` of injected tokens
+			// would mark both as "injected" once either one was — losing
+			// ModuleB's real unused provider (false negative).
+			const graphModel = buildGraphModel("ModuleA", {
+				ModuleA: {
+					providers: [
+						provider("Service", { id: "svc-a" }),
+						provider("Consumer", {
+							dependencies: [
+								{ token: "Service", tokenId: "svc-a", optional: false },
+							],
+						}),
+					],
+				},
+				ModuleB: {
+					providers: [provider("Service", { id: "svc-b" })],
+				},
+			});
+
+			const detector = new UnusedProviderDetector(graphModel);
+			const analysis = detector.analyze();
+
+			// ModuleA's "Service" is injected, so it must not be reported unused.
+			expect(analysis.unusedProviders).not.toContainEqual(
+				expect.objectContaining({ token: "Service", module: "ModuleA" }),
+			);
+			// ModuleB's unrelated, uninjected "Service" must still be reported.
+			expect(analysis.unusedProviders).toContainEqual(
+				expect.objectContaining({ token: "Service", module: "ModuleB" }),
+			);
+		});
+	});
 });

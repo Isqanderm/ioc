@@ -58,7 +58,7 @@ export class StaticGraphVisualizer {
 		const analyzer = createNexusAnalyzer(program);
 		const application =
 			createNexusApplicationAnalyzer(analyzer).analyze(entryPoint);
-		const graphModel = buildNexusGraphModel(application, program);
+		const graphModel = buildNexusGraphModel(application);
 
 		return new JsonFormatter(
 			graphModel,

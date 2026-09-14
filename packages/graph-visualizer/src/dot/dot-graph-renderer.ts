@@ -1,6 +1,7 @@
 import type {
 	CircularDependency,
 	GraphOutput,
+	ModuleReferenceInfo,
 } from "@nexus-ioc/graph-analyzer";
 
 interface DotEdge {
@@ -98,13 +99,16 @@ export class DotGraphRenderer {
 	}
 
 	private createModuleSubgraph(module: GraphOutput["modules"][number]): string {
-		let dot = `  subgraph cluster_${module.name} {\n`;
+		const moduleId = moduleNodeId({ name: module.name, path: module.path });
+
+		let dot = `  subgraph cluster_${sanitizeId(moduleId)} {\n`;
 		dot += `    label = "${module.name}";\n`;
-		dot += `    "${module.name}" [label="${module.name}" style=filled fillcolor="${this.config.moduleColor}" fontcolor="${this.config.moduleFontColor}" shape=box];\n`;
+		dot += `    "${moduleId}" [label="${module.name}" style=filled fillcolor="${this.config.moduleColor}" fontcolor="${this.config.moduleFontColor}" shape=box];\n`;
 
 		if (this.config.showProviders) {
 			for (const providerToken of module.providers) {
-				dot += `    "${providerToken}" [label="${providerToken}" style=filled fillcolor="${this.config.providerColor}" fontcolor="${this.config.providerFontColor}" shape=ellipse];\n`;
+				const nodeId = providerNodeId(moduleId, providerToken);
+				dot += `    "${nodeId}" [label="${providerToken}" style=filled fillcolor="${this.config.providerColor}" fontcolor="${this.config.providerFontColor}" shape=ellipse];\n`;
 			}
 		}
 
@@ -112,17 +116,38 @@ export class DotGraphRenderer {
 		return dot;
 	}
 
+	/**
+	 * Maps a bare provider token to its (module-qualified) node id, so
+	 * dependency edges — which only carry a bare `token`, not the owning
+	 * module — can still resolve to the right node. On a genuine token
+	 * collision (two different provider classes named alike within the
+	 * same module) the later provider wins; that residual ambiguity is a
+	 * known, accepted limitation — see `ProviderInfo.token`'s doc comment.
+	 */
+	private buildProviderNodeIdByToken(): Map<string, string> {
+		const map = new Map<string, string>();
+		for (const provider of this.graphOutput.providers) {
+			const moduleId = moduleNodeId(provider.module);
+			map.set(provider.token, providerNodeId(moduleId, provider.token));
+		}
+		return map;
+	}
+
 	private createEdges(): DotEdge[] {
 		const edges: DotEdge[] = [];
 
 		for (const module of this.graphOutput.modules) {
+			const fromId = moduleNodeId({ name: module.name, path: module.path });
+
 			for (const importedModule of module.imports) {
 				edges.push({
-					from: module.name,
-					to: importedModule,
+					from: fromId,
+					to: moduleNodeId(importedModule),
 					label: this.config.showLabel ? "import" : "",
+					// Circular-edge lookup stays label-based (not module-qualified):
+					// `CircularDependency.cycle` only ever carries display names.
 					color: this.circularModuleEdges.has(
-						`${module.name}->${importedModule}`,
+						`${module.name}->${importedModule.name}`,
 					)
 						? this.config.circularColor
 						: this.config.importColor,
@@ -131,19 +156,25 @@ export class DotGraphRenderer {
 		}
 
 		if (this.config.showProviders) {
+			const providerNodeIdByToken = this.buildProviderNodeIdByToken();
+
 			for (const provider of this.graphOutput.providers) {
+				const moduleId = moduleNodeId(provider.module);
+				const fromId = providerNodeId(moduleId, provider.token);
+
 				edges.push({
-					from: provider.module,
-					to: provider.token,
+					from: moduleId,
+					to: fromId,
 					label: this.config.showLabel ? "provider" : "",
 					color: this.config.providerEdgeColor,
 				});
 
 				for (const dependency of provider.dependencies) {
 					edges.push({
-						from: provider.token,
-						to: dependency.token,
+						from: fromId,
+						to: providerNodeIdByToken.get(dependency.token) ?? dependency.token,
 						label: this.config.showLabel ? "dependency" : "",
+						// Circular-edge lookup stays label-based, same reasoning as above.
 						color: this.circularProviderEdges.has(
 							`${provider.token}->${dependency.token}`,
 						)
@@ -176,6 +207,27 @@ export class DotGraphRenderer {
 			> pos="1,1"];
 		`;
 	}
+}
+
+/**
+ * Collision-free DOT node id for a module reference — `path` (present on
+ * every `ModuleInfo.imports`/`exports` entry) disambiguates two modules
+ * that share a display `name` but live in different files.
+ */
+function moduleNodeId(ref: ModuleReferenceInfo): string {
+	return `${ref.name}@${ref.path ?? ""}`;
+}
+
+/** DOT node id for a provider, scoped under its owning module's node id. */
+function providerNodeId(moduleId: string, providerToken: string): string {
+	return `${moduleId}::${providerToken}`;
+}
+
+/** Strips characters DOT doesn't allow in a bare (unquoted) identifier,
+ * for use in `subgraph cluster_<id>` names — the surrounding node ids stay
+ * quoted DOT strings and don't need this. */
+function sanitizeId(id: string): string {
+	return id.replace(/[^A-Za-z0-9_]/g, "_");
 }
 
 export type { DotEdge };

@@ -207,6 +207,49 @@ describe("CircularDependencyDetector", () => {
 		});
 	});
 
+	describe("Name Collisions", () => {
+		it("does not conflate two different provider classes that share a display name", () => {
+			// ModuleA's "Service" and "Other" form a real cycle. ModuleB
+			// registers an unrelated provider that happens to share the name
+			// "Service" but has no dependencies at all. Before matching by id,
+			// the second `providerDeps.set("Service", ...)` in
+			// buildProviderDependencyMap() would silently overwrite the first,
+			// losing ModuleA's real cycle (false negative).
+			const graphModel = buildGraphModel("ModuleA", {
+				ModuleA: {
+					providers: [
+						provider("Service", {
+							id: "svc-a",
+							dependencies: [
+								{ token: "Other", tokenId: "other-a", optional: false },
+							],
+						}),
+						provider("Other", {
+							id: "other-a",
+							dependencies: [
+								{ token: "Service", tokenId: "svc-a", optional: false },
+							],
+						}),
+					],
+				},
+				ModuleB: {
+					providers: [provider("Service", { id: "svc-b" })],
+				},
+			});
+
+			const detector = new CircularDependencyDetector(graphModel);
+			const analysis = detector.analyze();
+
+			expect(analysis.hasCircularDependencies).toBe(true);
+			expect(analysis.providerCircularCount).toBe(1);
+			expect(analysis.circularDependencies[0].cycle).toEqual([
+				"Service",
+				"Other",
+				"Service",
+			]);
+		});
+	});
+
 	describe("Mixed Scenarios", () => {
 		it("should detect both module and provider circular dependencies", () => {
 			const graphModel = buildGraphModel("ModuleA", {

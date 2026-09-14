@@ -38,7 +38,7 @@ describe("DotGraphRenderer", () => {
 				{
 					token: "AppService",
 					type: "Class",
-					module: "AppModule",
+					module: { name: "AppModule", path: "/app/app.module.ts" },
 					dependencies: [],
 				},
 			],
@@ -46,9 +46,9 @@ describe("DotGraphRenderer", () => {
 
 		const dot = new DotGraphRenderer(output).render();
 
-		expect(dot).toContain("subgraph cluster_AppModule");
-		expect(dot).toContain('"AppModule"');
-		expect(dot).toContain('"AppService"');
+		expect(dot).toContain("subgraph cluster_AppModule__app_app_module_ts");
+		expect(dot).toContain('"AppModule@/app/app.module.ts"');
+		expect(dot).toContain('"AppModule@/app/app.module.ts::AppService"');
 	});
 
 	it("colors a circular module import edge red", () => {
@@ -57,7 +57,7 @@ describe("DotGraphRenderer", () => {
 				{
 					name: "ModuleA",
 					path: "/app/a.ts",
-					imports: ["ModuleB"],
+					imports: [{ name: "ModuleB", path: "/app/b.ts" }],
 					exports: [],
 					providers: [],
 					isGlobal: false,
@@ -65,7 +65,7 @@ describe("DotGraphRenderer", () => {
 				{
 					name: "ModuleB",
 					path: "/app/b.ts",
-					imports: ["ModuleA"],
+					imports: [{ name: "ModuleA", path: "/app/a.ts" }],
 					exports: [],
 					providers: [],
 					isGlobal: false,
@@ -84,15 +84,17 @@ describe("DotGraphRenderer", () => {
 
 		const dot = new DotGraphRenderer(output, {}, circularDependencies).render();
 
-		expect(dot).toContain('"ModuleB" -> "ModuleA" [color="#ff0000"');
+		expect(dot).toContain(
+			'"ModuleB@/app/b.ts" -> "ModuleA@/app/a.ts" [color="#ff0000"',
+		);
 	});
 
 	it("colors a circular provider dependency edge red", () => {
+		const appModuleRef = { name: "AppModule", path: "/app/app.module.ts" };
 		const output = graphOutput({
 			modules: [
 				{
-					name: "AppModule",
-					path: "/app/app.module.ts",
+					...appModuleRef,
 					imports: [],
 					exports: [],
 					providers: ["ServiceA", "ServiceB"],
@@ -103,13 +105,13 @@ describe("DotGraphRenderer", () => {
 				{
 					token: "ServiceA",
 					type: "Class",
-					module: "AppModule",
+					module: appModuleRef,
 					dependencies: [{ token: "ServiceB", optional: false }],
 				},
 				{
 					token: "ServiceB",
 					type: "Class",
-					module: "AppModule",
+					module: appModuleRef,
 					dependencies: [{ token: "ServiceA", optional: false }],
 				},
 			],
@@ -125,8 +127,12 @@ describe("DotGraphRenderer", () => {
 
 		const dot = new DotGraphRenderer(output, {}, circularDependencies).render();
 
-		expect(dot).toContain('"ServiceB" -> "ServiceA" [color="#ff0000"');
-		expect(dot).toContain('"ServiceA" -> "ServiceB" [color="#ff0000"');
+		expect(dot).toContain(
+			'"AppModule@/app/app.module.ts::ServiceB" -> "AppModule@/app/app.module.ts::ServiceA" [color="#ff0000"',
+		);
+		expect(dot).toContain(
+			'"AppModule@/app/app.module.ts::ServiceA" -> "AppModule@/app/app.module.ts::ServiceB" [color="#ff0000"',
+		);
 	});
 
 	it("does not color a non-circular edge red", () => {
@@ -135,7 +141,7 @@ describe("DotGraphRenderer", () => {
 				{
 					name: "AppModule",
 					path: "/app/app.module.ts",
-					imports: ["OtherModule"],
+					imports: [{ name: "OtherModule", path: "/app/other.module.ts" }],
 					exports: [],
 					providers: [],
 					isGlobal: false,
@@ -153,7 +159,9 @@ describe("DotGraphRenderer", () => {
 
 		const dot = new DotGraphRenderer(output).render();
 
-		expect(dot).toContain('"OtherModule" -> "AppModule" [color="#000"');
+		expect(dot).toContain(
+			'"OtherModule@/app/other.module.ts" -> "AppModule@/app/app.module.ts" [color="#000"',
+		);
 	});
 
 	it("omits provider nodes and edges when showProviders is false", () => {
@@ -172,7 +180,7 @@ describe("DotGraphRenderer", () => {
 				{
 					token: "AppService",
 					type: "Class",
-					module: "AppModule",
+					module: { name: "AppModule", path: "/app/app.module.ts" },
 					dependencies: [],
 				},
 			],
@@ -180,6 +188,52 @@ describe("DotGraphRenderer", () => {
 
 		const dot = new DotGraphRenderer(output, { showProviders: false }).render();
 
-		expect(dot).not.toContain('"AppService"');
+		expect(dot).not.toContain("AppService");
+	});
+
+	it("distinguishes two modules that share a display name via path", () => {
+		const output = graphOutput({
+			modules: [
+				{
+					name: "AppModule",
+					path: "/app/app.module.ts",
+					imports: [
+						{ name: "SharedModule", path: "/a/shared.module.ts" },
+						{ name: "SharedModule", path: "/b/shared.module.ts" },
+					],
+					exports: [],
+					providers: [],
+					isGlobal: false,
+				},
+				{
+					name: "SharedModule",
+					path: "/a/shared.module.ts",
+					imports: [],
+					exports: [],
+					providers: [],
+					isGlobal: false,
+				},
+				{
+					name: "SharedModule",
+					path: "/b/shared.module.ts",
+					imports: [],
+					exports: [],
+					providers: [],
+					isGlobal: false,
+				},
+			],
+		});
+
+		const dot = new DotGraphRenderer(output).render();
+
+		// Both same-named modules get their own cluster/node, not one merged node.
+		expect(dot).toContain('"SharedModule@/a/shared.module.ts"');
+		expect(dot).toContain('"SharedModule@/b/shared.module.ts"');
+		expect(dot).toContain(
+			'"SharedModule@/a/shared.module.ts" -> "AppModule@/app/app.module.ts"',
+		);
+		expect(dot).toContain(
+			'"SharedModule@/b/shared.module.ts" -> "AppModule@/app/app.module.ts"',
+		);
 	});
 });

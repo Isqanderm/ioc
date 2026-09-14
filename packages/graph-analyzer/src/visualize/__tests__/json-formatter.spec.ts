@@ -2,7 +2,10 @@ import {
 	buildGraphModel,
 	provider,
 } from "../../graph/__tests__/graph-model-fixture";
-import type { NexusGraphModel } from "../../graph/nexus-graph-model";
+import type {
+	GraphModuleNode,
+	NexusGraphModel,
+} from "../../graph/nexus-graph-model";
 import { JsonFormatter } from "../json-formatter";
 
 describe("JsonFormatter", () => {
@@ -68,8 +71,8 @@ describe("JsonFormatter", () => {
 			expect(appModule).toMatchObject({
 				name: "AppModule",
 				path: "/test/app.module.ts",
-				imports: ["UserModule"],
-				exports: ["UserService"],
+				imports: [{ name: "UserModule", path: "/test/user.module.ts" }],
+				exports: [{ name: "UserService", path: undefined }],
 				providers: ["UserService", "CONFIG"],
 				isGlobal: false,
 			});
@@ -99,7 +102,7 @@ describe("JsonFormatter", () => {
 			expect(userService).toMatchObject({
 				token: "UserService",
 				type: "Class",
-				module: "AppModule",
+				module: { name: "AppModule", path: "/test/app.module.ts" },
 				scope: "Singleton",
 			});
 			expect(userService?.dependencies).toHaveLength(1);
@@ -112,7 +115,7 @@ describe("JsonFormatter", () => {
 			expect(config).toMatchObject({
 				token: "CONFIG",
 				type: "UseValue",
-				module: "AppModule",
+				module: { name: "AppModule", path: "/test/app.module.ts" },
 			});
 		});
 
@@ -142,7 +145,7 @@ describe("JsonFormatter", () => {
 			expect(logger).toMatchObject({
 				token: "LOGGER",
 				type: "UseFactory",
-				module: "AppModule",
+				module: { name: "AppModule", path: "/app/AppModule.ts" },
 			});
 			expect(logger?.dependencies).toEqual([
 				{ token: "ConfigService", optional: false },
@@ -170,7 +173,7 @@ describe("JsonFormatter", () => {
 			expect(userService).toMatchObject({
 				token: "UserService",
 				type: "UseClass",
-				module: "AppModule",
+				module: { name: "AppModule", path: "/app/AppModule.ts" },
 				useClass: "UserServiceImpl",
 			});
 		});
@@ -192,6 +195,69 @@ describe("JsonFormatter", () => {
 
 			// Should handle circular dependencies without infinite loop
 			expect(output.modules).toHaveLength(2);
+		});
+
+		it("does not lose or confuse two modules that share a display name", () => {
+			// Hand-built model (not via buildGraphModel's name-as-id shorthand):
+			// two distinct "SharedModule" declarations in different files, each
+			// imported by AppModule under the same display name.
+			const sharedA: GraphModuleNode = {
+				name: "SharedModule",
+				id: "/a/shared.module.ts:1:1",
+				path: "/a/shared.module.ts",
+				isGlobal: false,
+				imports: [],
+				exports: [],
+				providers: [provider("ServiceA")],
+			};
+			const sharedB: GraphModuleNode = {
+				name: "SharedModule",
+				id: "/b/shared.module.ts:1:1",
+				path: "/b/shared.module.ts",
+				isGlobal: false,
+				imports: [],
+				exports: [],
+				providers: [provider("ServiceB")],
+			};
+			const appModule: GraphModuleNode = {
+				name: "AppModule",
+				id: "/app/app.module.ts:1:1",
+				path: "/app/app.module.ts",
+				isGlobal: false,
+				imports: [
+					{ id: sharedA.id, name: sharedA.name, path: sharedA.path },
+					{ id: sharedB.id, name: sharedB.name, path: sharedB.path },
+				],
+				exports: [],
+				providers: [],
+			};
+			const graphModel: NexusGraphModel = {
+				entryModuleId: appModule.id,
+				modules: new Map([
+					[appModule.id, appModule],
+					[sharedA.id, sharedA],
+					[sharedB.id, sharedB],
+				]),
+			};
+
+			const formatter = new JsonFormatter(graphModel, "/test/entry.ts");
+			const output = formatter.format();
+
+			// Both same-named modules are present — neither dedup nor
+			// overwrite-by-name lost one of them.
+			expect(
+				output.modules.filter((m) => m.name === "SharedModule"),
+			).toHaveLength(2);
+			expect(output.providers.map((p) => p.token).sort()).toEqual([
+				"ServiceA",
+				"ServiceB",
+			]);
+			// AppModule's imports correctly distinguish the two by path.
+			const app = output.modules.find((m) => m.name === "AppModule");
+			expect(app?.imports.map((i) => i.path).sort()).toEqual([
+				"/a/shared.module.ts",
+				"/b/shared.module.ts",
+			]);
 		});
 	});
 

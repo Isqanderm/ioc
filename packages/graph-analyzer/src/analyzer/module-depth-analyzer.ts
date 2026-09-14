@@ -131,42 +131,42 @@ export class ModuleDepthAnalyzer {
 	}
 
 	/**
-	 * Calculate depth for each module using BFS from entry point
+	 * Calculate depth for each module (by id) using BFS from entry point
 	 */
 	private calculateModuleDepths(): Map<string, number> {
 		const depths = new Map<string, number>();
-		const entryModuleName = this.graphModel.entryModuleName;
+		const entryModuleId = this.graphModel.entryModuleId;
 
-		if (!entryModuleName || !this.graphModel.modules.has(entryModuleName)) {
+		if (!entryModuleId || !this.graphModel.modules.has(entryModuleId)) {
 			return depths;
 		}
 
 		// Start BFS from entry module
-		const queue: Array<{ name: string; depth: number }> = [
-			{ name: entryModuleName, depth: 0 },
+		const queue: Array<{ id: string; depth: number }> = [
+			{ id: entryModuleId, depth: 0 },
 		];
 		const visited = new Set<string>();
 
 		while (queue.length > 0) {
 			const current = queue.shift()!;
 
-			if (visited.has(current.name)) {
+			if (visited.has(current.id)) {
 				continue;
 			}
 
-			visited.add(current.name);
-			depths.set(current.name, current.depth);
+			visited.add(current.id);
+			depths.set(current.id, current.depth);
 
 			// Get module from graph
-			const module = this.graphModel.modules.get(current.name);
+			const module = this.graphModel.modules.get(current.id);
 			if (!module) {
 				continue;
 			}
 
 			// Add all imports to queue with incremented depth
-			for (const importName of module.imports) {
-				if (!visited.has(importName)) {
-					queue.push({ name: importName, depth: current.depth + 1 });
+			for (const importedModule of module.imports) {
+				if (!visited.has(importedModule.id)) {
+					queue.push({ id: importedModule.id, depth: current.depth + 1 });
 				}
 			}
 		}
@@ -175,7 +175,8 @@ export class ModuleDepthAnalyzer {
 	}
 
 	/**
-	 * Calculate complexity metrics for each module
+	 * Calculate complexity metrics for each module. `moduleDepths` is keyed
+	 * by id; the returned `ModuleDepthInfo[]` reports display names, as before.
 	 */
 	private calculateComplexityMetrics(
 		moduleDepths: Map<string, number>,
@@ -183,20 +184,20 @@ export class ModuleDepthAnalyzer {
 		const moduleDetails: ModuleDepthInfo[] = [];
 		const fanInMap = this.calculateFanIn();
 
-		for (const [moduleName, depth] of moduleDepths.entries()) {
-			const module = this.graphModel.modules.get(moduleName);
+		for (const [moduleId, depth] of moduleDepths.entries()) {
+			const module = this.graphModel.modules.get(moduleId);
 			if (!module) {
 				continue;
 			}
 
 			const directImports = module.imports.length;
 			const transitiveDependencies =
-				this.calculateTransitiveDependencies(moduleName);
-			const fanIn = fanInMap.get(moduleName) || 0;
+				this.calculateTransitiveDependencies(moduleId);
+			const fanIn = fanInMap.get(moduleId) || 0;
 			const fanOut = directImports;
 
 			moduleDetails.push({
-				name: moduleName,
+				name: module.name,
 				depth,
 				directImports,
 				transitiveDependencies,
@@ -209,14 +210,18 @@ export class ModuleDepthAnalyzer {
 	}
 
 	/**
-	 * Calculate fan-in for all modules (how many modules depend on each module)
+	 * Calculate fan-in for all modules (how many modules depend on each
+	 * module), keyed by id
 	 */
 	private calculateFanIn(): Map<string, number> {
 		const fanInMap = new Map<string, number>();
 
 		for (const module of this.graphModel.modules.values()) {
-			for (const importName of module.imports) {
-				fanInMap.set(importName, (fanInMap.get(importName) || 0) + 1);
+			for (const importedModule of module.imports) {
+				fanInMap.set(
+					importedModule.id,
+					(fanInMap.get(importedModule.id) || 0) + 1,
+				);
 			}
 		}
 
@@ -226,9 +231,9 @@ export class ModuleDepthAnalyzer {
 	/**
 	 * Calculate transitive dependencies for a module (all modules it depends on)
 	 */
-	private calculateTransitiveDependencies(moduleName: string): number {
+	private calculateTransitiveDependencies(moduleId: string): number {
 		const visited = new Set<string>();
-		const queue = [moduleName];
+		const queue = [moduleId];
 
 		while (queue.length > 0) {
 			const current = queue.shift()!;
@@ -244,9 +249,9 @@ export class ModuleDepthAnalyzer {
 				continue;
 			}
 
-			for (const importName of module.imports) {
-				if (!visited.has(importName)) {
-					queue.push(importName);
+			for (const importedModule of module.imports) {
+				if (!visited.has(importedModule.id)) {
+					queue.push(importedModule.id);
 				}
 			}
 		}

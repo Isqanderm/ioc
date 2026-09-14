@@ -387,9 +387,10 @@ async function analyzeGraph(options: CliOptions): Promise<void> {
 	const analyzer = createNexusAnalyzer(program);
 	const application =
 		createNexusApplicationAnalyzer(analyzer).analyze(entryPoint);
-	const graphModel = buildNexusGraphModel(application, program);
+	const graphModel = buildNexusGraphModel(application);
 
-	const rootModuleName = graphModel.entryModuleName;
+	const rootModuleName =
+		graphModel.modules.get(graphModel.entryModuleId)?.name ?? "";
 	if (spinner) {
 		spinner.succeed(`Entry file parsed (root module: ${rootModuleName})`);
 	}

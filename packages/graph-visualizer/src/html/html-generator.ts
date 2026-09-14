@@ -1,4 +1,18 @@
-import type { GraphOutput } from "@nexus-ioc/graph-analyzer";
+import type {
+	GraphOutput,
+	ModuleReferenceInfo,
+} from "@nexus-ioc/graph-analyzer";
+
+/**
+ * Collision-free Cytoscape node-id component for a module reference —
+ * `path` (present on every `ModuleInfo.imports`/`exports` entry) disambiguates
+ * two modules that share a display `name` but live in different files. Mirrors
+ * the client-side `moduleNodeId()` baked into the generated HTML's inline
+ * script (see `generateHtmlTemplate()`) — keep both in sync.
+ */
+function moduleNodeId(ref: ModuleReferenceInfo): string {
+	return `${ref.name}@${ref.path ?? ""}`;
+}
 
 /**
  * Options for HTML generation
@@ -63,16 +77,20 @@ export class HtmlGenerator {
 		const nodes: unknown[] = [];
 		const edges: unknown[] = [];
 
-		// Create a set of existing module names for validation
+		// Create a set of existing module ids for validation. Ids (not
+		// `name`) so two modules sharing a display name in different files
+		// resolve to distinct nodes/edges — see `moduleNodeId()`.
 		const existingModules = new Set(
-			graphData.modules.map((module) => module.name),
+			graphData.modules.map((module) => moduleNodeId(module)),
 		);
 
 		// Add module nodes (these will be parent/compound nodes)
 		for (const module of graphData.modules) {
+			const moduleId = moduleNodeId(module);
+
 			nodes.push({
 				data: {
-					id: `module-${module.name}`,
+					id: `module-${moduleId}`,
 					label: module.name,
 					type: "module",
 					path: module.path,
@@ -86,13 +104,14 @@ export class HtmlGenerator {
 
 			// Add edges for module imports (only for modules that exist in the graph)
 			for (const importedModule of module.imports) {
+				const importedId = moduleNodeId(importedModule);
 				// Only create edge if the target module exists in the graph
-				if (existingModules.has(importedModule)) {
+				if (existingModules.has(importedId)) {
 					edges.push({
 						data: {
-							id: `edge-${module.name}-${importedModule}`,
-							source: `module-${module.name}`,
-							target: `module-${importedModule}`,
+							id: `edge-${moduleId}-${importedId}`,
+							source: `module-${moduleId}`,
+							target: `module-${importedId}`,
 							type: "import",
 						},
 						classes: ["import"],
@@ -101,24 +120,33 @@ export class HtmlGenerator {
 			}
 		}
 
-		// Create a map of provider tokens to their full node IDs for dependency resolution
+		// Map of bare provider token to full node ID, for dependency
+		// resolution. Keyed by `token` (not module-qualified) since
+		// `ProviderInfo.dependencies[].token` carries no module attribution
+		// — on a genuine token collision (two different provider classes
+		// named alike) the later provider wins; a known, accepted residual
+		// limitation (see `ProviderInfo.token`'s doc comment).
 		const providerMap = new Map<string, string>();
 		for (const provider of graphData.providers) {
-			const nodeId = `provider-${provider.module}-${provider.token}`;
+			const nodeId = `provider-${moduleNodeId(provider.module)}-${provider.token}`;
 			providerMap.set(provider.token, nodeId);
 		}
 
-		// Create a map of module names to their node IDs for export resolution
+		// Map of module id to node ID, for export resolution
 		const moduleMap = new Map<string, string>();
 		for (const module of graphData.modules) {
-			const nodeId = `module-${module.name}`;
-			moduleMap.set(module.name, nodeId);
+			const moduleId = moduleNodeId(module);
+			moduleMap.set(moduleId, `module-${moduleId}`);
 		}
 
 		// Add provider nodes as children of their parent modules
 		for (const provider of graphData.providers) {
-			const nodeId = `provider-${provider.module}-${provider.token}`;
+			const moduleId = moduleNodeId(provider.module);
+			const nodeId = `provider-${moduleId}-${provider.token}`;
+			const hasUndeclaredDependencies =
+				(provider.undeclaredDependencies?.length ?? 0) > 0;
 			const classes = ["provider", provider.type.toLowerCase()];
+			if (hasUndeclaredDependencies) classes.push("missing-decorator");
 
 			nodes.push({
 				data: {
@@ -129,9 +157,11 @@ export class HtmlGenerator {
 					module: provider.module,
 					scope: provider.scope,
 					dependencies: provider.dependencies,
+					undeclaredDependencies: provider.undeclaredDependencies ?? [],
+					hasMissingDecorators: hasUndeclaredDependencies,
 					useClass: provider.useClass,
 					// Set parent to create compound node structure
-					parent: `module-${provider.module}`,
+					parent: `module-${moduleId}`,
 				},
 				classes,
 			});
@@ -169,8 +199,8 @@ export class HtmlGenerator {
 		});
 
 		const moduleMapObject: Record<string, string> = {};
-		moduleMap.forEach((nodeId, name) => {
-			moduleMapObject[name] = nodeId;
+		moduleMap.forEach((nodeId, id) => {
+			moduleMapObject[id] = nodeId;
 		});
 
 		return {
@@ -614,6 +644,11 @@ export class HtmlGenerator {
         const graphData = ${JSON.stringify({ nodes: cytoscapeData.nodes, edges: cytoscapeData.edges }, null, 2)};
         const providerMap = ${JSON.stringify(cytoscapeData.providerMap, null, 2)};
         const moduleMap = ${JSON.stringify(cytoscapeData.moduleMap, null, 2)};
+
+        // Mirrors the server-side moduleNodeId() in html-generator.ts — keep in sync.
+        function moduleNodeId(ref) {
+            return ref.name + '@' + (ref.path || '');
+        }
 
         // Initialize Cytoscape
         const cy = cytoscape({
@@ -1195,11 +1230,11 @@ export class HtmlGenerator {
                         <label>Imports (\${data.imports.length})</label>
                         <ul class="dependency-list">
                             \${data.imports.map(imp => {
-                                const nodeId = 'module-' + imp;
+                                const nodeId = 'module-' + moduleNodeId(imp);
                                 const exists = cy.getElementById(nodeId).length > 0;
                                 return exists
-                                    ? '<li><a href="#" class="node-link" data-node-id="' + nodeId + '">' + imp + '</a></li>'
-                                    : '<li>' + imp + '</li>';
+                                    ? '<li><a href="#" class="node-link" data-node-id="' + nodeId + '">' + imp.name + '</a></li>'
+                                    : '<li>' + imp.name + '</li>';
                             }).join('')}
                         </ul>
                     </div>
@@ -1221,12 +1256,14 @@ export class HtmlGenerator {
                             <label>Exports (\${data.exports.length})</label>
                             <ul class="dependency-list">
                                 \${data.exports.map(exp => {
-                                    // Check if export is a provider or a module
-                                    let nodeId = providerMap[exp] || moduleMap[exp];
+                                    // Check if export is a module (resolved via its
+                                    // collision-free id) or a bare provider token
+                                    // (residual ambiguity on a token collision).
+                                    let nodeId = moduleMap[moduleNodeId(exp)] || providerMap[exp.name];
                                     const exists = nodeId && cy.getElementById(nodeId).length > 0;
                                     return exists
-                                        ? '<li><a href="#" class="node-link" data-node-id="' + nodeId + '">' + exp + '</a></li>'
-                                        : '<li>' + exp + '</li>';
+                                        ? '<li><a href="#" class="node-link" data-node-id="' + nodeId + '">' + exp.name + '</a></li>'
+                                        : '<li>' + exp.name + '</li>';
                                 }).join('')}
                             </ul>
                         </div>
@@ -1249,11 +1286,11 @@ export class HtmlGenerator {
                         <label>Module</label>
                         <div class="value">
                             \${(() => {
-                                const nodeId = 'module-' + data.module;
+                                const nodeId = 'module-' + moduleNodeId(data.module);
                                 const exists = cy.getElementById(nodeId).length > 0;
                                 return exists
-                                    ? '<a href="#" class="node-link" data-node-id="' + nodeId + '"><code>' + data.module + '</code></a>'
-                                    : '<code>' + data.module + '</code>';
+                                    ? '<a href="#" class="node-link" data-node-id="' + nodeId + '"><code>' + data.module.name + '</code></a>'
+                                    : '<code>' + data.module.name + '</code>';
                             })()}
                         </div>
                     </div>
@@ -1283,9 +1320,10 @@ export class HtmlGenerator {
                     \` : ''}
                     \${data.hasMissingDecorators ? \`
                         <div class="info-item" style="background: #ffebee; padding: 0.75rem; border-left: 3px solid #f44336; margin-bottom: 1rem;">
-                            <label style="color: #c62828; font-weight: bold;">⚠️ Missing @Inject Decorators</label>
+                            <label style="color: #c62828; font-weight: bold;">⚠️ Possibly Missing @Inject Decorators</label>
                             <div class="value" style="color: #c62828; font-size: 0.875rem;">
-                                Some dependencies are missing explicit @Inject decorators. This may cause runtime errors.
+                                Some constructor parameters/properties are typed like dependencies but have no
+                                explicit @Inject decorator, so they are not actually wired up. See the list below.
                             </div>
                         </div>
                     \` : ''}
@@ -1301,10 +1339,20 @@ export class HtmlGenerator {
                                     const link = exists
                                         ? '<a href="#" class="node-link" data-node-id="' + nodeId + '">' + token + '</a>'
                                         : token;
-                                    const warning = dep.hasExplicitDecorator === false
-                                        ? ' <span style="color: #f44336; font-weight: bold;">⚠️ Missing @Inject</span>'
+                                    return '<li>' + link + (dep.optional ? ' <em>(optional)</em>' : '') + '</li>';
+                                }).join('')}
+                            </ul>
+                        </div>
+                    \` : ''}
+                    \${data.undeclaredDependencies && data.undeclaredDependencies.length > 0 ? \`
+                        <div class="info-item">
+                            <label style="color: #c62828;">Possibly Missing @Inject (\${data.undeclaredDependencies.length})</label>
+                            <ul class="dependency-list">
+                                \${data.undeclaredDependencies.map(dep => {
+                                    const confidence = dep.isInferredTypeInjectable
+                                        ? ' <em>(target is @Injectable)</em>'
                                         : '';
-                                    return '<li>' + link + (dep.optional ? ' <em>(optional)</em>' : '') + warning + '</li>';
+                                    return '<li>' + dep.name + ': <code>' + dep.token + '</code>' + confidence + '</li>';
                                 }).join('')}
                             </ul>
                         </div>

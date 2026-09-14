@@ -62,11 +62,11 @@ export class UnusedProviderDetector {
 	analyze(): UnusedProviderAnalysis {
 		const unusedProviders: UnusedProvider[] = [];
 
-		// Build a set of all injected provider tokens
-		const injectedTokens = this.buildInjectedTokensSet();
+		// Build a set of all injected provider ids
+		const injectedIds = this.buildInjectedIdsSet();
 
-		// Build a set of all exported provider tokens
-		const exportedTokens = this.buildExportedTokensSet();
+		// Build a set of all exported provider/module ids
+		const exportedIds = this.buildExportedIdsSet();
 
 		// Check each module for unused providers
 		for (const module of this.graphModel.modules.values()) {
@@ -75,10 +75,11 @@ export class UnusedProviderDetector {
 				const token = provider.token;
 
 				// Skip if the provider is injected somewhere
-				if (injectedTokens.has(token)) continue;
+				if (injectedIds.has(provider.id)) continue;
 
 				// Skip if the provider is exported (it may be used externally)
-				if (exportedTokens.has(token)) continue;
+				const isExported = exportedIds.has(provider.id);
+				if (isExported) continue;
 
 				// Skip if the module is global (providers may be used across the app)
 				if (module.isGlobal) continue;
@@ -87,7 +88,7 @@ export class UnusedProviderDetector {
 				const suggestions = this.generateSuggestions(
 					token,
 					module.name,
-					exportedTokens.has(token),
+					isExported,
 					module.isGlobal,
 				);
 
@@ -110,38 +111,41 @@ export class UnusedProviderDetector {
 	}
 
 	/**
-	 * Build a set of all provider tokens that are injected as dependencies
+	 * Build a set of all provider ids that are injected as dependencies.
+	 * Keyed by `GraphProviderDependency.tokenId` (collision-free), not the
+	 * rendered `token` — two different provider classes named alike must
+	 * not collapse into one set entry.
 	 */
-	private buildInjectedTokensSet(): Set<string> {
-		const injectedTokens = new Set<string>();
+	private buildInjectedIdsSet(): Set<string> {
+		const injectedIds = new Set<string>();
 
 		for (const module of this.graphModel.modules.values()) {
 			for (const provider of module.providers) {
 				for (const dependency of provider.dependencies) {
 					// Skip optional dependencies as they may not be required
-					if (!dependency.optional) {
-						injectedTokens.add(dependency.token);
+					if (!dependency.optional && dependency.tokenId) {
+						injectedIds.add(dependency.tokenId);
 					}
 				}
 			}
 		}
 
-		return injectedTokens;
+		return injectedIds;
 	}
 
 	/**
-	 * Build a set of all provider tokens that are exported from modules
+	 * Build a set of all provider/module ids that are exported from modules
 	 */
-	private buildExportedTokensSet(): Set<string> {
-		const exportedTokens = new Set<string>();
+	private buildExportedIdsSet(): Set<string> {
+		const exportedIds = new Set<string>();
 
 		for (const module of this.graphModel.modules.values()) {
-			for (const exportedToken of module.exports) {
-				exportedTokens.add(exportedToken);
+			for (const exportedEntry of module.exports) {
+				exportedIds.add(exportedEntry.id);
 			}
 		}
 
-		return exportedTokens;
+		return exportedIds;
 	}
 
 	/**

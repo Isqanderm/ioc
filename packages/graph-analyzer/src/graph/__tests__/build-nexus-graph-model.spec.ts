@@ -123,26 +123,38 @@ export class DatabaseModule {}
 		const application =
 			createNexusApplicationAnalyzer(analyzer).analyze(entryPoint);
 
-		const graphModel = buildNexusGraphModel(application, program);
+		const graphModel = buildNexusGraphModel(application);
 
-		expect(graphModel.entryModuleName).toBe("AppModule");
-		expect([...graphModel.modules.keys()].sort()).toEqual([
-			"AppModule",
-			"DatabaseModule",
+		const appModule = graphModel.modules.get(graphModel.entryModuleId);
+		expect(appModule?.name).toBe("AppModule");
+		expect(
+			[...graphModel.modules.values()].map((module) => module.name).sort(),
+		).toEqual(["AppModule", "DatabaseModule"]);
+
+		const databaseModule = [...graphModel.modules.values()].find(
+			(module) => module.name === "DatabaseModule",
+		);
+		expect(databaseModule).toBeDefined();
+		expect(appModule?.imports).toEqual([
+			{
+				id: databaseModule?.id,
+				name: "DatabaseModule",
+				path: "/app/database.module.ts",
+			},
 		]);
 
-		const appModule = graphModel.modules.get("AppModule");
-		expect(appModule?.imports).toEqual(["DatabaseModule"]);
-
-		const databaseModule = graphModel.modules.get("DatabaseModule");
-		expect(databaseModule?.exports).toEqual(["DATABASE"]);
+		expect(databaseModule?.exports).toEqual([
+			{ id: "string:DATABASE", name: "DATABASE", path: undefined },
+		]);
 		expect(databaseModule?.providers).toEqual([
 			{
 				token: "DATABASE",
+				id: "string:DATABASE",
 				type: "UseValue",
 				scope: undefined,
 				useClass: undefined,
 				dependencies: [],
+				undeclaredDependencies: [],
 			},
 		]);
 	});
@@ -189,7 +201,7 @@ NexusApplicationsServer.create(AppModule).bootstrap();
 		const application =
 			createNexusApplicationAnalyzer(analyzer).analyze(entryPoint);
 
-		const graphModel = buildNexusGraphModel(application, program);
+		const graphModel = buildNexusGraphModel(application);
 
 		// Neither type-checker (factory-cycles only) nor the old graph-analyzer
 		// AST parser covered constructor-injection cycles built from

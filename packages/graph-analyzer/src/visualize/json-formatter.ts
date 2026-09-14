@@ -4,6 +4,7 @@ import { ProviderScopeAnalyzer } from "../analyzer/provider-scope-analyzer";
 import { UnusedProviderDetector } from "../analyzer/unused-provider-detector";
 import type {
 	GraphModuleNode,
+	GraphModuleReference,
 	GraphProviderNode,
 	NexusGraphModel,
 } from "../graph/nexus-graph-model";
@@ -11,6 +12,7 @@ import type {
 	GraphMetadata,
 	GraphOutput,
 	ModuleInfo,
+	ModuleReferenceInfo,
 	ProviderInfo,
 } from "../interfaces/graph-output.interface";
 
@@ -87,7 +89,7 @@ export class JsonFormatter {
 	 */
 	format(): GraphOutput {
 		const entryModule = this.graphModel.modules.get(
-			this.graphModel.entryModuleName,
+			this.graphModel.entryModuleId,
 		);
 
 		if (!entryModule) {
@@ -97,17 +99,17 @@ export class JsonFormatter {
 		const modules: ModuleInfo[] = [];
 		const providers: ProviderInfo[] = [];
 		const visitedModules = new Set<string>();
-		const modulesToVisit = [entryModule.name];
+		const modulesToVisit = [entryModule.id];
 
 		// Traverse all modules
 		while (modulesToVisit.length > 0) {
-			const moduleName = modulesToVisit.shift();
-			if (!moduleName || visitedModules.has(moduleName)) {
+			const moduleId = modulesToVisit.shift();
+			if (!moduleId || visitedModules.has(moduleId)) {
 				continue;
 			}
 
-			visitedModules.add(moduleName);
-			const module = this.graphModel.modules.get(moduleName);
+			visitedModules.add(moduleId);
+			const module = this.graphModel.modules.get(moduleId);
 
 			if (!module) {
 				continue;
@@ -118,11 +120,11 @@ export class JsonFormatter {
 
 			// Add provider info
 			for (const provider of module.providers) {
-				providers.push(this.formatProvider(provider, moduleName));
+				providers.push(this.formatProvider(provider, module));
 			}
 
 			// Queue imported modules
-			modulesToVisit.push(...module.imports);
+			modulesToVisit.push(...module.imports.map((entry) => entry.id));
 		}
 
 		// Create metadata
@@ -220,8 +222,8 @@ export class JsonFormatter {
 		return {
 			name: module.name,
 			path: module.path,
-			imports: module.imports,
-			exports: module.exports,
+			imports: module.imports.map(toModuleReferenceInfo),
+			exports: module.exports.map(toModuleReferenceInfo),
 			providers: module.providers.map((provider) => provider.token),
 			isGlobal: module.isGlobal,
 		};
@@ -232,13 +234,16 @@ export class JsonFormatter {
 	 */
 	private formatProvider(
 		provider: GraphProviderNode,
-		moduleName: string,
+		module: GraphModuleNode,
 	): ProviderInfo {
 		const providerInfo: ProviderInfo = {
 			token: provider.token,
 			type: provider.type,
-			module: moduleName,
-			dependencies: provider.dependencies,
+			module: { name: module.name, path: module.path },
+			dependencies: provider.dependencies.map(({ token, optional }) => ({
+				token,
+				optional,
+			})),
 		};
 
 		if (provider.scope) {
@@ -250,6 +255,10 @@ export class JsonFormatter {
 
 		if (provider.type === "UseClass" && provider.useClass) {
 			providerInfo.useClass = provider.useClass;
+		}
+
+		if (provider.undeclaredDependencies.length > 0) {
+			providerInfo.undeclaredDependencies = provider.undeclaredDependencies;
 		}
 
 		return providerInfo;
@@ -281,4 +290,10 @@ export class JsonFormatter {
 	formatAsString(indent = 2): string {
 		return JSON.stringify(this.format(), null, indent);
 	}
+}
+
+function toModuleReferenceInfo(
+	entry: GraphModuleReference,
+): ModuleReferenceInfo {
+	return { name: entry.name, path: entry.path };
 }

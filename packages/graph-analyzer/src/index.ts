@@ -24,7 +24,7 @@
  * const entryPoint = findApplicationEntryPoint(program, 'src/main.ts')!;
  * const analyzer = createNexusAnalyzer(program);
  * const application = createNexusApplicationAnalyzer(analyzer).analyze(entryPoint);
- * const graphModel = buildNexusGraphModel(application, program);
+ * const graphModel = buildNexusGraphModel(application);
  *
  * const output = new JsonFormatter(graphModel, 'src/main.ts', true).format();
  * ```
@@ -58,16 +58,20 @@ export {
 export { buildNexusGraphModel } from "./graph/build-nexus-graph-model";
 export type {
 	GraphModuleNode,
+	GraphModuleReference,
 	GraphProviderDependency,
 	GraphProviderNode,
+	GraphUndeclaredDependency,
 	NexusGraphModel,
 } from "./graph/nexus-graph-model";
 // Interface exports
 export type {
+	DependencyInfo,
 	GraphAnalysis,
 	GraphMetadata,
 	GraphOutput,
 	ModuleInfo,
+	ModuleReferenceInfo,
 	ProviderInfo,
 } from "./interfaces/graph-output.interface";
 // Report output (data only — no rendering; see @nexus-ioc/graph-visualizer for PNG/HTML)

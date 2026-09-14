@@ -51,6 +51,9 @@ export interface CircularDependencyAnalysis {
  * ```
  */
 export class CircularDependencyDetector {
+	/** `provider.id -> provider.token`, populated by `buildProviderDependencyMap()`. */
+	private readonly providerLabels = new Map<string, string>();
+
 	/**
 	 * Create a new CircularDependencyDetector instance
 	 *
@@ -98,63 +101,71 @@ export class CircularDependencyDetector {
 		const recursionStack = new Set<string>();
 		const path: string[] = [];
 
-		const entryModuleName = this.graphModel.entryModuleName;
-		if (!entryModuleName) {
+		const entryModuleId = this.graphModel.entryModuleId;
+		if (!entryModuleId) {
 			return cycles;
 		}
 
 		// Start DFS from entry module
-		this.dfsModules(entryModuleName, visited, recursionStack, path, cycles);
+		this.dfsModules(entryModuleId, visited, recursionStack, path, cycles);
 
 		return cycles;
 	}
 
 	/**
-	 * Depth-first search for module circular dependencies
+	 * Depth-first search for module circular dependencies. Traverses by
+	 * `GraphModuleNode.id` (collision-free); `cyclePath`/`path` are built
+	 * from ids and translated to display names only when a cycle is reported.
 	 */
 	private dfsModules(
-		moduleName: string,
+		moduleId: string,
 		visited: Set<string>,
 		recursionStack: Set<string>,
 		path: string[],
 		cycles: CircularDependency[],
 	): void {
 		// Mark current node as visited and add to recursion stack
-		visited.add(moduleName);
-		recursionStack.add(moduleName);
-		path.push(moduleName);
+		visited.add(moduleId);
+		recursionStack.add(moduleId);
+		path.push(moduleId);
 
-		const module = this.graphModel.modules.get(moduleName);
+		const module = this.graphModel.modules.get(moduleId);
 		if (!module) {
 			// Clean up and return
-			recursionStack.delete(moduleName);
+			recursionStack.delete(moduleId);
 			path.pop();
 			return;
 		}
 
 		// Visit all imported modules
 		for (const importedModule of module.imports) {
-			if (!visited.has(importedModule)) {
+			const importedId = importedModule.id;
+			if (!visited.has(importedId)) {
 				// Recursively visit unvisited module
-				this.dfsModules(importedModule, visited, recursionStack, path, cycles);
-			} else if (recursionStack.has(importedModule)) {
+				this.dfsModules(importedId, visited, recursionStack, path, cycles);
+			} else if (recursionStack.has(importedId)) {
 				// Found a cycle - extract the cycle path
-				const cycleStartIndex = path.indexOf(importedModule);
+				const cycleStartIndex = path.indexOf(importedId);
 				const cyclePath = path.slice(cycleStartIndex);
-				cyclePath.push(importedModule); // Complete the cycle
+				cyclePath.push(importedId); // Complete the cycle
+				const cycleLabels = cyclePath.map((id) => this.moduleLabel(id));
 
 				cycles.push({
 					type: "module",
-					cycle: cyclePath,
+					cycle: cycleLabels,
 					severity: "error",
-					message: `Circular module import detected: ${cyclePath.join(" -> ")}`,
+					message: `Circular module import detected: ${cycleLabels.join(" -> ")}`,
 				});
 			}
 		}
 
 		// Remove from recursion stack and path
-		recursionStack.delete(moduleName);
+		recursionStack.delete(moduleId);
 		path.pop();
+	}
+
+	private moduleLabel(moduleId: string): string {
+		return this.graphModel.modules.get(moduleId)?.name ?? moduleId;
 	}
 
 	/**
@@ -175,10 +186,10 @@ export class CircularDependencyDetector {
 		const providerDeps = this.buildProviderDependencyMap();
 
 		// Run DFS from each provider
-		for (const providerToken of providerDeps.keys()) {
-			if (!visited.has(providerToken)) {
+		for (const providerId of providerDeps.keys()) {
+			if (!visited.has(providerId)) {
 				this.dfsProviders(
-					providerToken,
+					providerId,
 					providerDeps,
 					visited,
 					recursionStack,
@@ -192,30 +203,39 @@ export class CircularDependencyDetector {
 	}
 
 	/**
-	 * Build a map of provider tokens to their dependencies, across every
-	 * module in the graph.
+	 * Build a map of provider ids to their dependency ids and a map of
+	 * provider ids to display tokens, across every module in the graph.
+	 * Keyed by `GraphProviderNode.id`/`GraphProviderDependency.tokenId`
+	 * (collision-free), not the rendered `token` — two different provider
+	 * classes named alike must not collapse into one map entry.
 	 */
 	private buildProviderDependencyMap(): Map<string, string[]> {
 		const providerDeps = new Map<string, string[]>();
+		this.providerLabels.clear();
 
 		for (const module of this.graphModel.modules.values()) {
 			for (const provider of module.providers) {
 				const dependencies = provider.dependencies
-					.filter((dependency) => !dependency.optional)
-					.map((dependency) => dependency.token);
+					.filter((dependency) => !dependency.optional && dependency.tokenId)
+					.map((dependency) => dependency.tokenId as string);
 
-				providerDeps.set(provider.token, dependencies);
+				providerDeps.set(provider.id, dependencies);
+				this.providerLabels.set(provider.id, provider.token);
 			}
 		}
 
 		return providerDeps;
 	}
 
+	private providerLabel(providerId: string): string {
+		return this.providerLabels.get(providerId) ?? providerId;
+	}
+
 	/**
 	 * Depth-first search for provider circular dependencies
 	 */
 	private dfsProviders(
-		providerToken: string,
+		providerId: string,
 		providerDeps: Map<string, string[]>,
 		visited: Set<string>,
 		recursionStack: Set<string>,
@@ -223,46 +243,47 @@ export class CircularDependencyDetector {
 		cycles: CircularDependency[],
 	): void {
 		// Mark current node as visited and add to recursion stack
-		visited.add(providerToken);
-		recursionStack.add(providerToken);
-		path.push(providerToken);
+		visited.add(providerId);
+		recursionStack.add(providerId);
+		path.push(providerId);
 
-		const dependencies = providerDeps.get(providerToken) || [];
+		const dependencies = providerDeps.get(providerId) || [];
 
 		// Visit all dependencies
-		for (const depToken of dependencies) {
-			if (!providerDeps.has(depToken)) {
+		for (const depId of dependencies) {
+			if (!providerDeps.has(depId)) {
 				// Dependency is not a provider (might be external), skip
 				continue;
 			}
 
-			if (!visited.has(depToken)) {
+			if (!visited.has(depId)) {
 				// Recursively visit unvisited dependency
 				this.dfsProviders(
-					depToken,
+					depId,
 					providerDeps,
 					visited,
 					recursionStack,
 					path,
 					cycles,
 				);
-			} else if (recursionStack.has(depToken)) {
+			} else if (recursionStack.has(depId)) {
 				// Found a cycle - extract the cycle path
-				const cycleStartIndex = path.indexOf(depToken);
+				const cycleStartIndex = path.indexOf(depId);
 				const cyclePath = path.slice(cycleStartIndex);
-				cyclePath.push(depToken); // Complete the cycle
+				cyclePath.push(depId); // Complete the cycle
+				const cycleLabels = cyclePath.map((id) => this.providerLabel(id));
 
 				cycles.push({
 					type: "provider",
-					cycle: cyclePath,
+					cycle: cycleLabels,
 					severity: "error",
-					message: `Circular provider dependency detected: ${cyclePath.join(" -> ")}`,
+					message: `Circular provider dependency detected: ${cycleLabels.join(" -> ")}`,
 				});
 			}
 		}
 
 		// Remove from recursion stack and path
-		recursionStack.delete(providerToken);
+		recursionStack.delete(providerId);
 		path.pop();
 	}
 }
