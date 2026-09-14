@@ -419,4 +419,96 @@ describe("NexusApplicationAnalyzer", () => {
 			}
 		}
 	});
+
+	it("gives classes with the same name in different files distinct ids", () => {
+		const files = new Map<string, string>([
+			[
+				"/app/app.module.ts",
+				`import { NsModule as Module } from "@nexus-ioc/core";
+import { SharedModule as AlphaModule } from "../alpha/shared.module";
+import { SharedModule as BetaModule } from "../beta/shared.module";
+
+@Module({ imports: [AlphaModule, BetaModule] })
+export class AppModule {}
+`,
+			],
+			[
+				"/alpha/shared.module.ts",
+				`import { NsModule as Module } from "@nexus-ioc/core";
+
+@Module({})
+export class SharedModule {}
+`,
+			],
+			[
+				"/beta/shared.module.ts",
+				`import { NsModule as Module } from "@nexus-ioc/core";
+
+@Module({})
+export class SharedModule {}
+`,
+			],
+		]);
+
+		const { program, entryPoint } = createProgram(
+			"/app/app.module.ts",
+			"AppModule",
+			files,
+		);
+		const analyzer = createNexusAnalyzer(program);
+		const applicationAnalyzer = createNexusApplicationAnalyzer(analyzer);
+
+		const application = applicationAnalyzer.analyze(entryPoint);
+		const sharedModules = application.classes.filter(
+			(item) => item.name === "SharedModule",
+		);
+
+		expect(sharedModules).toHaveLength(2);
+		expect(new Set(sharedModules.map((item) => item.id)).size).toBe(2);
+		expect(sharedModules.map((item) => item.source.fileName).sort()).toEqual([
+			"/alpha/shared.module.ts",
+			"/beta/shared.module.ts",
+		]);
+	});
+
+	it("resolves an aliased reference token to the same id as the class it points at", () => {
+		const { program, entryPoint } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+		const applicationAnalyzer = createNexusApplicationAnalyzer(analyzer);
+
+		const application = applicationAnalyzer.analyze(entryPoint);
+		const serviceA = application.classes.find(
+			(item) => item.name === "ServiceA",
+		);
+		const sharedService = application.classes.find(
+			(item) => item.name === "SharedService",
+		);
+		const sharedDependency = serviceA?.dependencies[0];
+
+		if (sharedDependency?.token?.kind !== "reference" || !sharedService) {
+			throw new Error("Expected a resolved reference to SharedService");
+		}
+
+		expect(sharedDependency.token.id).toBe(sharedService.id);
+	});
+
+	it("keeps ids deterministic across separately analyzed programs", () => {
+		const firstProgram = createProgram();
+		const firstAnalyzer = createNexusApplicationAnalyzer(
+			createNexusAnalyzer(firstProgram.program),
+		);
+		const first = firstAnalyzer
+			.analyze(firstProgram.entryPoint)
+			.classes.map((item) => item.id);
+
+		const secondProgram = createProgram();
+		const secondAnalyzer = createNexusApplicationAnalyzer(
+			createNexusAnalyzer(secondProgram.program),
+		);
+		const second = secondAnalyzer
+			.analyze(secondProgram.entryPoint)
+			.classes.map((item) => item.id);
+
+		expect(first).toEqual(second);
+	});
 });

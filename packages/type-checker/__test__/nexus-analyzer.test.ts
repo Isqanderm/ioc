@@ -107,6 +107,23 @@ class ForeignServiceClass {}
 class ForeignInjected {
   constructor(@ForeignInject(DependencyA) dependency: DependencyA) {}
 }
+
+@Service()
+class InjectableCandidate {}
+
+class PlainCandidate {}
+
+@Service()
+class ServiceWithUndeclaredDependency {
+  constructor(
+    @Dependency(DependencyA) declared: DependencyA,
+    injectable: InjectableCandidate,
+    plain: PlainCandidate,
+    primitive: string,
+  ) {}
+
+  plainProperty!: PlainCandidate;
+}
 `;
 
 const FOREIGN = `
@@ -624,5 +641,83 @@ describe("NexusAnalyzer", () => {
 		);
 
 		expect(providers).toEqual([]);
+	});
+
+	it("assigns a stable file:line:col id to a class", () => {
+		const { program, sourceFile } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+		const node = getClass(sourceFile, "ServiceA");
+
+		const service = analyzer.getClass(node);
+		const { line, character } = ts.getLineAndCharacterOfPosition(
+			sourceFile,
+			node.getStart(),
+		);
+
+		expect(service.id).toBe(
+			`${sourceFile.fileName}:${line + 1}:${character + 1}`,
+		);
+	});
+
+	it("gives different classes in the same file different ids", () => {
+		const { program, sourceFile } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+
+		const service = analyzer.getClass(getClass(sourceFile, "ServiceA"));
+		const appModule = analyzer.getClass(getClass(sourceFile, "AppModule"));
+
+		expect(service.id).not.toBe(appModule.id);
+	});
+
+	it("flags typed constructor parameters and properties without @Inject as undeclared dependencies", () => {
+		const { program, sourceFile } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+
+		const service = analyzer.getClass(
+			getClass(sourceFile, "ServiceWithUndeclaredDependency"),
+		);
+
+		expect(service.dependencies).toHaveLength(1);
+		expect(service.dependencies[0]).toMatchObject({
+			name: "declared",
+			index: 0,
+		});
+
+		const [injectable, plainParameter, plainProperty] =
+			service.undeclaredDependencies;
+
+		expect(injectable).toMatchObject({
+			location: "constructor",
+			name: "injectable",
+			index: 1,
+			isInferredTypeInjectable: true,
+		});
+		if (injectable.inferredType.kind !== "reference") {
+			throw new Error(
+				"Expected InjectableCandidate to resolve to a reference token",
+			);
+		}
+		expect(injectable.inferredType.symbol.getName()).toBe(
+			"InjectableCandidate",
+		);
+
+		expect(plainParameter).toMatchObject({
+			location: "constructor",
+			name: "plain",
+			index: 2,
+			isInferredTypeInjectable: false,
+		});
+
+		expect(plainProperty).toMatchObject({
+			location: "property",
+			name: "plainProperty",
+			isInferredTypeInjectable: false,
+		});
+		expect(plainProperty.index).toBeUndefined();
+
+		expect(
+			service.undeclaredDependencies.some((item) => item.name === "primitive"),
+		).toBe(false);
+		expect(service.undeclaredDependencies).toHaveLength(3);
 	});
 });

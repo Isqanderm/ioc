@@ -10,6 +10,7 @@ import type {
 	NexusProvider,
 	NexusSourceSpan,
 	NexusToken,
+	NexusUndeclaredDependency,
 } from "./nexus-semantic-model";
 
 export type {
@@ -23,6 +24,7 @@ export type {
 	NexusProvider,
 	NexusSourceSpan,
 	NexusToken,
+	NexusUndeclaredDependency,
 } from "./nexus-semantic-model";
 
 /**
@@ -74,13 +76,15 @@ export class NexusAnalyzer {
 
 	public getClass(node: ts.ClassDeclaration): NexusClass {
 		const decorators = this.getDecorators(node);
-		const dependencies = this.getInjectedMembers(node);
+		const { dependencies, undeclaredDependencies } = this.getClassMembers(node);
 
 		return {
 			name: node.name?.text,
+			id: this.formatPosition(node),
 			source: this.getSourceSpan(node),
 			decorators,
 			dependencies,
+			undeclaredDependencies,
 			isInjectable: decorators.some((item) => item.kind === "Injectable"),
 			isModule: decorators.some(
 				(item) => item.kind === "NsModule" || item.kind === "Global",
@@ -117,43 +121,106 @@ export class NexusAnalyzer {
 		return this.getDecorators(node).some((item) => item.kind === kind);
 	}
 
+	/** @deprecated Use getClassMembers() instead. */
 	public getInjectedMembers(node: ts.ClassDeclaration): NexusDependency[] {
-		const result: NexusDependency[] = [];
+		return this.getClassMembers(node).dependencies;
+	}
+
+	/**
+	 * Splits a class's constructor parameters and properties into real
+	 * `@Inject`-ed dependencies and likely-missing-decorator diagnostics: a
+	 * member whose declared type resolves to a class but carries no
+	 * `@Inject` never becomes a dependency edge (the Nexus runtime container
+	 * only ever resolves explicit `@Inject`s), but is still surfaced via
+	 * `undeclaredDependencies` so tooling can warn about it.
+	 */
+	public getClassMembers(node: ts.ClassDeclaration): {
+		dependencies: NexusDependency[];
+		undeclaredDependencies: NexusUndeclaredDependency[];
+	} {
+		const dependencies: NexusDependency[] = [];
+		const undeclaredDependencies: NexusUndeclaredDependency[] = [];
+
 		const add = (
 			declaration: ts.ParameterDeclaration | ts.PropertyDeclaration,
 			location: "constructor" | "property",
+			index: number | undefined,
 		) => {
 			const inject = this.getDecorators(declaration).find(
 				(item) => item.kind === "Inject",
 			);
-			if (!inject) {
+
+			if (inject) {
+				const tokenExpression = this.getInjectTokenExpression(declaration);
+				if (!tokenExpression) return;
+
+				dependencies.push({
+					location,
+					name: declaration.name.getText(),
+					index,
+					token: this.resolveToken(tokenExpression),
+					optional: this.hasDecorator(declaration, "Optional"),
+					source: this.getSourceSpan(declaration),
+				});
 				return;
 			}
 
-			const tokenExpression = this.getInjectTokenExpression(declaration);
-			if (!tokenExpression) return;
+			const inferred = this.resolveUndeclaredDependencyType(declaration);
+			if (!inferred) return;
 
-			result.push({
+			undeclaredDependencies.push({
 				location,
 				name: declaration.name.getText(),
-				token: this.resolveToken(tokenExpression),
-				optional: this.hasDecorator(declaration, "Optional"),
+				index,
+				inferredType: inferred.token,
+				isInferredTypeInjectable: inferred.isInjectable,
 				source: this.getSourceSpan(declaration),
 			});
 		};
 
 		for (const member of node.members) {
 			if (ts.isConstructorDeclaration(member)) {
-				for (const parameter of member.parameters) {
-					add(parameter, "constructor");
-				}
+				member.parameters.forEach((parameter, index) => {
+					add(parameter, "constructor", index);
+				});
 			}
 			if (ts.isPropertyDeclaration(member)) {
-				add(member, "property");
+				add(member, "property", undefined);
 			}
 		}
 
-		return result;
+		return { dependencies, undeclaredDependencies };
+	}
+
+	/**
+	 * Resolves a `@Inject`-less parameter/property's type annotation to a
+	 * class declaration, for the `undeclaredDependencies` diagnostic. Only a
+	 * `TypeReferenceNode` resolving to an actual class counts — primitives,
+	 * `any`, and unresolvable generics are not diagnostic material.
+	 */
+	private resolveUndeclaredDependencyType(
+		declaration: ts.ParameterDeclaration | ts.PropertyDeclaration,
+	): { token: NexusToken; isInjectable: boolean } | undefined {
+		if (!declaration.type || !ts.isTypeReferenceNode(declaration.type)) {
+			return undefined;
+		}
+
+		const type = this.checker.getTypeAtLocation(declaration);
+		const symbol = this.resolveAlias(type.getSymbol());
+		const classDeclaration = symbol?.declarations?.find(
+			(item): item is ts.ClassDeclaration => ts.isClassDeclaration(item),
+		);
+		if (!symbol || !classDeclaration) return undefined;
+
+		return {
+			token: this.buildReferenceToken(
+				symbol,
+				this.getSourceSpan(declaration.type),
+			),
+			isInjectable: this.getDecorators(classDeclaration).some(
+				(item) => item.kind === "Injectable" || item.kind === "NsModule",
+			),
+		};
 	}
 
 	public getModuleProviders(node: ts.ClassDeclaration): NexusProvider[] {
@@ -227,11 +294,7 @@ export class NexusAnalyzer {
 				moduleType.getSymbol() ??
 				this.resolveIntersectionClassSymbol(moduleType);
 			if (symbol) {
-				return {
-					kind: "reference",
-					symbol: this.resolveAlias(symbol) ?? symbol,
-					source: this.getSourceSpan(expression),
-				};
+				return this.buildReferenceToken(symbol, this.getSourceSpan(expression));
 			}
 		}
 
@@ -472,25 +535,59 @@ export class NexusAnalyzer {
 		const type = this.checker.getTypeAtLocation(expression);
 
 		if ((type.getFlags() & ts.TypeFlags.ESSymbolLike) !== 0) {
+			const resolved = this.resolveAlias(symbol);
 			return {
 				kind: "symbol",
-				declaration: this.resolveAlias(symbol),
+				declaration: resolved,
+				id: resolved ? this.resolveSymbolId(resolved) : undefined,
 				source,
 			};
 		}
 
 		if (symbol) {
-			return {
-				kind: "reference",
-				symbol: this.resolveAlias(symbol) ?? symbol,
-				source,
-			};
+			return this.buildReferenceToken(symbol, source);
 		}
 
 		return {
 			kind: "expression",
 			source,
 		};
+	}
+
+	private buildReferenceToken(
+		symbol: ts.Symbol,
+		source: NexusSourceSpan,
+	): NexusToken {
+		const resolved = this.resolveAlias(symbol) ?? symbol;
+		return {
+			kind: "reference",
+			symbol: resolved,
+			id: this.resolveSymbolId(resolved),
+			source,
+		};
+	}
+
+	/** Stable `file:line:col` identity of `symbol`'s own declaration site —
+	 * not the site it was referenced from. Two references to the same
+	 * declaration (however imported/aliased/re-exported) resolve to the same
+	 * id, since `resolveAlias` has already collapsed `symbol` to its
+	 * canonical form by the time this runs. Falls back to a name-based id
+	 * for the rare symbol with no declaration at all (e.g. some ambient/
+	 * global symbols). */
+	private resolveSymbolId(symbol: ts.Symbol): string {
+		const declaration = symbol.valueDeclaration ?? symbol.declarations?.[0];
+		return declaration
+			? this.formatPosition(declaration)
+			: `unresolved:${symbol.getName()}`;
+	}
+
+	private formatPosition(node: ts.Node): string {
+		const sourceFile = node.getSourceFile();
+		const { line, character } = ts.getLineAndCharacterOfPosition(
+			sourceFile,
+			node.getStart(),
+		);
+		return `${sourceFile.fileName}:${line + 1}:${character + 1}`;
 	}
 
 	private getSourceSpan(node: ts.Node): NexusSourceSpan {
