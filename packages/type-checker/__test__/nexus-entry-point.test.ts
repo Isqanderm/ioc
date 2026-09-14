@@ -76,7 +76,7 @@ describe("findApplicationEntryPoint", () => {
 		const files = new Map<string, string>([
 			[
 				"/app/main.ts",
-				`import { NsModule as Module } from "@nexus-ioc/core";
+				`import { Module } from "@nexus-ioc/core";
 import { NexusApplicationsServer } from "./server";
 
 @Module({})
@@ -107,7 +107,7 @@ NexusApplicationsServer.create(AppModule).bootstrap();
 		const files = new Map<string, string>([
 			[
 				"/app/main.ts",
-				`import { NsModule as Module } from "@nexus-ioc/core";
+				`import { Module } from "@nexus-ioc/core";
 import { AppModule as RootModule } from "./app.module";
 import { NexusApplicationsServer } from "./server";
 
@@ -116,7 +116,7 @@ NexusApplicationsServer.create(RootModule).bootstrap();
 			],
 			[
 				"/app/app.module.ts",
-				`import { NsModule as Module } from "@nexus-ioc/core";
+				`import { Module } from "@nexus-ioc/core";
 
 @Module({})
 export class AppModule {}
@@ -144,7 +144,7 @@ export class AppModule {}
 		const files = new Map<string, string>([
 			[
 				"/app/main.ts",
-				`import { NsModule as Module } from "@nexus-ioc/core";
+				`import { Module } from "@nexus-ioc/core";
 
 @Module({})
 export class AppModule {}
@@ -160,7 +160,7 @@ export class AppModule {}
 		const files = new Map<string, string>([
 			[
 				"/app/main.ts",
-				`import { NsModule as Module } from "@nexus-ioc/core";
+				`import { Module } from "@nexus-ioc/core";
 import { NexusApplicationsServer } from "./server";
 
 @Module({})
@@ -195,7 +195,7 @@ bootstrap();
 		const files = new Map<string, string>([
 			[
 				"/app/main.ts",
-				`import { Injectable as Service, Inject as Dependency, NsModule as Module } from "@nexus-ioc/core";
+				`import { Injectable as Service, Inject as Dependency, Module } from "@nexus-ioc/core";
 import { NexusApplicationsServer } from "./server";
 
 @Service()
@@ -234,7 +234,7 @@ NexusApplicationsServer.create(AppModule).bootstrap();
 		const files = new Map<string, string>([
 			[
 				"/app/main.ts",
-				`import { NsModule as Module } from "@nexus-ioc/core";
+				`import { Module } from "@nexus-ioc/core";
 import { NexusApplicationsServer } from "./server";
 
 @Module({})

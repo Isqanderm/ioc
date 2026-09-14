@@ -9,7 +9,7 @@ import {
   Global as NexusGlobal,
   Inject as Dependency,
   Injectable as Service,
-  NsModule as Module,
+  Module,
   Optional as Maybe,
   Scope,
 } from "@nexus-ioc/core";
@@ -475,7 +475,7 @@ describe("NexusAnalyzer", () => {
 		expect(service).not.toHaveProperty("node");
 	});
 
-	it("parses @NsModule providers into semantic NexusProvider entries", () => {
+	it("parses @Module providers into semantic NexusProvider entries", () => {
 		const { program, sourceFile } = createProgram();
 		const analyzer = createNexusAnalyzer(program);
 
@@ -528,7 +528,7 @@ describe("NexusAnalyzer", () => {
 		}
 	});
 
-	it("parses @NsModule imports and exports into semantic tokens", () => {
+	it("parses @Module imports and exports into semantic tokens", () => {
 		const { program, sourceFile } = createProgram();
 		const analyzer = createNexusAnalyzer(program);
 
@@ -584,7 +584,7 @@ describe("NexusAnalyzer", () => {
 		);
 	});
 
-	it("attaches module metadata to NexusClass.module for @NsModule classes", () => {
+	it("attaches module metadata to NexusClass.module for @Module classes", () => {
 		const { program, sourceFile } = createProgram();
 		const analyzer = createNexusAnalyzer(program);
 

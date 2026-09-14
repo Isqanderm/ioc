@@ -10,7 +10,7 @@ import {
 const FILES = new Map<string, string>([
 	[
 		"/app/app.module.ts",
-		`import { Injectable as Service, NsModule as Module } from "@nexus-ioc/core";
+		`import { Injectable as Service, Module } from "@nexus-ioc/core";
 
 @Service()
 export class LocalService {}
@@ -114,7 +114,7 @@ function createProgram(
 const MULTI_MODULE_FILES = new Map<string, string>([
 	[
 		"/app/app.module.ts",
-		`import { Injectable as Service, Inject as Dependency, NsModule as Module } from "@nexus-ioc/core";
+		`import { Injectable as Service, Inject as Dependency, Module } from "@nexus-ioc/core";
 import { DatabaseModule } from "./database.module";
 import { DatabaseService } from "./database.module";
 
@@ -129,7 +129,7 @@ export class AppModule {}
 	],
 	[
 		"/app/database.module.ts",
-		`import { Injectable as Service, NsModule as Module } from "@nexus-ioc/core";
+		`import { Injectable as Service, Module } from "@nexus-ioc/core";
 
 @Service()
 export class DatabaseService {}
@@ -143,7 +143,7 @@ export class DatabaseModule {}
 const UNRESOLVED_FILES = new Map<string, string>([
 	[
 		"/app/app.module.ts",
-		`import { Injectable as Service, Inject as Dependency, NsModule as Module, Optional as Maybe } from "@nexus-ioc/core";
+		`import { Injectable as Service, Inject as Dependency, Module, Optional as Maybe } from "@nexus-ioc/core";
 
 @Service()
 export class OrphanService {
@@ -162,7 +162,7 @@ export class AppModule {}
 const GLOBAL_MODULE_FILES = new Map<string, string>([
 	[
 		"/app/app.module.ts",
-		`import { Injectable as Service, Inject as Dependency, NsModule as Module } from "@nexus-ioc/core";
+		`import { Injectable as Service, Inject as Dependency, Module } from "@nexus-ioc/core";
 import { LoggerModule } from "./logger.module";
 
 @Service()
@@ -176,7 +176,7 @@ export class AppModule {}
 	],
 	[
 		"/app/logger.module.ts",
-		`import { Global as NexusGlobal, NsModule as Module } from "@nexus-ioc/core";
+		`import { Global as NexusGlobal, Module } from "@nexus-ioc/core";
 
 @Module({ providers: [{ provide: "LOGGER", useValue: console }], exports: ["LOGGER"] })
 @NexusGlobal()
@@ -188,7 +188,7 @@ export class LoggerModule {}
 const OWN_PROVIDER_PRECEDENCE_FILES = new Map<string, string>([
 	[
 		"/app/app.module.ts",
-		`import { Injectable as Service, Inject as Dependency, NsModule as Module } from "@nexus-ioc/core";
+		`import { Injectable as Service, Inject as Dependency, Module } from "@nexus-ioc/core";
 import { ImportedModule } from "./imported.module";
 
 @Service()
@@ -209,7 +209,7 @@ export class AppModule {}
 	],
 	[
 		"/app/imported.module.ts",
-		`import { NsModule as Module } from "@nexus-ioc/core";
+		`import { Module } from "@nexus-ioc/core";
 
 @Module({
   providers: [{ provide: "SHARED_TOKEN", useValue: "imported" }],
@@ -223,7 +223,7 @@ export class ImportedModule {}
 const END_TO_END_FILES = new Map<string, string>([
 	[
 		"/app/app.module.ts",
-		`import { Injectable as Service, Inject as Dependency, NsModule as Module, Optional as Maybe } from "@nexus-ioc/core";
+		`import { Injectable as Service, Inject as Dependency, Module, Optional as Maybe } from "@nexus-ioc/core";
 import { CoreModule } from "./core.module";
 import { LoggerModule } from "./logger.module";
 
@@ -242,7 +242,7 @@ export class AppModule {}
 	],
 	[
 		"/app/core.module.ts",
-		`import { NsModule as Module } from "@nexus-ioc/core";
+		`import { Module } from "@nexus-ioc/core";
 import { DatabaseModule } from "./database.module";
 
 @Module({ imports: [DatabaseModule], exports: [DatabaseModule] })
@@ -251,7 +251,7 @@ export class CoreModule {}
 	],
 	[
 		"/app/database.module.ts",
-		`import { NsModule as Module } from "@nexus-ioc/core";
+		`import { Module } from "@nexus-ioc/core";
 
 @Module({
   providers: [{ provide: "DATABASE", useFactory: () => ({}) }],
@@ -262,7 +262,7 @@ export class DatabaseModule {}
 	],
 	[
 		"/app/logger.module.ts",
-		`import { Global as NexusGlobal, NsModule as Module } from "@nexus-ioc/core";
+		`import { Global as NexusGlobal, Module } from "@nexus-ioc/core";
 
 @Module({ providers: [{ provide: "LOGGER", useValue: console }], exports: ["LOGGER"] })
 @NexusGlobal()
@@ -274,7 +274,7 @@ export class LoggerModule {}
 const TOKEN_RE_EXPORT_CHAIN_FILES = new Map<string, string>([
 	[
 		"/app/app.module.ts",
-		`import { Injectable as Service, Inject as Dependency, NsModule as Module } from "@nexus-ioc/core";
+		`import { Injectable as Service, Inject as Dependency, Module } from "@nexus-ioc/core";
 import { CoreModule } from "./core.module";
 
 @Service()
@@ -288,7 +288,7 @@ export class AppModule {}
 	],
 	[
 		"/app/core.module.ts",
-		`import { NsModule as Module } from "@nexus-ioc/core";
+		`import { Module } from "@nexus-ioc/core";
 import { DatabaseModule } from "./database.module";
 
 @Module({ imports: [DatabaseModule], exports: ["DATABASE"] })
@@ -297,7 +297,7 @@ export class CoreModule {}
 	],
 	[
 		"/app/database.module.ts",
-		`import { NsModule as Module } from "@nexus-ioc/core";
+		`import { Module } from "@nexus-ioc/core";
 
 @Module({
   providers: [{ provide: "DATABASE", useFactory: () => ({}) }],
