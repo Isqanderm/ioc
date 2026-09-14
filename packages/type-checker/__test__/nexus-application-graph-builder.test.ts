@@ -315,6 +315,43 @@ export class LoggerModule {}
 	],
 ]);
 
+const TOKEN_RE_EXPORT_CHAIN_FILES = new Map<string, string>([
+	[
+		"/app/app.module.ts",
+		`import { Injectable as Service, Inject as Dependency, NsModule as Module } from "@nexus-ioc/core";
+import { CoreModule } from "./core.module";
+
+@Service()
+export class ApiService {
+  constructor(@Dependency("DATABASE") db: unknown) {}
+}
+
+@Module({ imports: [CoreModule], providers: [ApiService] })
+export class AppModule {}
+`,
+	],
+	[
+		"/app/core.module.ts",
+		`import { NsModule as Module } from "@nexus-ioc/core";
+import { DatabaseModule } from "./database.module";
+
+@Module({ imports: [DatabaseModule], exports: ["DATABASE"] })
+export class CoreModule {}
+`,
+	],
+	[
+		"/app/database.module.ts",
+		`import { NsModule as Module } from "@nexus-ioc/core";
+
+@Module({
+  providers: [{ provide: "DATABASE", useFactory: () => ({}) }],
+  exports: ["DATABASE"],
+})
+export class DatabaseModule {}
+`,
+	],
+]);
+
 describe("NexusApplicationGraphBuilder", () => {
 	it("indexes a module's own providers and finds no dependencies to resolve yet", () => {
 		const { program, entryPoint } = createProgram();
@@ -440,6 +477,24 @@ describe("NexusApplicationGraphBuilder", () => {
 			provider.provide.kind === "string" ? provider.provide.value : undefined,
 		);
 		expect(provideValues).toEqual(["TOKEN", "A", "TOKEN"]);
+	});
+
+	it("resolves an individual token re-exported through an imported module (not the whole module)", () => {
+		const { program, entryPoint } = createProgram(
+			"/app/app.module.ts",
+			"AppModule",
+			TOKEN_RE_EXPORT_CHAIN_FILES,
+		);
+		const analyzer = createNexusAnalyzer(program);
+		const application =
+			createNexusApplicationAnalyzer(analyzer).analyze(entryPoint);
+		const graph =
+			createNexusApplicationGraphBuilder(analyzer).build(application);
+
+		expect(graph.unresolved).toEqual([]);
+		expect(graph.resolved).toHaveLength(1);
+		expect(graph.resolved[0].dependencyName).toBe("db");
+		expect(graph.resolved[0].providingModule.name).toBe("DatabaseModule");
 	});
 
 	it("resolves a realistic multi-module application end to end", () => {

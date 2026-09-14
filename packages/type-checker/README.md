@@ -119,7 +119,7 @@ console.log(nexusModule?.exports);
 
 `getModule()` parses an `@NsModule({ providers, imports, exports })` decorator argument into `providers: readonly NexusProvider[]`, `imports: readonly NexusModuleImport[]`, and `exports: readonly NexusModuleExport[]`. Each `NexusProvider` captures one `providers` entry — a bare class reference (`kind: "class"`) or an object literal (`useClass`/`useValue`/`useFactory`, the latter carrying its `inject` tokens on `factoryInject`). `getClass()` calls `getModule()` internally and exposes the result as `NexusClass.module`, which is populated only for classes carrying an `@NsModule(...)` decorator — every other class has `module: undefined`.
 
-A dynamic-module import (`FooModule.forRoot(...)` inside `imports: [...]`) resolves to the concrete module class only when the called factory's body is a single, unconditional `return { module: FooModule, ... };` statement. Anything more complex — a conditional return, multiple return statements, a computed value — falls back to an unresolvable `expression`-kind token for that import.
+A dynamic-module import (`FooModule.forRoot(...)` inside `imports: [...]`) resolves to the concrete module class via the factory's inferred return type, so this works for any body shape as long as the factory has no explicit return-type annotation. A factory explicitly annotated `: DynamicModule` erases that inferred type, so it only resolves when the body is a single, unconditional `return { module: FooModule, ... };` statement — anything more complex falls back to an unresolvable `expression`-kind token for that import.
 
 ### Application-level semantic analysis
 
@@ -153,7 +153,7 @@ for (const nexusClass of application.classes) {
 }
 ```
 
-`NexusApplicationAnalyzer` starts from the supplied class and follows resolvable class-reference injection tokens. Results are deterministic and de-duplicated; unrelated classes are excluded.
+`NexusApplicationAnalyzer` starts from the supplied class and follows resolvable class-reference injection tokens, as well as module structure (`imports`, `providers`) as reachability edges. Results are deterministic and de-duplicated; unrelated classes are excluded.
 
 ### Application graph
 
@@ -248,6 +248,17 @@ type NexusProvider = {
   useClass?: NexusToken;
   factoryInject: readonly NexusToken[];
   scope?: NexusToken;
+  source: NexusSourceSpan;
+};
+
+type NexusModuleImport = {
+  module: NexusToken;
+  isDynamic: boolean;
+  source: NexusSourceSpan;
+};
+
+type NexusModuleExport = {
+  token: NexusToken;
   source: NexusSourceSpan;
 };
 ```

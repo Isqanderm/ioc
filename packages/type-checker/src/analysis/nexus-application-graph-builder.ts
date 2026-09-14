@@ -187,9 +187,13 @@ export class NexusApplicationGraphBuilder {
 		return map;
 	}
 
-	/** The symbol of the concrete class a provider instantiates, if any
-	 * (`kind: "class"` or `"useClass"` only — `useValue`/`useFactory`
-	 * provide a token, not a class). */
+	/** The symbol of the class a provider's token resolves to, if any — the
+	 * `useClass` target for a `"useClass"` provider, otherwise whatever
+	 * `provide` itself points at. This runs for every provider kind
+	 * (`useValue`/`useFactory` included): a `useValue`/`useFactory` provider
+	 * whose `provide` happens to be a class reference still yields that
+	 * class's symbol here. It builds a rough "which modules mention this
+	 * class" ownership index, not a strict class-instantiation check. */
 	private classProviderSymbol(provider: NexusProvider): ts.Symbol | undefined {
 		const token =
 			provider.kind === "useClass" ? provider.useClass : provider.provide;
@@ -218,37 +222,80 @@ export class NexusApplicationGraphBuilder {
 			visiting.add(symbol);
 		}
 
-		const ownProviders = this.resolveOwnProviderMap(moduleClass);
-		const result = new Map<
-			TokenIdentity,
-			{ provider: NexusProvider; owner: NexusClass }
-		>();
+		try {
+			const ownProviders = this.resolveOwnProviderMap(moduleClass);
+			const result = new Map<
+				TokenIdentity,
+				{ provider: NexusProvider; owner: NexusClass }
+			>();
 
-		for (const exportEntry of moduleClass.module?.exports ?? []) {
-			const identity = getTokenIdentity(exportEntry.token);
-			if (identity === undefined) continue;
+			for (const exportEntry of moduleClass.module?.exports ?? []) {
+				const identity = getTokenIdentity(exportEntry.token);
+				if (identity === undefined) continue;
 
-			const ownMatch = ownProviders.get(identity);
-			if (ownMatch) {
-				result.set(identity, { provider: ownMatch, owner: moduleClass });
-				continue;
-			}
+				const ownMatch = ownProviders.get(identity);
+				if (ownMatch) {
+					result.set(identity, { provider: ownMatch, owner: moduleClass });
+					continue;
+				}
 
-			if (isSymbolIdentity(identity)) {
-				const referencedModule = moduleBySymbol.get(identity);
-				if (referencedModule) {
-					for (const [nestedIdentity, entry] of this.resolveExportedProviders(
-						referencedModule,
+				if (isSymbolIdentity(identity)) {
+					const referencedModule = moduleBySymbol.get(identity);
+					if (referencedModule) {
+						for (const [nestedIdentity, entry] of this.resolveExportedProviders(
+							referencedModule,
+							moduleBySymbol,
+							visiting,
+						)) {
+							result.set(nestedIdentity, entry);
+						}
+						continue;
+					}
+				}
+
+				// Not one of the module's own providers, and not a whole-module
+				// pass-through re-export (the export entry's identity doesn't name
+				// one of this module's `imports`). It may still be an individual
+				// token the module re-exports after receiving it from one of its
+				// own imports (e.g. `CoreModule` imports `DatabaseModule` and
+				// re-exports the `"DATABASE"` token itself, not `DatabaseModule`).
+				// Search the module's imports for a match, preserving the true
+				// original owner rather than attributing it to `moduleClass`.
+				for (const importEntry of moduleClass.module?.imports ?? []) {
+					const importIdentity = getTokenIdentity(importEntry.module);
+					if (
+						importIdentity === undefined ||
+						!isSymbolIdentity(importIdentity)
+					) {
+						continue;
+					}
+
+					const importedModule = moduleBySymbol.get(importIdentity);
+					if (!importedModule) continue;
+
+					const nestedExports = this.resolveExportedProviders(
+						importedModule,
 						moduleBySymbol,
 						visiting,
-					)) {
-						result.set(nestedIdentity, entry);
+					);
+					const nestedMatch = nestedExports.get(identity);
+					if (nestedMatch) {
+						result.set(identity, nestedMatch);
+						break;
 					}
 				}
 			}
-		}
 
-		return result;
+			return result;
+		} finally {
+			// Un-mark on backtrack: `visiting` guards against re-entering a
+			// module that is an *ancestor* in the current recursion path (an
+			// import cycle), not one already fully resolved earlier as a
+			// sibling — e.g. two different export entries on the same module
+			// both resolving through the same imported module must each see
+			// it as unvisited.
+			if (symbol) visiting.delete(symbol);
+		}
 	}
 
 	private resolveVisibleProviders(

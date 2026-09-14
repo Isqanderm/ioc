@@ -184,7 +184,11 @@ export class NexusAnalyzer {
 	 * A bare class reference (`FooModule`) resolves directly. A dynamic-module
 	 * call (`FooModule.forRoot(...)`) is resolved through its *return type's*
 	 * `module` property, so the edge still points at the concrete module class
-	 * rather than the anonymous `DynamicModule` return value.
+	 * rather than the anonymous `DynamicModule` return value. An un-annotated
+	 * factory resolves this way via its inferred return type regardless of
+	 * body shape; a factory explicitly annotated `: DynamicModule` erases that
+	 * inferred literal type, so it falls back to
+	 * {@link resolveModuleFromReturnLiteral}.
 	 */
 	private resolveModuleReference(expression: ts.Expression): NexusToken {
 		const type = this.checker.getTypeAtLocation(expression);
@@ -235,13 +239,17 @@ export class NexusAnalyzer {
 	}
 
 	/**
-	 * Resolves a dynamic-module call (`FooModule.forRoot(...)`) by inspecting
-	 * the called signature's declaration body: when it is a single, top-level
-	 * `return <object literal>;` statement whose object literal has a `module`
-	 * property, that property's initializer is resolved as the module
-	 * reference. Anything more complex (conditional returns, multiple return
-	 * statements, computed/spread values) is a genuine static-analysis limit
-	 * and is left to fall back to an `expression`-kind token.
+	 * Fallback for a dynamic-module call whose factory is explicitly annotated
+	 * `: DynamicModule` — that annotation erases the object-literal return
+	 * type TypeScript would otherwise infer, so `resolveModuleReference`'s
+	 * `module`-property lookup on the return type can't see the concrete
+	 * module class. Instead, this inspects the called signature's declaration
+	 * body directly: when it is a single, top-level `return <object literal>;`
+	 * statement whose object literal has a `module` property, that property's
+	 * initializer is resolved as the module reference. Anything more complex
+	 * (conditional returns, multiple return statements, computed/spread
+	 * values) is a genuine static-analysis limit and is left to fall back to
+	 * an `expression`-kind token.
 	 */
 	private resolveModuleFromReturnLiteral(
 		expression: ts.CallExpression,
@@ -305,20 +313,42 @@ export class NexusAnalyzer {
 			: undefined;
 	}
 
+	/**
+	 * Finds an object literal member by name, covering every property-name
+	 * shape TypeScript allows: a plain assignment with an identifier,
+	 * string-literal or numeric-literal key (`provide: x`, `"provide": x`,
+	 * `0: x`), and a shorthand assignment (`{ useValue }`, whose "value" is
+	 * the property's own name identifier).
+	 */
 	private findProperty(
 		object: ts.ObjectLiteralExpression,
 		name: string,
-	): ts.PropertyAssignment | undefined {
-		return object.properties.find(
-			(item): item is ts.PropertyAssignment =>
+	): { name: string; initializer: ts.Expression } | undefined {
+		for (const item of object.properties) {
+			if (
 				ts.isPropertyAssignment(item) &&
-				ts.isIdentifier(item.name) &&
-				item.name.text === name,
-		);
+				(ts.isIdentifier(item.name) ||
+					ts.isStringLiteral(item.name) ||
+					ts.isNumericLiteral(item.name)) &&
+				item.name.text === name
+			) {
+				return { name, initializer: item.initializer };
+			}
+
+			if (ts.isShorthandPropertyAssignment(item) && item.name.text === name) {
+				return { name, initializer: item.name };
+			}
+		}
+
+		return undefined;
 	}
 
 	private resolveProvider(element: ts.Expression): NexusProvider[] {
 		const source = this.getSourceSpan(element);
+
+		if (ts.isSpreadElement(element)) {
+			return [];
+		}
 
 		if (!ts.isObjectLiteralExpression(element)) {
 			return [

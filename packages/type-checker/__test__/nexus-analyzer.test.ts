@@ -58,6 +58,28 @@ class ProviderModuleServiceImpl {}
 })
 class ProviderModule {}
 
+const useValue = 42;
+
+@Module({
+  providers: [{ provide: "SHORTHAND_TOKEN", useValue }],
+})
+class ShorthandProviderModule {}
+
+@Module({
+  providers: [{ "provide": "QUOTED_TOKEN", "useValue": 1 }],
+})
+class QuotedKeyProviderModule {}
+
+@Service()
+class SpreadElementService {}
+
+const commonProviders = [SpreadElementService];
+
+@Module({
+  providers: [...commonProviders],
+})
+class SpreadProviderModule {}
+
 @Module({})
 class LocalImportedModule {}
 
@@ -479,5 +501,50 @@ describe("NexusAnalyzer", () => {
 
 		const service = analyzer.getClass(getClass(sourceFile, "ServiceA"));
 		expect(service.module).toBeUndefined();
+	});
+
+	it("resolves a shorthand useValue provider property (`{ provide, useValue }`)", () => {
+		const { program, sourceFile } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+
+		const providers = analyzer.getModuleProviders(
+			getClass(sourceFile, "ShorthandProviderModule"),
+		);
+
+		expect(providers).toHaveLength(1);
+		const [provider] = providers;
+		expect(provider.kind).toBe("useValue");
+		expect(provider.provide).toMatchObject({
+			kind: "string",
+			value: "SHORTHAND_TOKEN",
+		});
+	});
+
+	it('resolves a quoted-key provider object literal (`{ "provide": ..., "useValue": ... }`)', () => {
+		const { program, sourceFile } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+
+		const providers = analyzer.getModuleProviders(
+			getClass(sourceFile, "QuotedKeyProviderModule"),
+		);
+
+		expect(providers).toHaveLength(1);
+		const [provider] = providers;
+		expect(provider.kind).toBe("useValue");
+		expect(provider.provide).toMatchObject({
+			kind: "string",
+			value: "QUOTED_TOKEN",
+		});
+	});
+
+	it("skips a spread element in a providers array instead of emitting a bogus class provider", () => {
+		const { program, sourceFile } = createProgram();
+		const analyzer = createNexusAnalyzer(program);
+
+		const providers = analyzer.getModuleProviders(
+			getClass(sourceFile, "SpreadProviderModule"),
+		);
+
+		expect(providers).toEqual([]);
 	});
 });
