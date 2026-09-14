@@ -1,8 +1,8 @@
-import { NsModule } from "nexus-ioc";
+import { Module } from "nexus-ioc";
 import { HttpModule } from "../http/http.module";
 import { RpcModule } from "../rpc/rpc.module";
 
-@NsModule({
+@Module({
 	imports: [RpcModule, HttpModule],
 })
 export class PostsModule {}

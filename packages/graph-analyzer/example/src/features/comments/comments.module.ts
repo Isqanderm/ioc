@@ -1,4 +1,4 @@
-import { NsModule } from "nexus-ioc";
+import { Module } from "nexus-ioc";
 import { DatabaseModule } from "../../core/database/database.module";
 import { LoggerModule } from "../../core/logger/logger.module";
 import { EmailModule } from "../../shared/email/email.module";
@@ -7,7 +7,7 @@ import { UsersModule } from "../users/users.module";
 import { CommentRepository } from "./comment.repository";
 import { CommentsService } from "./comments.service";
 
-@NsModule({
+@Module({
 	imports: [
 		DatabaseModule,
 		LoggerModule,

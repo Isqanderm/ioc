@@ -24,7 +24,7 @@ Analyze and visualize dependency injection graphs in [Nexus IoC](https://github.
 - 🔄 **Circular Dependency Detection** - Detect circular imports and provider dependencies
 - 🗑️ **Unused Provider Detection** - Find providers that are registered but never injected
 - 📊 **Module Depth Analysis** - Analyze module hierarchy depth and complexity metrics
-- 🎯 **Provider Scope Analysis** - Detect scope mismatches (Singleton depending on Request-scoped)
+- 🎯 **Provider Scope Analysis** - Detect scope mismatches (Singleton depending on Scoped)
 - ⚠️ **Missing Decorator Detection** - Identify dependencies without explicit `@Inject` decorators
 
 ### Visualization & Output
@@ -177,7 +177,7 @@ npx graph-analyzer --check-unused -f html src/main.ts
 # Analyze module depth and complexity
 npx graph-analyzer --check-depth --deep-module-threshold 3 src/main.ts
 
-# Detect scope mismatches (Singleton depending on Request-scoped)
+# Detect scope mismatches (Singleton depending on Scoped)
 npx graph-analyzer --check-scope src/main.ts
 
 # HTML with dark theme and WebStorm links
@@ -302,14 +302,14 @@ npx graph-analyzer --check-depth --deep-module-threshold 5 src/main.ts
 
 ### Provider Scope Analysis
 
-Detects scope mismatches where Singleton providers depend on Request-scoped providers.
+Detects scope mismatches where Singleton providers depend on Scoped providers.
 
 ```bash
 npx graph-analyzer --check-scope src/main.ts
 ```
 
 **Detects:**
-- Singleton providers depending on Request-scoped providers (memory leak risk)
+- Singleton providers depending on Scoped providers (memory leak risk)
 - Scope inconsistencies that can cause unexpected behavior
 - Provides suggestions for fixing scope issues
 
@@ -323,12 +323,12 @@ npx graph-analyzer --check-scope src/main.ts
           "provider": "UserService",
           "providerScope": "Singleton",
           "dependency": "RequestContext",
-          "dependencyScope": "Request",
+          "dependencyScope": "Scoped",
           "severity": "error",
-          "message": "Singleton provider 'UserService' depends on Request-scoped provider 'RequestContext'",
+          "message": "Singleton provider 'UserService' depends on Scoped provider 'RequestContext'",
           "suggestions": [
-            "Change 'UserService' to Request scope",
-            "Change 'RequestContext' to Singleton scope if it doesn't need request-specific state"
+            "Change 'UserService' to Scoped scope",
+            "Change 'RequestContext' to Singleton scope if it doesn't need scoped state"
           ]
         }
       ]
@@ -493,7 +493,7 @@ class UserService {
 
 ✅ **Different Provider Types**
 ```typescript
-@NsModule({
+@Module({
   providers: [
     UserService,                                    // Class
     { provide: 'CONFIG', useValue: config },       // UseValue

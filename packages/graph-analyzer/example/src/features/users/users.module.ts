@@ -1,4 +1,4 @@
-import { NsModule } from "nexus-ioc";
+import { Module } from "nexus-ioc";
 import { UserModule } from "../../apps/user/user.module";
 import { DatabaseModule } from "../../core/database/database.module";
 import { LoggerModule } from "../../core/logger/logger.module";
@@ -8,7 +8,7 @@ import { StorageModule } from "../../shared/storage/storage.module";
 import { UserRepository } from "./user.repository";
 import { UsersService } from "./users.service";
 
-@NsModule({
+@Module({
 	imports: [
 		DatabaseModule,
 		LoggerModule,

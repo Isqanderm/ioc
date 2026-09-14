@@ -1,7 +1,7 @@
 import { ArticleService } from "@external/article/article.service";
-import { NsModule } from "nexus-ioc";
+import { Module } from "nexus-ioc";
 
-@NsModule({
+@Module({
 	providers: [ArticleService],
 })
 export class ArticleModule {}

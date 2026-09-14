@@ -83,19 +83,19 @@ describe("buildNexusGraphModel", () => {
 		const files = new Map<string, string>([
 			[
 				"/app/main.ts",
-				`import { NsModule as Module } from "@nexus-ioc/core";
-import { NexusApplicationsServer } from "./server";
+				`import { Module } from "@nexus-ioc/core";
+import { NexusApplicationServer } from "./server";
 import { DatabaseModule } from "./database.module";
 
 @Module({ imports: [DatabaseModule], exports: [DatabaseModule] })
 export class AppModule {}
 
-NexusApplicationsServer.create(AppModule).bootstrap();
+NexusApplicationServer.create(AppModule).bootstrap();
 `,
 			],
 			[
 				"/app/database.module.ts",
-				`import { NsModule as Module } from "@nexus-ioc/core";
+				`import { Module } from "@nexus-ioc/core";
 
 @Module({
   providers: [{ provide: "DATABASE", useValue: {} }],
@@ -106,9 +106,9 @@ export class DatabaseModule {}
 			],
 			[
 				"/app/server.ts",
-				`export class NexusApplicationsServer {
-  static create(_module: unknown): NexusApplicationsServer {
-    return new NexusApplicationsServer();
+				`export class NexusApplicationServer {
+  static create(_module: unknown): NexusApplicationServer {
+    return new NexusApplicationServer();
   }
   bootstrap(): void {}
 }
@@ -163,8 +163,8 @@ export class DatabaseModule {}
 		const files = new Map<string, string>([
 			[
 				"/app/main.ts",
-				`import { Injectable as Service, Inject as Dependency, NsModule as Module } from "@nexus-ioc/core";
-import { NexusApplicationsServer } from "./server";
+				`import { Injectable as Service, Inject as Dependency, Module } from "@nexus-ioc/core";
+import { NexusApplicationServer } from "./server";
 
 @Service()
 export class ServiceA {
@@ -179,14 +179,14 @@ export class ServiceB {
 @Module({ providers: [ServiceA, ServiceB] })
 export class AppModule {}
 
-NexusApplicationsServer.create(AppModule).bootstrap();
+NexusApplicationServer.create(AppModule).bootstrap();
 `,
 			],
 			[
 				"/app/server.ts",
-				`export class NexusApplicationsServer {
-  static create(_module: unknown): NexusApplicationsServer {
-    return new NexusApplicationsServer();
+				`export class NexusApplicationServer {
+  static create(_module: unknown): NexusApplicationServer {
+    return new NexusApplicationServer();
   }
   bootstrap(): void {}
 }

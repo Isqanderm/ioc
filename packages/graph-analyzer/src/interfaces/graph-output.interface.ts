@@ -61,8 +61,8 @@ export interface GraphAnalysis {
 		totalProviders: number;
 		/** Number of singleton providers */
 		singletonProviders: number;
-		/** Number of request-scoped providers */
-		requestProviders: number;
+		/** Number of scoped providers */
+		scopedProviders: number;
 		/** Scope mismatches detected */
 		scopeMismatches: ScopeMismatch[];
 		/** All provider scope information */
@@ -117,7 +117,7 @@ export interface DependencyInfo {
 /**
  * Information about a single module in the dependency graph
  *
- * Represents a Nexus IoC module decorated with @NsModule.
+ * Represents a Nexus IoC module decorated with @Module.
  */
 export interface ModuleInfo {
 	/** Module name (class name) */
@@ -148,7 +148,7 @@ export interface ProviderInfo {
 	/** The module that registers this provider */
 	module: ModuleReferenceInfo;
 	/** Lifecycle scope of the provider (only for class providers) */
-	scope?: "Singleton" | "Request" | "Transient";
+	scope?: "Singleton" | "Scoped" | "Transient";
 	/** Dependencies required by this provider */
 	dependencies: DependencyInfo[];
 	/** Constructor parameters/properties that look like dependencies but have

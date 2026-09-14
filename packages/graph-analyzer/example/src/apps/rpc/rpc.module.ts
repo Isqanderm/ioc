@@ -1,8 +1,8 @@
-import { NsModule, Scope } from "nexus-ioc";
+import { Module, Scope } from "nexus-ioc";
 import { RpcHelper } from "./rpc.helper";
 import { RpcService } from "./rpc.service";
 
-@NsModule({
+@Module({
 	providers: [
 		{
 			provide: "RpcService",
@@ -23,7 +23,7 @@ import { RpcService } from "./rpc.service";
 				return new RpcService(urlToken, RpcHelper);
 			},
 			inject: ["URL_TOKEN", RpcHelper],
-			scope: Scope.Request,
+			scope: Scope.Scoped,
 		},
 	],
 	exports: [RpcService],

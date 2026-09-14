@@ -23,18 +23,18 @@ describe("ProviderScopeAnalyzer", () => {
 			expect(result.hasScopeAnalysis).toBe(true);
 			expect(result.totalProviders).toBe(2);
 			expect(result.singletonProviders).toBe(2);
-			expect(result.requestProviders).toBe(0);
+			expect(result.scopedProviders).toBe(0);
 		});
 
-		it("should detect request-scoped providers", () => {
+		it("should detect scoped providers", () => {
 			const graphModel = buildGraphModel("AppModule", {
 				AppModule: {
 					providers: [
-						provider("RequestService", {
+						provider("ScopedService", {
 							type: "UseClass",
-							scope: "Scope.REQUEST",
+							scope: "Scope.SCOPED",
 						}),
-						provider("AnotherRequestService", { scope: "Scope.Request" }),
+						provider("AnotherScopedService", { scope: "Scope.Scoped" }),
 					],
 				},
 			});
@@ -44,7 +44,7 @@ describe("ProviderScopeAnalyzer", () => {
 
 			expect(result.totalProviders).toBe(2);
 			expect(result.singletonProviders).toBe(0);
-			expect(result.requestProviders).toBe(2);
+			expect(result.scopedProviders).toBe(2);
 		});
 
 		it("should handle mixed scopes", () => {
@@ -52,7 +52,7 @@ describe("ProviderScopeAnalyzer", () => {
 				AppModule: {
 					providers: [
 						provider("SingletonService"),
-						provider("RequestService", { scope: "Scope.REQUEST" }),
+						provider("ScopedService", { scope: "Scope.SCOPED" }),
 						provider("CONFIG", { type: "UseValue" }),
 					],
 				},
@@ -63,19 +63,19 @@ describe("ProviderScopeAnalyzer", () => {
 
 			expect(result.totalProviders).toBe(3);
 			expect(result.singletonProviders).toBe(2);
-			expect(result.requestProviders).toBe(1);
+			expect(result.scopedProviders).toBe(1);
 		});
 	});
 
 	describe("Scope Mismatch Detection", () => {
-		it("should detect singleton depending on request-scoped provider", () => {
+		it("should detect singleton depending on scoped provider", () => {
 			const graphModel = buildGraphModel("AppModule", {
 				AppModule: {
 					providers: [
 						provider("SingletonService", {
-							dependencies: [{ token: "RequestService", optional: false }],
+							dependencies: [{ token: "ScopedService", optional: false }],
 						}),
-						provider("RequestService", { scope: "Scope.REQUEST" }),
+						provider("ScopedService", { scope: "Scope.SCOPED" }),
 					],
 				},
 			});
@@ -87,20 +87,20 @@ describe("ProviderScopeAnalyzer", () => {
 			expect(result.scopeMismatches[0]).toMatchObject({
 				provider: "SingletonService",
 				providerScope: "Singleton",
-				dependency: "RequestService",
-				dependencyScope: "Request",
+				dependency: "ScopedService",
+				dependencyScope: "Scoped",
 				severity: "error",
 			});
 			expect(result.scopeMismatches[0].message).toContain("memory leaks");
 			expect(result.scopeMismatches[0].suggestions).toHaveLength(3);
 		});
 
-		it("should not flag request-scoped depending on singleton", () => {
+		it("should not flag scoped depending on singleton", () => {
 			const graphModel = buildGraphModel("AppModule", {
 				AppModule: {
 					providers: [
-						provider("RequestService", {
-							scope: "Scope.REQUEST",
+						provider("ScopedService", {
+							scope: "Scope.SCOPED",
 							dependencies: [{ token: "SingletonService", optional: false }],
 						}),
 						provider("SingletonService"),
@@ -119,13 +119,13 @@ describe("ProviderScopeAnalyzer", () => {
 				AppModule: {
 					providers: [
 						provider("ServiceA", {
-							dependencies: [{ token: "RequestService1", optional: false }],
+							dependencies: [{ token: "ScopedService1", optional: false }],
 						}),
 						provider("ServiceB", {
-							dependencies: [{ token: "RequestService2", optional: false }],
+							dependencies: [{ token: "ScopedService2", optional: false }],
 						}),
-						provider("RequestService1", { scope: "Scope.REQUEST" }),
-						provider("RequestService2", { scope: "Scope.REQUEST" }),
+						provider("ScopedService1", { scope: "Scope.SCOPED" }),
+						provider("ScopedService2", { scope: "Scope.SCOPED" }),
 					],
 				},
 			});
@@ -143,9 +143,9 @@ describe("ProviderScopeAnalyzer", () => {
 				AppModule: {
 					providers: [
 						provider("SingletonService", {
-							dependencies: [{ token: "RequestService", optional: true }],
+							dependencies: [{ token: "ScopedService", optional: true }],
 						}),
-						provider("RequestService", { scope: "Scope.REQUEST" }),
+						provider("ScopedService", { scope: "Scope.SCOPED" }),
 					],
 				},
 			});
@@ -165,7 +165,7 @@ describe("ProviderScopeAnalyzer", () => {
 					providers: [
 						provider("FACTORY_TOKEN", {
 							type: "UseFactory",
-							scope: "Scope.REQUEST",
+							scope: "Scope.SCOPED",
 							dependencies: [{ token: "ConfigService", optional: false }],
 						}),
 					],
@@ -175,8 +175,8 @@ describe("ProviderScopeAnalyzer", () => {
 			const analyzer = new ProviderScopeAnalyzer(graphModel);
 			const result = analyzer.analyze();
 
-			expect(result.requestProviders).toBe(1);
-			expect(result.providerScopes[0].scope).toBe("Request");
+			expect(result.scopedProviders).toBe(1);
+			expect(result.providerScopes[0].scope).toBe("Scoped");
 		});
 
 		it("should detect scope mismatch with UseFactory dependencies", () => {
@@ -185,9 +185,9 @@ describe("ProviderScopeAnalyzer", () => {
 					providers: [
 						provider("FACTORY_TOKEN", {
 							type: "UseFactory",
-							dependencies: [{ token: "RequestService", optional: false }],
+							dependencies: [{ token: "ScopedService", optional: false }],
 						}),
-						provider("RequestService", { scope: "Scope.REQUEST" }),
+						provider("ScopedService", { scope: "Scope.SCOPED" }),
 					],
 				},
 			});
@@ -197,7 +197,7 @@ describe("ProviderScopeAnalyzer", () => {
 
 			expect(result.scopeMismatches).toHaveLength(1);
 			expect(result.scopeMismatches[0].provider).toBe("FACTORY_TOKEN");
-			expect(result.scopeMismatches[0].dependency).toBe("RequestService");
+			expect(result.scopeMismatches[0].dependency).toBe("ScopedService");
 		});
 	});
 
@@ -218,7 +218,7 @@ describe("ProviderScopeAnalyzer", () => {
 				AppModule: {
 					providers: [
 						provider("ServiceA"),
-						provider("ServiceB", { scope: "Scope.REQUEST" }),
+						provider("ServiceB", { scope: "Scope.SCOPED" }),
 					],
 				},
 			});
