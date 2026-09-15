@@ -4,6 +4,7 @@ import type {
 	NexusApplicationInterface,
 	ScannerPluginInterface,
 	Type,
+	UnloadResult,
 } from "../interfaces";
 import { HashUtilsServer } from "../utils/hash-utils.server";
 import { ModuleRef } from "./module-ref";
@@ -60,6 +61,10 @@ export class NexusApplicationServer implements NexusApplicationInterface {
 
 	public async load(lazyModule: LazyModule): Promise<ModuleRef> {
 		return new ModuleRef(this.container, await this.container.load(lazyModule));
+	}
+
+	public async unload(ref: ModuleRef): Promise<UnloadResult> {
+		return ref.unload();
 	}
 
 	lazy(): this {
