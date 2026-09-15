@@ -80,15 +80,19 @@ export class ModuleGraph implements ModuleGraphInterface {
 	 * registered, attributing it to the `lazyModule` placeholder node.
 	 *
 	 * The pass is atomic: if it produces any error the segment is rolled back
-	 * (nodes, edges and global registrations removed, errors spliced out of
-	 * `this.errors`) and the placeholder stays unloaded. On success the
-	 * placeholder is marked loaded.
+	 * (every node, edge, global registration and LAZY placeholder it created is
+	 * removed and its errors are spliced out of `this.errors`) and the
+	 * placeholder stays unloaded. On success the placeholder is marked loaded.
+	 * A placeholder that already existed before the segment started is never
+	 * removed.
 	 */
 	public async compileSegment(
 		root: ModuleContainerInterface,
 		lazyModule: LazyModule,
 	): Promise<GraphSegment> {
-		if (!this._nodes.has(lazyModule.id)) {
+		const createdPlaceholder = !this._nodes.has(lazyModule.id);
+
+		if (createdPlaceholder) {
 			this.addNode(lazyModule.id, new AnalyzeLazyModule(lazyModule));
 		}
 
@@ -102,7 +106,12 @@ export class ModuleGraph implements ModuleGraphInterface {
 		const errors = this._errors.splice(errorsBefore);
 
 		if (errors.length > 0) {
-			this.removeTokens([...added.moduleTokens, ...added.providerTokens]);
+			this.removeTokens([
+				...added.moduleTokens,
+				...added.providerTokens,
+				...added.lazyTokens,
+				...(createdPlaceholder ? [lazyModule.id] : []),
+			]);
 		} else {
 			(this._nodes.get(lazyModule.id) as AnalyzeLazyModule).markLoaded(
 				root.token,
@@ -146,9 +155,14 @@ export class ModuleGraph implements ModuleGraphInterface {
 	private async addModules(
 		root: ModuleContainerInterface,
 		strictTokens: boolean,
-	): Promise<{ moduleTokens: string[]; providerTokens: InjectionToken[] }> {
+	): Promise<{
+		moduleTokens: string[];
+		providerTokens: InjectionToken[];
+		lazyTokens: symbol[];
+	}> {
 		const moduleTokens: string[] = [];
 		const providerTokens: InjectionToken[] = [];
+		const lazyTokens: symbol[] = [];
 		const visited = new Set<InjectionToken>();
 		const imports = [root];
 
@@ -170,7 +184,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 			await this.addModule(analyzeModule);
 			moduleTokens.push(analyzeModule.id);
-			await this.addModuleImports(analyzeModule);
+			lazyTokens.push(...(await this.addModuleImports(analyzeModule)));
 			providerTokens.push(
 				...(await this.addModuleProviders(analyzeModule, strictTokens)),
 			);
@@ -178,7 +192,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 			imports.push(...(await analyzeModule.imports));
 		}
 
-		return { moduleTokens, providerTokens };
+		return { moduleTokens, providerTokens, lazyTokens };
 	}
 
 	private async addModule(analyzeModule: AnalyzeModule) {
@@ -189,7 +203,15 @@ export class ModuleGraph implements ModuleGraphInterface {
 		}
 	}
 
-	private async addModuleImports(analyzeModule: AnalyzeModule) {
+	/**
+	 * @returns the ids of the LAZY placeholder nodes this call created, so a
+	 * rolled back segment can remove them again. Placeholders that already
+	 * existed are not reported and must never be removed.
+	 */
+	private async addModuleImports(
+		analyzeModule: AnalyzeModule,
+	): Promise<symbol[]> {
+		const createdLazyIds: symbol[] = [];
 		const imports = await analyzeModule.edges;
 
 		for (const importEdge of imports) {
@@ -199,12 +221,15 @@ export class ModuleGraph implements ModuleGraphInterface {
 		for (const lazyModule of analyzeModule.lazyImports) {
 			if (!this._nodes.has(lazyModule.id)) {
 				this.addNode(lazyModule.id, new AnalyzeLazyModule(lazyModule));
+				createdLazyIds.push(lazyModule.id);
 			}
 		}
 
 		for (const lazyEdge of analyzeModule.lazyEdges) {
 			this.addEdge(analyzeModule.id, lazyEdge);
 		}
+
+		return createdLazyIds;
 	}
 
 	private async addModuleProviders(
