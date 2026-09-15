@@ -3,9 +3,9 @@ import type {
 	ContainerBaseInterface,
 	DynamicModule,
 	InjectionToken,
-	Module,
 	ModuleContainerInterface,
 	Provider,
+	Type,
 } from "../../interfaces";
 import { MODULE_METADATA } from "../../interfaces";
 import { isDynamicModule } from "../../utils/helpers";
@@ -14,7 +14,7 @@ export class ModuleContainer implements ModuleContainerInterface {
 	private _token = "";
 
 	constructor(
-		private readonly _metatype: Module | DynamicModule,
+		private readonly _metatype: Type | DynamicModule,
 		private readonly container: ContainerBaseInterface,
 	) {}
 
@@ -31,7 +31,7 @@ export class ModuleContainer implements ModuleContainerInterface {
 	}
 
 	public get imports(): Promise<ModuleContainerInterface[]> {
-		let modules: (Module | DynamicModule)[];
+		let modules: (Type | DynamicModule)[];
 		if (isDynamicModule(this.metatype)) {
 			modules = this.metatype.imports || [];
 		} else {
@@ -43,7 +43,7 @@ export class ModuleContainer implements ModuleContainerInterface {
 		return new Promise<ModuleContainerInterface[]>((resolved) => {
 			async function run() {
 				const imports = await Promise.all(
-					modules.map((item: Module | DynamicModule) => {
+					modules.map((item: Type | DynamicModule) => {
 						return self.container.addModule(item);
 					}),
 				);

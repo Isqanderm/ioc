@@ -1,11 +1,7 @@
+import type { ForwardRef } from "../utils/forward-ref";
 import type { InjectionToken } from "./injection-token.interface";
 import type { Scope } from "./scope.interface";
 import type { Type } from "./type.interface";
-
-/**
- * Represents a module class.
- */
-export type Module = Type;
 
 /**
  * Represents a provider that can be registered in a module.
@@ -21,26 +17,26 @@ export type Module = Type;
  * @example
  * ```typescript
  * // Class provider (shorthand)
- * @NsModule({
+ * @Module({
  *   providers: [UserService]
  * })
  *
  * // ClassProvider (explicit)
- * @NsModule({
+ * @Module({
  *   providers: [
  *     { provide: UserService, useClass: MockUserService }
  *   ]
  * })
  *
  * // ValueProvider
- * @NsModule({
+ * @Module({
  *   providers: [
  *     { provide: 'CONFIG', useValue: { apiUrl: 'https://api.example.com' } }
  *   ]
  * })
  *
  * // FactoryProvider
- * @NsModule({
+ * @Module({
  *   providers: [
  *     {
  *       provide: 'DATABASE',
@@ -70,7 +66,7 @@ export type Provider<T = any> =
  *
  * @example
  * ```typescript
- * @NsModule({
+ * @Module({
  *   providers: [
  *     // Provide MockUserService when UserService is requested
  *     {
@@ -107,7 +103,7 @@ export interface ClassProvider<T = any> {
  *
  * @example
  * ```typescript
- * @NsModule({
+ * @Module({
  *   providers: [
  *     { provide: 'API_URL', useValue: 'https://api.example.com' },
  *     { provide: 'MAX_RETRIES', useValue: 3 },
@@ -138,7 +134,7 @@ export interface ValueProvider<T = any> {
  *
  * @example
  * ```typescript
- * @NsModule({
+ * @Module({
  *   providers: [
  *     {
  *       provide: 'DATABASE',
@@ -166,7 +162,7 @@ export interface FactoryProvider<T = any> {
 	// biome-ignore lint/suspicious/noExplicitAny: factory function interface
 	useFactory: (...args: any[]) => T | Promise<T>;
 	/** Tokens of dependencies to inject into the factory function */
-	inject?: InjectionToken[];
+	inject?: (InjectionToken | ForwardRef)[];
 	/** The lifecycle scope (default: Singleton) */
 	scope?: Scope;
 }

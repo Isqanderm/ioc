@@ -1,6 +1,7 @@
 export * from "./abstract.interface";
 export * from "./container.interface";
 export * from "./dynamic-module.interface";
+export * from "./forward-ref.interface";
 export * from "./graph-error.interface";
 export * from "./hash-util.interface";
 export * from "./injection-token.interface";

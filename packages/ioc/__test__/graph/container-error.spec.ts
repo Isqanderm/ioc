@@ -3,8 +3,8 @@ import {
 	type ContainerInterface,
 	Inject,
 	Injectable,
+	Module,
 	type ModuleContainerInterface,
-	NsModule,
 	type Type,
 } from "../../src";
 import { ModuleGraph } from "../../src/core/graph/module-graph";
@@ -26,17 +26,17 @@ describe("Container error", () => {
 	it("should return modules circular dependency errors", async () => {
 		class ImportedModule {}
 
-		@NsModule({
+		@Module({
 			imports: [ImportedModule],
 		})
 		class AnotherImportedModule {}
 
-		@NsModule({
+		@Module({
 			imports: [AnotherImportedModule],
 		})
 		class TestModule {}
 
-		NsModule({
+		Module({
 			imports: [TestModule],
 		})(ImportedModule);
 

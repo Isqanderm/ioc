@@ -1,9 +1,10 @@
 import type { DynamicModule } from "./dynamic-module.interface";
 import type { InjectionToken } from "./injection-token.interface";
-import type { Module, Provider } from "./module-types.interface";
+import type { Provider } from "./module-types.interface";
+import type { Type } from "./type.interface";
 
 export interface ModuleMetadata {
-	imports?: (Module | DynamicModule)[];
-	exports?: (InjectionToken | Module)[];
+	imports?: (Type | DynamicModule)[];
+	exports?: (InjectionToken | Type)[];
 	providers?: Provider[];
 }

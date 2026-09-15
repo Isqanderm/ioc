@@ -1,6 +1,6 @@
 import "reflect-metadata";
 import { ModuleTokenFactory } from "../../src/core/modules/module-token-factory";
-import { NsModule } from "../../src/decorators/nsModule";
+import { Module } from "../../src/decorators/module";
 import { hashUtilsMock } from "../hashUtils.mock";
 
 describe("ModuleTokenFactory", () => {
@@ -10,7 +10,7 @@ describe("ModuleTokenFactory", () => {
 		factory = new ModuleTokenFactory(hashUtilsMock);
 	});
 
-	@NsModule({})
+	@Module({})
 	class TestModule {}
 
 	it("should create a module token", async () => {

@@ -4,9 +4,9 @@ import {
 	type DynamicModule,
 	type HashUtilInterface,
 	MODULE_TOKEN_WATERMARK,
-	type Module,
 	type ModuleContainerInterface,
 	type ModulesContainerInterface,
+	type Type,
 } from "../../interfaces";
 import { ModuleContainerFactory } from "./module-container-factory";
 import { ModuleTokenFactory } from "./module-token-factory";
@@ -26,7 +26,7 @@ export class ModulesContainer implements ModulesContainerInterface {
 	) {}
 
 	async addModule(
-		module: Module | DynamicModule,
+		module: Type | DynamicModule,
 	): Promise<ModuleContainerInterface> {
 		const cacheModule = await this.getModule(module);
 
@@ -38,14 +38,14 @@ export class ModulesContainer implements ModulesContainerInterface {
 	}
 
 	getModule(
-		module: Module | DynamicModule,
+		module: Type | DynamicModule,
 	): ModuleContainerInterface | undefined {
 		return this.getModuleFromCache(module);
 	}
 
 	async replaceModule(
-		moduleToReplace: Module,
-		newModule: Module,
+		moduleToReplace: Type,
+		newModule: Type,
 	): Promise<ModuleContainerInterface> {
 		const tokenToReplace = this.getModule(moduleToReplace);
 		const newModuleContainer = await this.setModule(newModule);
@@ -59,7 +59,7 @@ export class ModulesContainer implements ModulesContainerInterface {
 	}
 
 	private async setModule(
-		module: Module | DynamicModule,
+		module: Type | DynamicModule,
 	): Promise<ModuleContainerInterface> {
 		const moduleContainer = await this.moduleContainerFactory.create(
 			module,
@@ -72,7 +72,7 @@ export class ModulesContainer implements ModulesContainerInterface {
 	}
 
 	private getModuleFromCache(
-		module: Module | DynamicModule,
+		module: Type | DynamicModule,
 	): ModuleContainerInterface | undefined {
 		const token = Reflect.getMetadata(MODULE_TOKEN_WATERMARK, module) as Token;
 

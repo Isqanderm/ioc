@@ -1,7 +1,7 @@
 import "reflect-metadata";
 import { Test } from "@nexus-ioc/testing";
 import { beforeEach, describe, expect, it } from "vitest";
-import { Inject, Injectable, NsModule, Scope } from "../src";
+import { Inject, Injectable, Module, Scope } from "../src";
 
 /**
  * Memory Leak Detection Test Suite for @nexus-ioc/core
@@ -118,7 +118,7 @@ describe("Memory Leak Detection", () => {
 				value = Math.random();
 			}
 
-			@NsModule({
+			@Module({
 				providers: [TestService],
 			})
 			class TestModule {}
@@ -203,7 +203,7 @@ describe("Memory Leak Detection", () => {
 				id = Math.random();
 			}
 
-			@NsModule({
+			@Module({
 				providers: [TransientService],
 			})
 			class TransientModule {}
@@ -265,12 +265,12 @@ describe("Memory Leak Detection", () => {
 		});
 
 		it("should cleanup Request scope after resolution", async () => {
-			@Injectable({ scope: Scope.Request })
+			@Injectable({ scope: Scope.Scoped })
 			class RequestService {
 				id = Math.random();
 			}
 
-			@NsModule({
+			@Module({
 				providers: [RequestService],
 			})
 			class RequestModule {}
@@ -314,7 +314,7 @@ describe("Memory Leak Detection", () => {
 				constructor(@Inject(ServiceA) public serviceA?: ServiceA) {}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [ServiceA, { provide: "ServiceB", useClass: ServiceB }],
 			})
 			class CircularModule {}
@@ -358,7 +358,7 @@ describe("Memory Leak Detection", () => {
 				constructor(@Inject(CircularA) public a?: CircularA) {}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [CircularA, { provide: "CircularB", useClass: CircularB }],
 			})
 			class ProxyModule {}
@@ -445,7 +445,7 @@ describe("Memory Leak Detection", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [HookService],
 			})
 			class ClosureModule {}
@@ -497,7 +497,7 @@ describe("Memory Leak Detection", () => {
 					timeout: 5000,
 				};
 
-				@NsModule({
+				@Module({
 					providers: [
 						{
 							provide: "CONFIG_SERVICE",
@@ -540,7 +540,7 @@ describe("Memory Leak Detection", () => {
 			const weakRefs: WeakRef<object>[] = [];
 
 			for (let i = 0; i < 50; i++) {
-				@NsModule({
+				@Module({
 					providers: [
 						{
 							provide: `FEATURE_${i}`,
@@ -594,7 +594,7 @@ describe("Memory Leak Detection", () => {
 				});
 			}
 
-			@NsModule({
+			@Module({
 				providers,
 			})
 			class LargeModule {}
@@ -657,7 +657,7 @@ describe("Memory Leak Detection", () => {
 				constructor(public b: ServiceB) {}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [ServiceA, ServiceB, ServiceC, ServiceD, ServiceE],
 			})
 			class DeepModule {}
@@ -700,7 +700,7 @@ describe("Memory Leak Detection", () => {
 				id = Math.random();
 			}
 
-			@Injectable({ scope: Scope.Request })
+			@Injectable({ scope: Scope.Scoped })
 			class RequestService {
 				constructor(public singleton: SingletonService) {}
 			}
@@ -713,7 +713,7 @@ describe("Memory Leak Detection", () => {
 				) {}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [SingletonService, RequestService, TransientService],
 			})
 			class MixedScopeModule {}
@@ -756,7 +756,7 @@ describe("Memory Leak Detection", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [DatabaseService],
 				exports: [DatabaseService],
 			})
@@ -767,7 +767,7 @@ describe("Memory Leak Detection", () => {
 				constructor(public db: DatabaseService) {}
 			}
 
-			@NsModule({
+			@Module({
 				imports: [DatabaseModule],
 				providers: [UserRepository],
 				exports: [UserRepository],
@@ -779,7 +779,7 @@ describe("Memory Leak Detection", () => {
 				constructor(public repo: UserRepository) {}
 			}
 
-			@NsModule({
+			@Module({
 				imports: [UserModule],
 				providers: [UserService],
 			})
@@ -830,7 +830,7 @@ describe("Memory Leak Detection", () => {
 
 			const iterations = 100;
 			for (let i = 0; i < iterations; i++) {
-				@NsModule({
+				@Module({
 					providers: [
 						{
 							provide: "FACTORY_SERVICE",

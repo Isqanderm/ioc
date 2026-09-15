@@ -1,1 +1,1 @@
-export { NexusApplicationsServer } from "./core/nexus-applications.server";
+export { NexusApplicationServer } from "./core/nexus-applications.server";

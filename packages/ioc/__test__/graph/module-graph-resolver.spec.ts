@@ -8,7 +8,7 @@ import { ModuleTokenFactory } from "../../src/core/modules/module-token-factory"
 import { Resolver } from "../../src/core/resolver/resolver";
 import { Inject } from "../../src/decorators/inject";
 import { Injectable } from "../../src/decorators/injectable";
-import { NsModule } from "../../src/decorators/nsModule";
+import { Module } from "../../src/decorators/module";
 import type { ContainerInterface } from "../../src/interfaces/modules/container.interface";
 import type { ModuleContainerInterface } from "../../src/interfaces/modules/module-container.interface";
 import type { OnModuleInit } from "../../src/interfaces/on-module-init.interface";
@@ -30,7 +30,7 @@ describe("GraphResolver", () => {
 		@Injectable()
 		class ServiceA {}
 
-		@NsModule({
+		@Module({
 			providers: [ServiceA],
 		})
 		class TestModule {}
@@ -57,7 +57,7 @@ describe("GraphResolver", () => {
 			constructor(@Inject(ServiceA) public readonly serviceA: ServiceA) {}
 		}
 
-		@NsModule({
+		@Module({
 			providers: [ServiceA, ServiceB],
 		})
 		class TestModule {}
@@ -82,7 +82,7 @@ describe("GraphResolver", () => {
 		@Injectable()
 		class ServiceAImpl extends ServiceA {}
 
-		@NsModule({
+		@Module({
 			providers: [
 				{
 					provide: ServiceA,
@@ -108,7 +108,7 @@ describe("GraphResolver", () => {
 	it("should resolve a provider using useValue", async () => {
 		const valueProvider = { value: 42 };
 
-		@NsModule({
+		@Module({
 			providers: [
 				{
 					provide: "VALUE_PROVIDER",
@@ -140,7 +140,7 @@ describe("GraphResolver", () => {
 			testService,
 		});
 
-		@NsModule({
+		@Module({
 			providers: [
 				TestService,
 				{
@@ -175,7 +175,7 @@ describe("GraphResolver", () => {
 		@Injectable()
 		class LocalSnakeService {}
 
-		@NsModule({
+		@Module({
 			providers: [SnakeService, LocalSnakeService],
 			exports: [SnakeService],
 		})
@@ -194,7 +194,7 @@ describe("GraphResolver", () => {
 			) {}
 		}
 
-		@NsModule({
+		@Module({
 			imports: [SnakeModule],
 			providers: [ServiceA, ServiceB],
 		})
@@ -227,7 +227,7 @@ describe("GraphResolver", () => {
 				}
 			}
 
-			@NsModule({
+			@Module({
 				providers: [ServiceA],
 			})
 			class TestModule {}
@@ -258,7 +258,7 @@ describe("GraphResolver", () => {
 				serviceA: IServiceA;
 			}
 
-			@Injectable({ scope: Scope.Request })
+			@Injectable({ scope: Scope.Scoped })
 			class ServiceA implements IServiceA {
 				constructor(
 					@Inject("secret") public readonly secret: string,
@@ -266,7 +266,7 @@ describe("GraphResolver", () => {
 				) {}
 			}
 
-			@Injectable({ scope: Scope.Request })
+			@Injectable({ scope: Scope.Scoped })
 			class ServiceB implements IServiceB {
 				constructor(
 					@Inject("secret") public readonly secret: string,
@@ -328,19 +328,19 @@ describe("GraphResolver", () => {
 
 			class ModuleB {}
 
-			@NsModule({
+			@Module({
 				providers: [{ provide: "secret", useValue: "bar" }],
 				exports: ["secret"],
 			})
 			class ModuleFoo {}
 
-			NsModule({
+			Module({
 				imports: [ModuleB, ModuleFoo],
 				providers: [{ provide: "ServiceA", useClass: ServiceA }],
 				exports: ["ServiceA"],
 			})(ModuleA);
 
-			NsModule({
+			Module({
 				imports: [ModuleA, ModuleFoo],
 				providers: [{ provide: "ServiceB", useClass: ServiceB }],
 				exports: ["ServiceB"],
@@ -375,7 +375,7 @@ describe("GraphResolver", () => {
 
 			class CircleModule {}
 
-			@NsModule({
+			@Module({
 				imports: [CircleModule],
 				exports: [CircleModule, "secret"],
 			})
@@ -395,7 +395,7 @@ describe("GraphResolver", () => {
 				) {}
 			}
 
-			@NsModule({
+			@Module({
 				imports: [ProxyModule],
 				providers: [
 					{ provide: "secret", useValue: "bar" },
@@ -408,7 +408,7 @@ describe("GraphResolver", () => {
 			})
 			class AppModule {}
 
-			NsModule({
+			Module({
 				imports: [AppModule],
 				providers: [
 					{
@@ -444,7 +444,7 @@ describe("GraphResolver", () => {
 			@Injectable()
 			class ServiceC {}
 
-			@Injectable({ scope: Scope.Request })
+			@Injectable({ scope: Scope.Scoped })
 			class ServiceA implements IServiceA {
 				constructor(
 					@Inject("secret") public readonly secret: string,
@@ -453,7 +453,7 @@ describe("GraphResolver", () => {
 				) {}
 			}
 
-			@Injectable({ scope: Scope.Request })
+			@Injectable({ scope: Scope.Scoped })
 			class ServiceB implements IServiceB {
 				constructor(
 					@Inject("secret") public readonly secret: string,

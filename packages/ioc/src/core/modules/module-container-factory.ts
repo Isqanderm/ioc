@@ -2,10 +2,10 @@ import "reflect-metadata";
 import type {
 	ContainerBaseInterface,
 	DynamicModule,
-	Module,
 	ModuleContainerFactoryInterface,
 	ModuleContainerInterface,
 	ModuleTokenFactoryInterface,
+	Type,
 } from "../../interfaces";
 import { MODULE_TOKEN_WATERMARK } from "../../interfaces";
 import { ModuleContainer } from "./module-container";
@@ -16,7 +16,7 @@ export class ModuleContainerFactory implements ModuleContainerFactoryInterface {
 	) {}
 
 	public async create(
-		module: Module | DynamicModule,
+		module: Type | DynamicModule,
 		container: ContainerBaseInterface,
 	): Promise<ModuleContainerInterface> {
 		const moduleContainer = new ModuleContainer(module, container);
@@ -32,7 +32,7 @@ export class ModuleContainerFactory implements ModuleContainerFactoryInterface {
 		return moduleContainer;
 	}
 
-	public getModuleToken(module: Module | DynamicModule): Promise<string> {
+	public getModuleToken(module: Type | DynamicModule): Promise<string> {
 		return this.moduleTokenFactory.create(module);
 	}
 

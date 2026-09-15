@@ -26,8 +26,20 @@ function isCircularDependencyFn(
 
 export class Resolver {
 	private readonly providersContainer = new ProvidersContainer();
+	private readonly initializationOrder: InjectionToken[] = [];
 
 	constructor(private readonly graph: ModuleGraphInterface) {}
+
+	public async close(): Promise<void> {
+		for (const token of [...this.initializationOrder].reverse()) {
+			const instance = this.providersContainer.get(token);
+			if (instance?.onModuleDestroy) {
+				await instance.onModuleDestroy();
+			}
+		}
+		this.providersContainer.clear();
+		this.initializationOrder.length = 0;
+	}
 
 	public async resolveProvider<T>(
 		token: InjectionToken,
@@ -71,13 +83,14 @@ export class Resolver {
 
 		// Add to resolve cache for current resolution context (for Request and Singleton)
 		// This ensures same instance is used within a single dependency resolution tree
-		if (scope === Scope.Singleton || scope === Scope.Request) {
+		if (scope === Scope.Singleton || scope === Scope.Scoped) {
 			resolveCache.set(token, instance);
 		}
 
 		// Only save to global cache for Singleton scope
 		if (saveInCache) {
 			this.providersContainer.set(token, instance);
+			this.initializationOrder.push(token);
 		}
 
 		return instance as T;
@@ -89,141 +102,85 @@ export class Resolver {
 		isCircularDependency = false,
 	): Promise<[Type, boolean]> {
 		const provider = node.metatype as Provider;
-		const dependencies = this.graph
+		const dependencyEdges = this.graph
 			.getEdge(node.id)
 			.filter(
 				(edge) =>
 					edge.type === EdgeTypeEnum.DEPENDENCY &&
 					edge.metadata.inject === "constructor" &&
 					edge.metadata.unreached === false,
-			)
-			.map<InjectionToken | CircularDependencyFn>((edge) => {
-				if (edge.metadata.isCircular) {
+			);
+
+		const resolvedDependencies: (CircularDependencyFn | unknown)[] = [];
+		for (const edge of dependencyEdges) {
+			if (edge.metadata.isCircular) {
+				if (isCircularDependency) {
 					const circularResolver = () =>
 						new Proxy(
 							{},
 							{
 								get: (_, prop) => {
 									const instance = resolveCache.get(edge.target);
-
 									return instance?.[prop];
 								},
 							},
 						);
-
-					circularResolver.dependencyName = edge.target;
-
-					return circularResolver;
-				}
-
-				return edge.target;
-			});
-
-		const depsChunks = dependencies.reduce<
-			[(CircularDependencyFn | null)[], (InjectionToken | null)[]]
-		>(
-			(prev, depToken) => {
-				if (isCircularDependencyFn(depToken)) {
-					prev[0].push(depToken as CircularDependencyFn);
-					prev[1].push(null);
-
-					return prev;
-				}
-
-				prev[0].push(null);
-				prev[1].push(depToken);
-
-				return prev;
-			},
-			[[], []],
-		);
-
-		// biome-ignore lint/suspicious/noExplicitAny: dependency resolution
-		let resolvedDependencies: any[] = [];
-
-		for (const depToken of dependencies) {
-			if (isCircularDependencyFn(depToken)) {
-				if (isCircularDependency) {
-					resolvedDependencies.push(depToken);
+					(
+						circularResolver as unknown as {
+							dependencyName: InjectionToken;
+						}
+					).dependencyName = edge.target;
+					resolvedDependencies.push(circularResolver as CircularDependencyFn);
 					continue;
 				}
-
-				const instance = await this.resolveProvider(
-					// @ts-expect-error
-					depToken.dependencyName,
-					resolveCache,
-					true,
+				resolvedDependencies.push(
+					await this.resolveProvider(edge.target, resolveCache, true),
 				);
-
-				resolvedDependencies.push(instance);
 				continue;
 			}
-
-			const instance = await this.resolveProvider(depToken, resolveCache);
-
-			resolvedDependencies.push(instance);
+			resolvedDependencies.push(
+				await this.resolveProvider(edge.target, resolveCache),
+			);
 		}
 
-		resolvedDependencies = resolvedDependencies.map<
-			InjectionToken | CircularDependencyFn
-		>((dependency, index) => {
-			if (depsChunks[0]?.[index]) {
-				return depsChunks[0]?.[index] as CircularDependencyFn;
-			}
-
-			return dependency as InjectionToken;
-		});
+		const deps = resolvedDependencies.map((dep) =>
+			isCircularDependencyFn(dep as InjectionToken | CircularDependencyFn)
+				? (dep as CircularDependencyFn)()
+				: dep,
+		);
 
 		// biome-ignore lint/suspicious/noExplicitAny: instance creation
 		let instance: any;
 		let saveInCache = true;
-
-		const deps = resolvedDependencies.map((depToken) =>
-			isCircularDependencyFn(depToken) ? depToken() : depToken,
-		);
+		const scope = (node as AnalyzeProvider).scope;
 
 		if (isClassProvider(provider)) {
 			instance = new provider.useClass(...deps);
-
 			await this.injectPropertyDependencies(instance, node, resolveCache);
-
-			// Determine caching strategy based on scope
-			const scope = (node as AnalyzeProvider).scope;
 			saveInCache = scope === Scope.Singleton;
 		} else if (isValueProvider(provider)) {
 			instance = provider.useValue;
-			// Value providers are always singleton
 			saveInCache = true;
 		} else if (isFactoryProvider(provider)) {
 			instance = await provider.useFactory(...deps);
-
-			// Check scope for factory providers
-			const scope = (node as AnalyzeProvider).scope;
 			saveInCache = scope === Scope.Singleton;
 		} else {
 			instance = new (provider as Type)(...deps);
-
 			await this.injectPropertyDependencies(instance, node, resolveCache);
-
-			// Check scope for function providers
-			const scope = (node as AnalyzeProvider).scope;
 			saveInCache = scope === Scope.Singleton;
 		}
 
-		// Call lifecycle hook with error handling
 		if (instance?.onModuleInit) {
 			try {
 				await instance.onModuleInit();
 			} catch (error) {
-				// Re-throw with additional context about which provider failed
 				const providerName =
 					typeof provider === "function"
 						? provider.name
-						: (provider as { provide?: InjectionToken }).provide?.toString() ||
-							"Unknown";
+						: ((provider as { provide?: InjectionToken }).provide?.toString() ??
+							"Unknown");
 				const errorMessage = `Failed to initialize provider "${providerName}": ${error instanceof Error ? error.message : String(error)}`;
 				const wrappedError = new Error(errorMessage);
-				// Preserve original error stack if available
 				if (error instanceof Error && error.stack) {
 					wrappedError.stack = `${wrappedError.stack}\nCaused by: ${error.stack}`;
 				}
@@ -250,10 +207,9 @@ export class Resolver {
 			);
 
 		for (const edge of dependencies) {
-			instance[edge.metadata.key as string] = await this.resolveProvider(
-				edge.target,
-				resolveCache,
-			);
+			(instance as unknown as Record<string, unknown>)[
+				edge.metadata.key as string
+			] = await this.resolveProvider(edge.target, resolveCache);
 		}
 	}
 }

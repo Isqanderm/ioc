@@ -1,8 +1,8 @@
 import type {
 	InjectionToken,
-	Module,
 	NexusApplicationInterface,
 	ScannerPluginInterface,
+	Type,
 } from "../interfaces";
 import { HashUtilBrowser } from "../utils/hash-utils.browser";
 import { Container } from "./modules/container";
@@ -10,18 +10,18 @@ import { Container } from "./modules/container";
 /**
  * @deprecated
  * It will be removed in version 1.0.0.
- * these classes work the same way. For the new behavior, use @NexusApplications
+ * these classes work the same way. For the new behavior, use @NexusApplication
  */
-export class NexusApplicationsBrowser implements NexusApplicationInterface {
+export class NexusApplicationBrowser implements NexusApplicationInterface {
 	private readonly hashUtil = new HashUtilBrowser();
 	private readonly scannerPlugins: ScannerPluginInterface[] = [];
 	private readonly container = new Container(this.hashUtil);
 	private _parentContainer: NexusApplicationInterface | null = null;
 
-	private constructor(private readonly rootModule: Module) {}
+	private constructor(private readonly rootModule: Type) {}
 
-	static create(rootModule: Module) {
-		return new NexusApplicationsBrowser(rootModule);
+	static create(rootModule: Type) {
+		return new NexusApplicationBrowser(rootModule);
 	}
 
 	public async bootstrap(): Promise<this> {
@@ -56,8 +56,12 @@ export class NexusApplicationsBrowser implements NexusApplicationInterface {
 		return this.container.errors;
 	}
 
-	async(): this {
+	lazy(): this {
 		return this;
+	}
+
+	public async close(): Promise<void> {
+		await this.container.close();
 	}
 
 	public setParent(parentContainer: NexusApplicationInterface) {

@@ -1,7 +1,7 @@
-import { NexusApplications, NsModule } from "../src";
+import { Module, NexusApplication } from "../src";
 
 describe("Hierarchy of containers", () => {
-	@NsModule({
+	@Module({
 		providers: [
 			{
 				provide: "first-module-provider",
@@ -11,20 +11,20 @@ describe("Hierarchy of containers", () => {
 	})
 	class AppFirstModule {}
 
-	@NsModule({
+	@Module({
 		providers: [],
 	})
 	class AppSecondModule {}
 
-	@NsModule({
+	@Module({
 		providers: [],
 	})
 	class AppThirdModule {}
 
 	it("should get provider from parent module", async () => {
-		const firstApp = await NexusApplications.create(AppFirstModule).bootstrap();
+		const firstApp = await NexusApplication.create(AppFirstModule).bootstrap();
 		const secondApp =
-			await NexusApplications.create(AppSecondModule).bootstrap();
+			await NexusApplication.create(AppSecondModule).bootstrap();
 
 		secondApp.setParent(firstApp);
 
@@ -36,11 +36,10 @@ describe("Hierarchy of containers", () => {
 	});
 
 	it("should not get provider from third module", async () => {
-		const _firstApp =
-			await NexusApplications.create(AppFirstModule).bootstrap();
+		const _firstApp = await NexusApplication.create(AppFirstModule).bootstrap();
 		const secondApp =
-			await NexusApplications.create(AppSecondModule).bootstrap();
-		const thirdApp = await NexusApplications.create(AppThirdModule).bootstrap();
+			await NexusApplication.create(AppSecondModule).bootstrap();
+		const thirdApp = await NexusApplication.create(AppThirdModule).bootstrap();
 
 		thirdApp.setParent(secondApp);
 		// secondApp.setParent(firstApp);

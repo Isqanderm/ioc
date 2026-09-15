@@ -9,7 +9,7 @@ import {
 /**
  * Defines a module in the application.
  *
- * A module is a class annotated with @NsModule() decorator that organizes
+ * A module is a class annotated with @Module() decorator that organizes
  * the application structure. Modules can:
  * - Declare providers that will be instantiated by the container
  * - Import other modules to use their exported providers
@@ -25,14 +25,14 @@ import {
  * @example
  * ```typescript
  * // Basic module
- * @NsModule({
+ * @Module({
  *   providers: [UserService, UserRepository],
  *   exports: [UserService]
  * })
  * class UserModule {}
  *
  * // Module with imports
- * @NsModule({
+ * @Module({
  *   imports: [DatabaseModule, LoggerModule],
  *   providers: [ProductService],
  *   exports: [ProductService]
@@ -40,14 +40,14 @@ import {
  * class ProductModule {}
  *
  * // Root module
- * @NsModule({
+ * @Module({
  *   imports: [UserModule, ProductModule],
  *   providers: [AppService]
  * })
  * class AppModule {}
  * ```
  */
-export function NsModule(metadata: ModuleMetadata): ClassDecorator {
+export function Module(metadata: ModuleMetadata): ClassDecorator {
 	const propsKeys = Object.keys(metadata);
 	validateModuleKeys(propsKeys);
 

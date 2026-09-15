@@ -1,22 +1,19 @@
 import type {
 	DynamicModule,
 	HashUtilInterface,
-	Module,
 	ModuleTokenFactoryInterface,
+	Type,
 } from "../../interfaces";
 import { isDynamicModule } from "../../utils/helpers";
 
 export class ModuleTokenFactory implements ModuleTokenFactoryInterface {
 	private readonly moduleTokenCache = new Map<string, string>();
-	private readonly moduleTokens = new WeakMap<Module | DynamicModule, string>();
-	private readonly moduleIdsCache = new WeakMap<
-		Module | DynamicModule,
-		string
-	>();
+	private readonly moduleTokens = new WeakMap<Type | DynamicModule, string>();
+	private readonly moduleIdsCache = new WeakMap<Type | DynamicModule, string>();
 
 	constructor(private readonly hashUtils: HashUtilInterface) {}
 
-	public async create(metatype: Module | DynamicModule): Promise<string> {
+	public async create(metatype: Type | DynamicModule): Promise<string> {
 		const moduleToken = this.moduleTokens.get(metatype);
 
 		if (moduleToken) {
@@ -47,7 +44,7 @@ export class ModuleTokenFactory implements ModuleTokenFactoryInterface {
 		return hash;
 	}
 
-	private getMetatypeId(metatype: Module | DynamicModule): string {
+	private getMetatypeId(metatype: Type | DynamicModule): string {
 		let metatypeId = this.moduleIdsCache.get(metatype);
 
 		if (metatypeId) {
@@ -60,7 +57,7 @@ export class ModuleTokenFactory implements ModuleTokenFactoryInterface {
 		return metatypeId;
 	}
 
-	private getModuleName(metatype: Module | DynamicModule): string {
+	private getModuleName(metatype: Type | DynamicModule): string {
 		if (isDynamicModule(metatype)) {
 			return metatype.module.name;
 		}

@@ -207,7 +207,7 @@ describe("Scope Management", () => {
 
 	describe("Request Scope", () => {
 		it("should not cache request-scoped providers globally", async () => {
-			@Injectable({ scope: Scope.Request })
+			@Injectable({ scope: Scope.Scoped })
 			class RequestService {
 				id = Math.random();
 			}
@@ -234,7 +234,7 @@ describe("Scope Management", () => {
 					{
 						provide: "SERVICE",
 						useClass: ImplementationService,
-						scope: Scope.Request,
+						scope: Scope.Scoped,
 					},
 				],
 			}).compile();
@@ -246,7 +246,7 @@ describe("Scope Management", () => {
 		});
 
 		it("should inject request-scoped dependencies", async () => {
-			@Injectable({ scope: Scope.Request })
+			@Injectable({ scope: Scope.Scoped })
 			class RequestService {
 				id = Math.random();
 			}
@@ -299,14 +299,13 @@ describe("Scope Management", () => {
 			expect(transient1?.id).not.toBe(transient2?.id);
 		});
 
-		// TODO: Implement Transient scope
-		it.skip("should inject singleton into transient", async () => {
+		it("should inject singleton into transient", async () => {
 			@Injectable({ scope: Scope.Singleton })
 			class SingletonService {
 				id = Math.random();
 			}
 
-			@Injectable({ scope: Scope.Singleton }) // Transient not implemented
+			@Injectable({ scope: Scope.Transient })
 			class TransientService {
 				constructor(
 					@Inject(SingletonService) public singleton: SingletonService,
@@ -318,15 +317,13 @@ describe("Scope Management", () => {
 				providers: [SingletonService, TransientService],
 			}).compile();
 
-			const transient1 =
-				await container.get<TransientService>(TransientService);
-			const transient2 =
-				await container.get<TransientService>(TransientService);
+			const t1 = await container.get<TransientService>(TransientService);
+			const t2 = await container.get<TransientService>(TransientService);
+			const singleton = await container.get<SingletonService>(SingletonService);
 
-			// Transient instances should be different
-			expect(transient1?.id).not.toBe(transient2?.id);
-			// But they should share the same singleton
-			expect(transient1?.singleton.id).toBe(transient2?.singleton.id);
+			expect(t1?.id).not.toBe(t2?.id);
+			expect(t1?.singleton).toBe(singleton);
+			expect(t2?.singleton).toBe(singleton);
 		});
 
 		it("should inject transient into singleton", async () => {

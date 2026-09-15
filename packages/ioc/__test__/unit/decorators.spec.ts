@@ -2,7 +2,7 @@ import "reflect-metadata";
 import { Global } from "../../src/decorators/global";
 import { Inject } from "../../src/decorators/inject";
 import { Injectable } from "../../src/decorators/injectable";
-import { NsModule } from "../../src/decorators/nsModule";
+import { Module } from "../../src/decorators/module";
 import { Optional } from "../../src/decorators/optional";
 import {
 	INJECT_WATERMARK,
@@ -49,11 +49,11 @@ describe("Decorators", () => {
 		});
 
 		it("should support Request scope", () => {
-			@Injectable({ scope: Scope.Request })
+			@Injectable({ scope: Scope.Scoped })
 			class TestService {}
 
 			const options = Reflect.getMetadata(INJECTABLE_OPTIONS, TestService);
-			expect(options).toEqual({ scope: Scope.Request });
+			expect(options).toEqual({ scope: Scope.Scoped });
 		});
 
 		it("should work without options", () => {
@@ -85,9 +85,9 @@ describe("Decorators", () => {
 		});
 	});
 
-	describe("@NsModule", () => {
+	describe("@Module", () => {
 		it("should mark class as module", () => {
-			@NsModule({})
+			@Module({})
 			class TestModule {}
 
 			const isModule = Reflect.getMetadata(MODULE_WATERMARK, TestModule);
@@ -95,10 +95,10 @@ describe("Decorators", () => {
 		});
 
 		it("should store imports metadata", () => {
-			@NsModule({})
+			@Module({})
 			class ImportedModule {}
 
-			@NsModule({
+			@Module({
 				imports: [ImportedModule],
 			})
 			class TestModule {}
@@ -111,7 +111,7 @@ describe("Decorators", () => {
 			@Injectable()
 			class TestService {}
 
-			@NsModule({
+			@Module({
 				providers: [TestService],
 			})
 			class TestModule {}
@@ -127,7 +127,7 @@ describe("Decorators", () => {
 			@Injectable()
 			class TestService {}
 
-			@NsModule({
+			@Module({
 				providers: [TestService],
 				exports: [TestService],
 			})
@@ -138,7 +138,7 @@ describe("Decorators", () => {
 		});
 
 		it("should handle empty metadata", () => {
-			@NsModule({})
+			@Module({})
 			class TestModule {}
 
 			const imports = Reflect.getMetadata(MODULE_METADATA.IMPORTS, TestModule);
@@ -155,7 +155,7 @@ describe("Decorators", () => {
 
 		it("should throw error for invalid metadata keys", () => {
 			expect(() => {
-				@NsModule({
+				@Module({
 					// @ts-expect-error - testing invalid key
 					invalidKey: [],
 				})
@@ -172,13 +172,13 @@ describe("Decorators", () => {
 			@Injectable()
 			class ServiceB {}
 
-			@NsModule({
+			@Module({
 				providers: [ServiceA],
 				exports: [ServiceA],
 			})
 			class ModuleA {}
 
-			@NsModule({
+			@Module({
 				imports: [ModuleA],
 				providers: [ServiceB],
 				exports: [ServiceB],
@@ -341,7 +341,7 @@ describe("Decorators", () => {
 	describe("@Global", () => {
 		it("should mark module as global", () => {
 			@Global()
-			@NsModule({})
+			@Module({})
 			class GlobalModule {}
 
 			const isGlobal = Reflect.getMetadata(
@@ -356,7 +356,7 @@ describe("Decorators", () => {
 			class GlobalService {}
 
 			@Global()
-			@NsModule({
+			@Module({
 				providers: [GlobalService],
 				exports: [GlobalService],
 			})

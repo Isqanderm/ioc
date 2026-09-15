@@ -1,3 +1,4 @@
+import type { ForwardRef } from "./forward-ref.interface";
 import type { InjectionToken } from "./injection-token.interface";
 import type { Scope } from "./scope.interface";
 import type { Type } from "./type.interface";
@@ -28,6 +29,6 @@ export interface FactoryProvider<T = any> {
 	provide: InjectionToken;
 	// biome-ignore lint/suspicious/noExplicitAny: Factory arguments can be of any type from DI container
 	useFactory: (...args: any[]) => T | Promise<T>;
-	inject?: InjectionToken[];
+	inject?: (InjectionToken | ForwardRef)[];
 	scope?: Scope;
 }

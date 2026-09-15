@@ -1,9 +1,9 @@
 import { Test } from "@nexus-ioc/testing";
-import { type DynamicModule, Inject, Injectable, NsModule } from "../../src";
+import { type DynamicModule, Inject, Injectable, Module } from "../../src";
 
 describe("Export Hierarchy", () => {
 	it("should correct resolve hierarchy dependency", async () => {
-		@NsModule({
+		@Module({
 			providers: [
 				{
 					provide: "hash",
@@ -16,7 +16,7 @@ describe("Export Hierarchy", () => {
 		})
 		class ThirdPartyNestModule {}
 
-		@NsModule({
+		@Module({
 			imports: [ThirdPartyNestModule],
 			providers: [
 				{
@@ -36,7 +36,7 @@ describe("Export Hierarchy", () => {
 			) {}
 		}
 
-		@NsModule({
+		@Module({
 			imports: [ThirdPartyModule],
 			providers: [DependencyService],
 			exports: [DependencyService],
@@ -69,7 +69,7 @@ describe("Export Hierarchy", () => {
 			useValue: "secret-key",
 		};
 
-		@NsModule({})
+		@Module({})
 		class FeatureModule {
 			static forFeature(): DynamicModule {
 				return {

@@ -3,9 +3,9 @@ import type {
 	DynamicModule,
 	HashUtilInterface,
 	InjectionToken,
-	Module,
 	ModuleContainerInterface,
 	ModuleGraphInterface,
+	Type,
 } from "../../interfaces";
 import { ModuleGraph } from "../graph/module-graph";
 import { Resolver } from "../resolver/resolver";
@@ -61,7 +61,7 @@ export class Container implements ContainerInterface {
 	 * ```
 	 */
 	public async addModule(
-		module: Module | DynamicModule,
+		module: Type | DynamicModule,
 	): Promise<ModuleContainerInterface> {
 		return await this.modulesContainer.addModule(module);
 	}
@@ -82,8 +82,8 @@ export class Container implements ContainerInterface {
 	 * ```
 	 */
 	public async replaceModule(
-		moduleToReplace: Module,
-		newModule: Module,
+		moduleToReplace: Type,
+		newModule: Type,
 	): Promise<ModuleContainerInterface> {
 		return await this.modulesContainer.replaceModule(
 			moduleToReplace,
@@ -103,7 +103,7 @@ export class Container implements ContainerInterface {
 	 * ```
 	 */
 	public async getModule(
-		module: Module,
+		module: Type,
 	): Promise<ModuleContainerInterface | undefined> {
 		return this.modulesContainer.getModule(module);
 	}
@@ -153,7 +153,7 @@ export class Container implements ContainerInterface {
 	 * // Now you can use container.get() to resolve dependencies
 	 * ```
 	 */
-	public async run(rootModule: Module): Promise<void> {
+	public async run(rootModule: Type): Promise<void> {
 		const root = await this.modulesContainer.addModule(rootModule);
 
 		this._graph = new ModuleGraph(root);
@@ -208,5 +208,14 @@ export class Container implements ContainerInterface {
 	 */
 	public get errors() {
 		return this.graph.errors;
+	}
+
+	/**
+	 * Closes the container and cleans up resources.
+	 *
+	 * @returns A promise that resolves when the container is closed
+	 */
+	public async close(): Promise<void> {
+		await this.moduleGraphResolver?.close();
 	}
 }
