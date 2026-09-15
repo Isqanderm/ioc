@@ -39,8 +39,9 @@ export class NexusApplication implements NexusApplicationInterface {
 	private readonly container = new Container(this.hashUtil);
 	private readonly scannerPlugins: ScannerPluginInterface[] = [];
 	private _parentContainer: NexusApplicationInterface | null = null;
-	private readonly lazyModuleLoader = new LazyModuleLoader((lazyModule) =>
-		this.load(lazyModule),
+	private readonly lazyModuleLoader = new LazyModuleLoader(
+		(lazyModule) => this.load(lazyModule),
+		(ref) => this.unload(ref),
 	);
 
 	/**
