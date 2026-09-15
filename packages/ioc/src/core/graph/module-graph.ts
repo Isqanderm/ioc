@@ -2,7 +2,9 @@ import {
 	type Edge,
 	EdgeTypeEnum,
 	type GraphError,
+	type GraphSegment,
 	type InjectionToken,
+	type LazyModule,
 	MODULE_TOKEN_WATERMARK,
 	MODULE_WATERMARK,
 	type ModuleContainerInterface,
@@ -20,9 +22,11 @@ import type { ForwardRef } from "../../utils/forward-ref";
 import { isForwardRef } from "../../utils/forward-ref";
 import {
 	getDependencyToken,
+	getModuleLabel,
 	getProviderToken,
 	isModule,
 } from "../../utils/helpers";
+import { AnalyzeLazyModule } from "./analyze-lazy-module";
 import { AnalyzeModule } from "./analyze-module";
 import type { AnalyzeProvider } from "./analyze-provider";
 import {
@@ -42,23 +46,23 @@ function tokenToString(token: InjectionToken): string {
 	return typeof token === "function" ? token.name : String(token);
 }
 
-/**
- * Type guard to check if a node is an AnalyzeProvider
- */
-function isProviderNode(
-	entry: [InjectionToken, Node],
-): entry is [InjectionToken, AnalyzeProvider] {
-	return entry[1].type === NodeTypeEnum.PROVIDER;
-}
-
 export class ModuleGraph implements ModuleGraphInterface {
 	private _nodes: Map<InjectionToken, Node> = new Map();
 	private _edges: Map<InjectionToken, Edge[]> = new Map();
 	private _globalModules: Map<InjectionToken, ModuleContainerInterface> =
 		new Map();
 	private readonly _errors: GraphError[] = [];
+	/**
+	 * While a segment compiles, its errors are collected here instead of in
+	 * `_errors`, so they are never mixed with (or mistaken for) errors of the
+	 * eager graph or of another segment.
+	 */
+	private _errorSink: GraphError[] | null = null;
 
-	constructor(private readonly _root: ModuleContainerInterface) {}
+	constructor(
+		private readonly _root: ModuleContainerInterface,
+		private readonly _internalRoots: ModuleContainerInterface[] = [],
+	) {}
 
 	public get nodes() {
 		return this._nodes;
@@ -72,11 +76,100 @@ export class ModuleGraph implements ModuleGraphInterface {
 		return this._errors;
 	}
 
+	/** Records a graph error in the active sink, or in the shared list. */
+	private pushError(error: GraphError) {
+		(this._errorSink ?? this._errors).push(error);
+	}
+
+	/**
+	 * Compiles the eager graph. Internal roots are added before the user root so
+	 * `_globalModules` already contains the internal modules when user providers
+	 * are checked by `isProviderExported`.
+	 */
 	public async compile() {
-		await this.addModules();
-		await this.addDependencies();
-		await this.detectCircularDependencies();
-		await this.detectCircularImports();
+		const moduleTokens: string[] = [];
+		const providerTokens: InjectionToken[] = [];
+
+		for (const root of [...this._internalRoots, this._root]) {
+			const added = await this.addModules(root, false);
+
+			moduleTokens.push(...added.moduleTokens);
+			providerTokens.push(...added.providerTokens);
+		}
+
+		await this.addDependencies(providerTokens);
+		await this.detectCircularDependencies(providerTokens);
+		await this.detectCircularImports(moduleTokens);
+	}
+
+	/**
+	 * Compiles the part of the graph reachable from `root` that is not already
+	 * registered, attributing it to the `lazyModule` placeholder node.
+	 *
+	 * The pass is atomic: if it produces any error the segment is rolled back
+	 * (every node, edge, global registration and LAZY placeholder it created is
+	 * removed) and the placeholder stays unloaded. On success the placeholder is
+	 * marked loaded. A placeholder that already existed before the segment
+	 * started is never removed.
+	 *
+	 * The segment's errors are collected in a segment-local sink and never
+	 * reach `this.errors`, so they cannot be attributed to the eager graph or
+	 * to another segment. The caller (`Container.load`) runs one segment at a
+	 * time, which is what makes the sink and the graph mutations safe under
+	 * concurrent loads of different refs.
+	 */
+	public async compileSegment(
+		root: ModuleContainerInterface,
+		lazyModule: LazyModule,
+	): Promise<GraphSegment> {
+		const createdPlaceholder = !this._nodes.has(lazyModule.id);
+
+		if (createdPlaceholder) {
+			this.addNode(lazyModule.id, new AnalyzeLazyModule(lazyModule));
+		}
+
+		const errors: GraphError[] = [];
+		const previousSink = this._errorSink;
+		this._errorSink = errors;
+
+		try {
+			const added = await this.addModules(root, true);
+
+			await this.addDependencies(added.providerTokens);
+			await this.detectCircularDependencies(added.providerTokens);
+			await this.detectCircularImports(added.moduleTokens);
+
+			if (errors.length > 0) {
+				this.removeTokens([
+					...added.moduleTokens,
+					...added.providerTokens,
+					...added.lazyTokens,
+					...(createdPlaceholder ? [lazyModule.id] : []),
+				]);
+			} else {
+				(this._nodes.get(lazyModule.id) as AnalyzeLazyModule).markLoaded(
+					root.token,
+				);
+			}
+
+			return {
+				lazyModule,
+				moduleContainer: root,
+				moduleTokens: added.moduleTokens,
+				providerTokens: added.providerTokens,
+				errors,
+			};
+		} finally {
+			this._errorSink = previousSink;
+		}
+	}
+
+	private removeTokens(tokens: InjectionToken[]) {
+		for (const token of tokens) {
+			this._nodes.delete(token);
+			this._edges.delete(token);
+			this._globalModules.delete(token);
+		}
 	}
 
 	public getNode(token: InjectionToken): Node | undefined {
@@ -96,9 +189,19 @@ export class ModuleGraph implements ModuleGraphInterface {
 	}
 
 	// modules analyze
-	private async addModules() {
+	private async addModules(
+		root: ModuleContainerInterface,
+		strictTokens: boolean,
+	): Promise<{
+		moduleTokens: string[];
+		providerTokens: InjectionToken[];
+		lazyTokens: symbol[];
+	}> {
+		const moduleTokens: string[] = [];
+		const providerTokens: InjectionToken[] = [];
+		const lazyTokens: symbol[] = [];
 		const visited = new Set<InjectionToken>();
-		const imports = [this._root];
+		const imports = [root];
 
 		while (imports.length) {
 			const importModule = imports.shift();
@@ -107,15 +210,26 @@ export class ModuleGraph implements ModuleGraphInterface {
 				continue;
 			}
 
+			visited.add(importModule.token);
+
+			if (this._nodes.has(importModule.token)) {
+				// Already part of the graph (eager module or an earlier segment).
+				continue;
+			}
+
 			const analyzeModule = new AnalyzeModule(importModule);
 
 			await this.addModule(analyzeModule);
-			await this.addModuleImports(analyzeModule);
-			await this.addModuleProviders(analyzeModule);
+			moduleTokens.push(analyzeModule.id);
+			lazyTokens.push(...(await this.addModuleImports(analyzeModule)));
+			providerTokens.push(
+				...(await this.addModuleProviders(analyzeModule, strictTokens)),
+			);
 
 			imports.push(...(await analyzeModule.imports));
-			visited.add(analyzeModule.id);
 		}
+
+		return { moduleTokens, providerTokens, lazyTokens };
 	}
 
 	private async addModule(analyzeModule: AnalyzeModule) {
@@ -126,15 +240,41 @@ export class ModuleGraph implements ModuleGraphInterface {
 		}
 	}
 
-	private async addModuleImports(analyzeModule: AnalyzeModule) {
+	/**
+	 * @returns the ids of the LAZY placeholder nodes this call created, so a
+	 * rolled back segment can remove them again. Placeholders that already
+	 * existed are not reported and must never be removed.
+	 */
+	private async addModuleImports(
+		analyzeModule: AnalyzeModule,
+	): Promise<symbol[]> {
+		const createdLazyIds: symbol[] = [];
 		const imports = await analyzeModule.edges;
 
 		for (const importEdge of imports) {
 			this.addEdge(analyzeModule.id, importEdge);
 		}
+
+		for (const lazyModule of analyzeModule.lazyImports) {
+			if (!this._nodes.has(lazyModule.id)) {
+				this.addNode(lazyModule.id, new AnalyzeLazyModule(lazyModule));
+				createdLazyIds.push(lazyModule.id);
+			}
+		}
+
+		for (const lazyEdge of analyzeModule.lazyEdges) {
+			this.addEdge(analyzeModule.id, lazyEdge);
+		}
+
+		return createdLazyIds;
 	}
 
-	private async addModuleProviders(analyzeModule: AnalyzeModule) {
+	private async addModuleProviders(
+		analyzeModule: AnalyzeModule,
+		strictTokens: boolean,
+	): Promise<InjectionToken[]> {
+		const added: InjectionToken[] = [];
+
 		for (const provider of analyzeModule.providers) {
 			const analyzeProvider = ProviderFactory(
 				provider,
@@ -145,9 +285,32 @@ export class ModuleGraph implements ModuleGraphInterface {
 				continue;
 			}
 
+			const existing = this._nodes.get(analyzeProvider.id);
+
+			if (
+				strictTokens &&
+				existing &&
+				existing.type === NodeTypeEnum.PROVIDER &&
+				(existing as AnalyzeProvider).moduleContainer.token !==
+					analyzeModule.moduleContainer.token
+			) {
+				this.pushError({
+					type: "PROVIDER_TOKEN_CONFLICT",
+					token: analyzeProvider.label,
+					module: analyzeModule.label,
+					existingModule: getModuleLabel(
+						(existing as AnalyzeProvider).moduleContainer.metatype,
+					),
+				});
+				continue;
+			}
+
 			this.addNode(analyzeProvider.id, analyzeProvider);
 			this.addEdge(analyzeModule.id, analyzeProvider.edge);
+			added.push(analyzeProvider.id);
 		}
+
+		return added;
 	}
 	// modules analyze
 
@@ -166,12 +329,13 @@ export class ModuleGraph implements ModuleGraphInterface {
 	// graph helpers
 
 	// providers dependencies
-	private async addDependencies() {
+	private async addDependencies(providerTokens: InjectionToken[]) {
 		const visited = new Set<InjectionToken>();
-		const providerNodes = [...this.nodes].filter(isProviderNode);
 
-		for (const [token, node] of providerNodes) {
-			if (visited.has(token)) {
+		for (const token of providerTokens) {
+			const node = this._nodes.get(token);
+
+			if (!node || node.type !== NodeTypeEnum.PROVIDER || visited.has(token)) {
 				continue;
 			}
 
@@ -210,7 +374,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 				(await this.isProviderExported(node.moduleContainer, dependencyToken));
 
 			if (!isExported) {
-				this.errors.push({
+				this.pushError({
 					type: "UNREACHED_DEP_CONSTRUCTOR",
 					token: node.label,
 					dependency: tokenToString(dependencyToken),
@@ -248,7 +412,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 				(await this.isProviderExported(node.moduleContainer, dependencyToken));
 
 			if (!isExported) {
-				this.errors.push({
+				this.pushError({
 					type: "UNREACHED_DEP_PROPERTY",
 					token: node.label,
 					dependency: tokenToString(dependencyToken),
@@ -292,7 +456,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 				(await this.isProviderExported(node.moduleContainer, dependencyToken));
 
 			if (!isExported) {
-				this.errors.push({
+				this.pushError({
 					type: "UNREACHED_DEP_CONSTRUCTOR",
 					token: node.label,
 					dependency: tokenToString(dependencyToken),
@@ -326,7 +490,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 				(await this.isProviderExported(node.moduleContainer, dependencyToken));
 
 			if (!isExported) {
-				this.errors.push({
+				this.pushError({
 					type: "UNREACHED_DEP_PROPERTY",
 					token: node.label,
 					dependency: tokenToString(dependencyToken),
@@ -367,7 +531,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 			);
 
 			if (!isExported) {
-				this.errors.push({
+				this.pushError({
 					type: "UNREACHED_DEP_FACTORY",
 					token: node.label,
 					dependency: tokenToString(dependencyToken),
@@ -393,7 +557,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 	}
 	// providers dependencies
 
-	private async isProviderExported(
+	public async isProviderExported(
 		moduleContainer: ModuleContainerInterface,
 		dependencyToken: InjectionToken,
 	): Promise<boolean> {
@@ -457,7 +621,9 @@ export class ModuleGraph implements ModuleGraphInterface {
 		return false;
 	}
 
-	private async detectCircularDependencies(): Promise<void> {
+	private async detectCircularDependencies(
+		startTokens: InjectionToken[],
+	): Promise<void> {
 		const visit = (
 			nodeId: InjectionToken,
 			path: InjectionToken[],
@@ -494,7 +660,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 					});
 
 					if (!hasForwardRef) {
-						this.errors.push({
+						this.pushError({
 							type: "CD_PROVIDERS",
 							path: cyclePath,
 						});
@@ -521,16 +687,12 @@ export class ModuleGraph implements ModuleGraphInterface {
 			return false;
 		};
 
-		const providers = [...this._nodes].filter(
-			([_, node]) => node.type === NodeTypeEnum.PROVIDER,
-		);
-
-		for (const [nodeId, _] of providers) {
+		for (const nodeId of new Set(startTokens)) {
 			visit(nodeId, [], new Set<InjectionToken>(), new Set<InjectionToken>());
 		}
 	}
 
-	private async detectCircularImports(): Promise<void> {
+	private async detectCircularImports(startTokens: string[]): Promise<void> {
 		const visit = (
 			nodeId: InjectionToken,
 			path: InjectionToken[],
@@ -549,7 +711,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 						const edge = edges.find((e) => e.source === to);
 
 						if (edge && edge.type === EdgeTypeEnum.IMPORT) {
-							this.errors.push({
+							this.pushError({
 								type: "CD_IMPORTS",
 								path: cyclePath
 									.map((token) => this.getNode(token))
@@ -582,11 +744,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 			path.pop();
 		};
 
-		const modules = [...this._nodes].filter(
-			([_, node]) => node.type === NodeTypeEnum.MODULE,
-		);
-
-		for (const [nodeId, _] of modules) {
+		for (const nodeId of new Set(startTokens)) {
 			visit(nodeId, [], new Set<InjectionToken>(), new Set<InjectionToken>());
 		}
 	}

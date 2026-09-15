@@ -2,13 +2,19 @@ import {
 	type DynamicModule,
 	type GraphError,
 	type InjectionToken,
+	type LazyModule,
 	type ModuleContainerInterface,
 	Module as ModuleDecorator,
 	type ModuleMetadata,
+	ModuleRef,
 	type ScannerPluginInterface,
 	type Type,
 } from "@nexus-ioc/core";
-import { Container } from "@nexus-ioc/core/internal";
+import {
+	Container,
+	createInternalModule,
+	LazyModuleLoader,
+} from "@nexus-ioc/core/internal";
 import { ContainerNotCompiledError } from "@nexus-ioc/shared";
 import type { ModuleTestingContainerInterface } from "../interfaces";
 import { HashTestingUtil } from "./hash-testing-util";
@@ -26,6 +32,9 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 		ModuleDecorator;
 	private _module: Type | null = null;
 	private containerCompiled = false;
+	private readonly lazyModuleLoader = new LazyModuleLoader((lazyModule) =>
+		this.load(lazyModule),
+	);
 
 	private constructor(private readonly metatype: T) {}
 
@@ -62,6 +71,18 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 		return this.container.get<T>(token);
 	}
 
+	/**
+	 * Loads a lazy module into the testing container, like
+	 * `NexusApplication.load()`. Also backs the injectable `LazyModuleLoader`.
+	 */
+	public async load(lazyModule: LazyModule): Promise<ModuleRef> {
+		if (!this.containerCompiled) {
+			throw new ContainerNotCompiledError();
+		}
+
+		return new ModuleRef(this.container, await this.container.load(lazyModule));
+	}
+
 	public async compile(): Promise<ModuleContainerInterface> {
 		this._module = this.moduleTestingCreator.create(
 			this.metatype,
@@ -69,7 +90,9 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 		);
 		this._moduleContainer = await this.container.addModule(this._module);
 
-		await this.container.run(this._moduleContainer.metatype as Type);
+		await this.container.run(this._moduleContainer.metatype as Type, [
+			createInternalModule(this.lazyModuleLoader),
+		]);
 
 		this.containerCompiled = true;
 

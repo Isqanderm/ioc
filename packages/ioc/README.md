@@ -20,6 +20,7 @@ Nexus IoC is a powerful and flexible Inversion of Control (IoC) container for Ty
 - [Features](#features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Lazy Modules](#lazy-modules)
 - [Testing](#testing)
 - [License](#license)
 - [Author](#author)
@@ -94,6 +95,95 @@ async function bootstrap() {
 bootstrap();
 
 ```
+
+## Lazy Modules
+
+Declare a module import as lazy to keep it out of the initial bundle. The
+module is loaded into the same container on demand and its providers become
+resolvable afterwards.
+
+```typescript
+import { lazy, Module, NexusApplication } from '@nexus-ioc/core';
+
+export const FeatureLazy = lazy(() =>
+  import('./feature/feature.module').then((m) => m.FeatureModule),
+);
+
+@Module({ imports: [CoreModule, FeatureLazy] })
+export class AppModule {}
+
+const app = await NexusApplication.create(AppModule).bootstrap();
+const ref = await app.load(FeatureLazy);
+const service = await ref.get<FeatureService>(FeatureService);
+```
+
+`lazy()` also takes a `name`, used in diagnostics, in error messages and, by
+the Vite plugin, for chunk naming. Without it every ref is called
+`"LazyModule"`, so name the ones you want to recognize:
+
+```typescript
+export const FeatureLazy = lazy(
+  () => import('./feature/feature.module').then((m) => m.FeatureModule),
+  { name: 'Feature' },
+);
+```
+
+Rules:
+
+- Eager providers cannot depend on providers of a not yet loaded module;
+  `bootstrap()` reports it as a missing provider.
+- Loading is idempotent: the loader runs once per `lazy()` ref.
+- Modules already in the container (for example a `SharedModule` imported by
+  both the root and the lazy module) are reused, so singletons are shared.
+- A lazy module that registers a token another module already provides fails
+  with `PROVIDER_TOKEN_CONFLICT` and is rolled back.
+
+### ModuleRef.get()
+
+`ModuleRef.get()` is strict by default: it sees the module's own providers and
+what its imports (and global modules) export to it, and returns `undefined`
+for every other token — including tokens that do exist elsewhere in the
+container. Pass `{ strict: false }` to look the token up in the whole
+container instead. Either way the result is `T | undefined`, so check it:
+
+```typescript
+const own = await ref.get<FeatureService>(FeatureService); // visible: instance
+const other = await ref.get<UnrelatedService>(UnrelatedService); // undefined
+const anywhere = await ref.get<UnrelatedService>(UnrelatedService, {
+  strict: false,
+});
+```
+
+### Errors
+
+- `LazyModuleLoadError` — the loader rejected (a failed dynamic import, for
+  example) or did not return a class decorated with `@Module()`. Nothing is
+  added to the graph and the ref may be loaded again.
+- `LazyModuleGraphError` — the module loaded but its dependency graph is
+  invalid (a missing dependency, a cycle, a token conflict). Its `errors`
+  property carries the graph errors, and the segment is rolled back entirely,
+  so the container is left exactly as it was.
+
+### Loading from a service
+
+To load from a service, inject the built-in `LazyModuleLoader`:
+
+```typescript
+@Injectable()
+class OrdersService {
+  constructor(@Inject(LazyModuleLoader) private readonly loader: LazyModuleLoader) {}
+
+  async check(order: Order) {
+    const ref = await this.loader.load(FraudLazy);
+    const fraud = await ref.get<FraudService>(FraudService);
+    return fraud?.check(order);
+  }
+}
+```
+
+Under `@nexus-ioc/testing` the same loader is registered by `Test.compile()`,
+so services that inject it work in tests; the `Test` instance itself also has
+`load(ref)` once it is compiled.
 
 ## Testing
 
