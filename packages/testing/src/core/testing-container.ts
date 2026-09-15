@@ -9,6 +9,7 @@ import {
 	ModuleRef,
 	type ScannerPluginInterface,
 	type Type,
+	type UnloadResult,
 } from "@nexus-ioc/core";
 import {
 	Container,
@@ -32,8 +33,9 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 		ModuleDecorator;
 	private _module: Type | null = null;
 	private containerCompiled = false;
-	private readonly lazyModuleLoader = new LazyModuleLoader((lazyModule) =>
-		this.load(lazyModule),
+	private readonly lazyModuleLoader = new LazyModuleLoader(
+		(lazyModule) => this.load(lazyModule),
+		(ref) => this.unload(ref),
 	);
 
 	private constructor(private readonly metatype: T) {}
@@ -81,6 +83,19 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 		}
 
 		return new ModuleRef(this.container, await this.container.load(lazyModule));
+	}
+
+	/**
+	 * Unloads a lazy module previously loaded through `load()`, like
+	 * `NexusApplication.unload()`. Also backs the injectable
+	 * `LazyModuleLoader`.
+	 */
+	public async unload(ref: ModuleRef): Promise<UnloadResult> {
+		if (!this.containerCompiled) {
+			throw new ContainerNotCompiledError();
+		}
+
+		return ref.unload();
 	}
 
 	public async compile(): Promise<ModuleContainerInterface> {
