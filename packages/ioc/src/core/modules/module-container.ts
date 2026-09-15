@@ -10,6 +10,7 @@ import type {
 } from "../../interfaces";
 import { MODULE_METADATA } from "../../interfaces";
 import { isDynamicModule } from "../../utils/helpers";
+import { isLazyModule } from "../../utils/lazy-module";
 
 export class ModuleContainer implements ModuleContainerInterface {
 	private _token = "";
@@ -31,29 +32,32 @@ export class ModuleContainer implements ModuleContainerInterface {
 		return this._metatype;
 	}
 
-	public get imports(): Promise<ModuleContainerInterface[]> {
-		let modules: (Type | DynamicModule | LazyModule)[];
+	private get declaredImports(): (Type | DynamicModule | LazyModule)[] {
 		if (isDynamicModule(this.metatype)) {
-			modules = this.metatype.imports || [];
-		} else {
-			modules =
-				Reflect.getMetadata(MODULE_METADATA.IMPORTS, this.metatype) || [];
+			return this.metatype.imports || [];
 		}
+		return Reflect.getMetadata(MODULE_METADATA.IMPORTS, this.metatype) || [];
+	}
+
+	public get imports(): Promise<ModuleContainerInterface[]> {
+		const modules = this.declaredImports.filter(
+			(item): item is Type | DynamicModule => !isLazyModule(item),
+		);
 
 		const self = this;
 		return new Promise<ModuleContainerInterface[]>((resolved) => {
 			async function run() {
 				const imports = await Promise.all(
-					modules.map((item: Type | DynamicModule | LazyModule) => {
-						return self.container.addModule(item as Type | DynamicModule);
-					}),
+					modules.map((item) => self.container.addModule(item)),
 				);
-
 				resolved(imports);
 			}
-
 			run();
 		});
+	}
+
+	public get lazyImports(): LazyModule[] {
+		return this.declaredImports.filter(isLazyModule);
 	}
 
 	public get providers(): Provider[] {
