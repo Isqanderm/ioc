@@ -185,6 +185,33 @@ Under `@nexus-ioc/testing` the same loader is registered by `Test.compile()`,
 so services that inject it work in tests; the `Test` instance itself also has
 `load(ref)` once it is compiled.
 
+### Unloading
+
+```typescript
+const ref = await app.load(FeatureLazy);
+// ... later ...
+const { destroyedModules, destroyedProviders } = await app.unload(ref);
+```
+
+- `app.unload(ref)`, `ref.unload()`, and `LazyModuleLoader.unload(ref)` all do the
+  same thing; use whichever is convenient at the call site.
+- Only what nothing else still needs is destroyed: a module shared with
+  another loaded segment, a `@Global()` module another segment depends on, or
+  a nested lazy module loaded from inside the one being unloaded, are all left
+  running.
+- `onModuleDestroy` runs on affected singletons in reverse initialization
+  order. `ref.loaded` becomes `false`, and `ref.get()` resolves to `undefined`
+  for every token afterward — the ref does not come back to life; loading the
+  same `lazy()` ref again returns a new `ModuleRef`.
+- Unloading a ref that was never loaded, or unloading it twice, is a no-op:
+  `{ destroyedModules: [], destroyedProviders: [] }`.
+- Not handled: an instance obtained via `app.get()` or `ref.get()` and held
+  outside the container (for example in a closure) keeps working as a plain
+  object after its module is destroyed — the same contract as an Angular
+  injector destroyed while a component still holds an already-injected
+  instance. A `get()` call racing an unload that destroys the same provider
+  mid-resolution is not guarded against.
+
 ## Testing
 
 ### Installation
