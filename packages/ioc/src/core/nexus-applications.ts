@@ -3,6 +3,7 @@ import {
 	type BootstrapOptions,
 	type HashUtilInterface,
 	type InjectionToken,
+	type LazyModule,
 	type NexusApplicationInterface,
 	NodeTypeEnum,
 	type ScannerPluginInterface,
@@ -10,6 +11,7 @@ import {
 	type Type,
 } from "../interfaces";
 import { HashUtil } from "../utils/hash-utils";
+import { ModuleRef } from "./module-ref";
 import { Container } from "./modules/container";
 
 /**
@@ -104,18 +106,29 @@ export class NexusApplication implements NexusApplicationInterface {
 			throw new BootstrapError(this.container.errors);
 		}
 
-		if (!this.isAsyncContainer) {
-			for (const [token, node] of this.container.graph.nodes) {
-				if (
-					node.type === NodeTypeEnum.PROVIDER &&
-					node.scope === Scope.Singleton
-				) {
-					await this.container.get(token);
-				}
-			}
-		}
+		await this.warmUpSingletons(this.container.graph.nodes.keys());
 
 		return this;
+	}
+
+	/**
+	 * Pre-instantiates the singleton providers named by `tokens`, unless the
+	 * application is running in lazy mode.
+	 */
+	private async warmUpSingletons(tokens: Iterable<InjectionToken>) {
+		if (this.isAsyncContainer) {
+			return;
+		}
+		for (const token of tokens) {
+			const node = this.container.graph.getNode(token);
+			if (
+				node &&
+				node.type === NodeTypeEnum.PROVIDER &&
+				node.scope === Scope.Singleton
+			) {
+				await this.container.get(token);
+			}
+		}
 	}
 
 	/**
@@ -185,6 +198,20 @@ export class NexusApplication implements NexusApplicationInterface {
 		}
 
 		return dependency;
+	}
+
+	/**
+	 * Loads a lazy module declared with `lazy()` into this application's
+	 * container and returns a handle to it. Repeated calls for the same ref
+	 * return the same providers; the loader runs once.
+	 *
+	 * @throws {LazyModuleLoadError} if the loader fails or returns a non-module
+	 * @throws {LazyModuleGraphError} if the module's dependency graph is invalid
+	 */
+	public async load(lazyModule: LazyModule): Promise<ModuleRef> {
+		const segment = await this.container.load(lazyModule);
+		await this.warmUpSingletons(segment.providerTokens);
+		return new ModuleRef(this.container, segment);
 	}
 
 	/**

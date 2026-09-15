@@ -1,5 +1,7 @@
 // Re-export shared types and errors
 export { ContainerNotCompiledError } from "@nexus-ioc/shared";
+export type { ModuleRefGetOptions } from "./core/module-ref";
+export { ModuleRef } from "./core/module-ref";
 export { NexusApplication } from "./core/nexus-applications";
 export { Global } from "./decorators/global";
 export { Inject } from "./decorators/inject";
