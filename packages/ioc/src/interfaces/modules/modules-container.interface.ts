@@ -9,4 +9,5 @@ export interface ModulesContainerInterface {
 		newModule: Type,
 	): Promise<ModuleContainerInterface>;
 	getModule(module: Type): ModuleContainerInterface | undefined;
+	removeModule(token: string): void;
 }
