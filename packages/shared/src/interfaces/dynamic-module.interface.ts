@@ -1,4 +1,5 @@
 import type { InjectionToken } from "./injection-token.interface";
+import type { LazyModule } from "./lazy-module.interface";
 import type { Module, Provider } from "./module-types.interface";
 
 export interface DynamicModule {
@@ -10,5 +11,5 @@ export interface DynamicModule {
 	};
 	providers?: Provider[];
 	exports?: InjectionToken[];
-	imports?: (Module | DynamicModule)[];
+	imports?: (Module | DynamicModule | LazyModule)[];
 }

@@ -26,4 +26,10 @@ export type GraphError =
 			token: string;
 			dependency: string;
 			key: number;
+	  }
+	| {
+			type: "PROVIDER_TOKEN_CONFLICT";
+			token: string;
+			module: string;
+			existingModule: string;
 	  };
