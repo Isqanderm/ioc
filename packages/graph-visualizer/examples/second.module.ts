@@ -1,7 +1,7 @@
-import { NsModule } from "@nexus-ioc/core";
+import { Module } from "@nexus-ioc/core";
 import { FirstModule } from "./first.module";
 
-@NsModule({
+@Module({
 	imports: [FirstModule],
 })
 export class SecondModule {}

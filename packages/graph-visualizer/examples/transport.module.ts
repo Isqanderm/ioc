@@ -1,10 +1,10 @@
-import { NsModule } from "@nexus-ioc/core";
+import { Module } from "@nexus-ioc/core";
 import { FirstModule } from "./first.module";
 import { SecondModule } from "./second.module";
 import { CircleModule } from "./circle.module";
 import { HttpService } from "./http.service";
 
-@NsModule({
+@Module({
 	imports: [FirstModule, SecondModule, CircleModule],
 	providers: [
 		HttpService,

@@ -1,8 +1,8 @@
-import { NsModule } from "@nexus-ioc/core";
+import { Module } from "@nexus-ioc/core";
 import { AppModule } from "./app.module";
 import { StandAloneService } from "./standalone.service";
 
-@NsModule({
+@Module({
 	imports: [AppModule],
 	providers: [
 		{
