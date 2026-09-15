@@ -210,7 +210,10 @@ const { destroyedModules, destroyedProviders } = await app.unload(ref);
   object after its module is destroyed — the same contract as an Angular
   injector destroyed while a component still holds an already-injected
   instance. A `get()` call racing an unload that destroys the same provider
-  mid-resolution is not guarded against.
+  mid-resolution is not guarded against. Likewise, calling `load()` on a ref
+  while an `unload()` of that same ref is in flight, without awaiting the
+  unload first, can return a `ModuleRef` for a segment that is about to be
+  destroyed — this race is not guarded against either.
 
 ## Testing
 

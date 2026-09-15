@@ -174,6 +174,68 @@ describe("ModuleGraph.unloadSegment", () => {
 		expect(container.graph.getNode(AuthService)).toBeDefined();
 	});
 
+	it("destroys a module left with only a phantom referrer from a rolled-back segment", async () => {
+		// Reproduces the review finding: compileSegment's rollback path
+		// (`removeTokens`) used to purge `_nodes`/`_edges`/`_globalModules`
+		// but never the `_moduleProviders`/`_moduleReferrers` indexes. A
+		// failed segment that imported a shared module before failing left
+		// a phantom referrer entry pointing at its own (removed) module
+		// token. A later, successful segment sharing that module would then
+		// be permanently "rescued" on unload because rescueCandidates saw
+		// the phantom entry as a live outside referrer.
+		@Injectable()
+		class DeepService {}
+		@Module({ providers: [DeepService], exports: [DeepService] })
+		class DeepModule {}
+		@Module({ imports: [DeepModule], exports: [DeepModule] })
+		class SharedRoot {}
+
+		const container = await ready();
+
+		class MissingDependency {}
+		@Injectable()
+		class BrokenService {
+			constructor(
+				@Inject(MissingDependency) readonly missing: MissingDependency,
+			) {}
+		}
+		@Module({ imports: [SharedRoot], providers: [BrokenService] })
+		class BrokenRoot {}
+		const LazyBroken = lazy(async () => BrokenRoot, { name: "Broken" });
+		const mcBroken = await container.addModule(BrokenRoot);
+		const brokenSegment = await container.graph.compileSegment(
+			mcBroken,
+			LazyBroken,
+		);
+		expect(brokenSegment.errors.length).toBeGreaterThan(0);
+
+		@Module({ imports: [SharedRoot] })
+		class GoodRoot {}
+		const LazyGood = lazy(async () => GoodRoot, { name: "Good" });
+		const mcGood = await container.addModule(GoodRoot);
+		await container.graph.compileSegment(mcGood, LazyGood);
+
+		const sharedToken = (await container.getModule(SharedRoot))
+			?.token as string;
+		const deepToken = (await container.getModule(DeepModule))?.token as string;
+
+		const result = container.graph.unloadSegment(
+			LazyGood,
+			new Set([
+				container.graph.rootToken,
+				...container.graph.internalRootTokens,
+			]),
+		);
+
+		expect(result.destroyedModules.sort()).toEqual(
+			[mcGood.token, sharedToken, deepToken].sort(),
+		);
+		expect(result.destroyedProviders).toEqual([DeepService]);
+		expect(container.graph.getNode(sharedToken)).toBeUndefined();
+		expect(container.graph.getNode(deepToken)).toBeUndefined();
+		expect(container.graph.getNode(DeepService)).toBeUndefined();
+	});
+
 	it("is a no-op for a placeholder that is not loaded", async () => {
 		const container = await ready();
 		@Module({ imports: [FeatureModule] })

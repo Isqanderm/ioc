@@ -259,14 +259,21 @@ export class Container implements ContainerInterface {
 
 		const segment = await this.enqueueCompile(async () => {
 			const moduleContainer = await this.modulesContainer.addModule(loaded);
-			return this.graph.compileSegment(moduleContainer, lazyModule);
+			const compiled = await this.graph.compileSegment(
+				moduleContainer,
+				lazyModule,
+			);
+
+			if (compiled.errors.length === 0) {
+				this.loadedSegments.set(lazyModule.id, compiled.moduleContainer.token);
+			}
+
+			return compiled;
 		});
 
 		if (segment.errors.length > 0) {
 			throw new LazyModuleGraphError(lazyModule.name, segment.errors);
 		}
-
-		this.loadedSegments.set(lazyModule.id, segment.moduleContainer.token);
 
 		return segment;
 	}
@@ -279,6 +286,11 @@ export class Container implements ContainerInterface {
 	 * compile queue as `load`, so it never interleaves with a concurrent
 	 * load or unload of a different ref. Waits for an in-flight load of the
 	 * same ref to settle first. A ref that was never loaded is a no-op.
+	 * Concurrent `unload()` calls for the *same* ref are also safe, but only
+	 * because `ModuleGraph.unloadSegment` is idempotent (a second call
+	 * against an already-unloaded placeholder is a no-op) — `Container.unload`
+	 * itself does not enforce this, so a future change to `unloadSegment`
+	 * must preserve that idempotency or this guarantee silently breaks.
 	 */
 	public async unload(lazyModule: LazyModule): Promise<UnloadResult> {
 		if (!this._graph) {

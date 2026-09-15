@@ -183,7 +183,20 @@ export class ModuleGraph implements ModuleGraphInterface {
 		}
 	}
 
+	/**
+	 * Rolls back a segment that failed validation: removes every node, edge
+	 * and global registration it created (module, provider and LAZY
+	 * placeholder tokens are all passed in together). Also purges
+	 * `_moduleProviders`/`_moduleReferrers` index entries for `tokens` via
+	 * `purgeModuleIndexes` — without this, a referrer entry recorded by
+	 * `addModuleImports` before the rollback (pointing at a module token
+	 * that no longer exists) would survive and could later be mistaken by
+	 * `rescueCandidates` for a live outside referrer of a module reused by a
+	 * different, successful segment.
+	 */
 	private removeTokens(tokens: InjectionToken[]) {
+		this.purgeModuleIndexes(tokens);
+
 		for (const token of tokens) {
 			this._nodes.delete(token);
 			this._edges.delete(token);
@@ -336,14 +349,21 @@ export class ModuleGraph implements ModuleGraphInterface {
 		moduleTokens: string[],
 		providerTokens: InjectionToken[],
 	) {
-		// Drop stale referrer entries before deleting the edges they were
-		// derived from, so a module that stays alive never keeps a phantom
-		// referrer from a module that no longer exists.
-		for (const moduleToken of moduleTokens) {
-			for (const dependencyModule of this.moduleDependencies(moduleToken)) {
-				this._moduleReferrers.get(dependencyModule)?.delete(moduleToken);
-			}
-		}
+		// Drop stale referrer entries, and the modules' own index entries,
+		// before deleting the edges they were derived from, so a module that
+		// stays alive never keeps a phantom referrer from a module that no
+		// longer exists.
+		//
+		// Note: this only removes edges from the maps keyed by the destroyed
+		// tokens themselves, not from every place a destroyed token might
+		// still appear as an edge *target* elsewhere — e.g. an
+		// `unreached: true` DEPENDENCY edge left on a surviving provider, or
+		// a LAZY placeholder edge whose declaring module was destroyed.
+		// That's safe for resolution (`Resolver.resolveProvider` already
+		// returns `undefined` for a missing node), but graph-introspection
+		// consumers (like `graph-analyzer`) can still see these as orphaned
+		// edge references.
+		this.purgeModuleIndexes(moduleTokens);
 
 		for (const providerToken of providerTokens) {
 			this._nodes.delete(providerToken);
@@ -354,8 +374,33 @@ export class ModuleGraph implements ModuleGraphInterface {
 			this._nodes.delete(moduleToken);
 			this._edges.delete(moduleToken);
 			this._globalModules.delete(moduleToken);
-			this._moduleProviders.delete(moduleToken);
-			this._moduleReferrers.delete(moduleToken);
+		}
+	}
+
+	/**
+	 * Purges `_moduleProviders`/`_moduleReferrers` index entries for
+	 * `tokens`, and removes each of them from any surviving module's
+	 * referrer set. Shared by `removeModuleTokens` (destroying a live
+	 * segment) and `removeTokens` (rolling back a failed one).
+	 *
+	 * `tokens` may freely mix module tokens with provider or LAZY
+	 * placeholder tokens: both indexes are keyed by module tokens only, so a
+	 * lookup or delete with a non-module key is a harmless no-op.
+	 *
+	 * Must run before the tokens' own `_edges` entries (and, for a removed
+	 * module, its `_moduleProviders` entry) are deleted — `moduleDependencies`
+	 * reads both to determine what each token itself depended on.
+	 */
+	private purgeModuleIndexes(tokens: InjectionToken[]) {
+		for (const token of tokens) {
+			for (const dependencyModule of this.moduleDependencies(token as string)) {
+				this._moduleReferrers.get(dependencyModule)?.delete(token as string);
+			}
+		}
+
+		for (const token of tokens) {
+			this._moduleProviders.delete(token as string);
+			this._moduleReferrers.delete(token as string);
 		}
 	}
 
