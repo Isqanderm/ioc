@@ -38,9 +38,9 @@ describe("StaticGraphVisualizer", () => {
 		);
 		fs.writeFileSync(
 			path.join(dir, "database.module.ts"),
-			`import { NsModule } from "@nexus-ioc/core";
+			`import { Module } from "@nexus-ioc/core";
 
-@NsModule({
+@Module({
   providers: [{ provide: "DATABASE", useValue: {} }],
   exports: ["DATABASE"],
 })
@@ -49,7 +49,7 @@ export class DatabaseModule {}
 		);
 		fs.writeFileSync(
 			path.join(dir, "app.module.ts"),
-			`import { Injectable, Inject, NsModule } from "@nexus-ioc/core";
+			`import { Injectable, Inject, Module } from "@nexus-ioc/core";
 import { DatabaseModule } from "./database.module";
 
 @Injectable()
@@ -57,7 +57,7 @@ class ApiService {
   constructor(@Inject("DATABASE") db: unknown) {}
 }
 
-@NsModule({ imports: [DatabaseModule], providers: [ApiService] })
+@Module({ imports: [DatabaseModule], providers: [ApiService] })
 export class AppModule {}
 `,
 		);

@@ -1,9 +1,9 @@
-import { NsModule } from "@nexus-ioc/core";
+import { Module } from "@nexus-ioc/core";
 import { TransportModule } from "./transport.module";
 import { SecondProvider } from "./second-provider.service";
 import { AppService } from "./app.service";
 
-@NsModule({
+@Module({
 	imports: [TransportModule],
 	providers: [
 		{
