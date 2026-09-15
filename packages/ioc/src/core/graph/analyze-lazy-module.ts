@@ -41,6 +41,11 @@ export class AnalyzeLazyModule {
 		this._moduleToken = moduleToken;
 	}
 
+	public markUnloaded(): void {
+		this._loaded = false;
+		this._moduleToken = null;
+	}
+
 	public get node() {
 		return {
 			type: this.type,
