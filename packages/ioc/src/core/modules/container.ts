@@ -44,6 +44,11 @@ export class Container implements ContainerInterface {
 	private _graph: ModuleGraphInterface | null = null;
 	private moduleGraphResolver: Resolver | null = null;
 	private readonly segments = new Map<symbol, Promise<GraphSegment>>();
+	/**
+	 * Tail of the segment compilation chain. Loader functions run in parallel,
+	 * but the graph mutation that follows each of them runs one at a time.
+	 */
+	private compileQueue: Promise<unknown> = Promise.resolve();
 
 	/**
 	 * Creates a new Container instance.
@@ -209,6 +214,20 @@ export class Container implements ContainerInterface {
 		return loading;
 	}
 
+	/**
+	 * Runs `fn` after every previously enqueued task has settled, so segment
+	 * registration and compilation never interleave. A rejected task does not
+	 * break the chain for the tasks behind it.
+	 */
+	private enqueueCompile<T>(fn: () => Promise<T>): Promise<T> {
+		const run = this.compileQueue.then(fn, fn);
+		this.compileQueue = run.then(
+			() => undefined,
+			() => undefined,
+		);
+		return run;
+	}
+
 	private async loadSegment(lazyModule: LazyModule): Promise<GraphSegment> {
 		let loaded: Type | DynamicModule;
 		try {
@@ -231,11 +250,10 @@ export class Container implements ContainerInterface {
 			);
 		}
 
-		const moduleContainer = await this.modulesContainer.addModule(loaded);
-		const segment = await this.graph.compileSegment(
-			moduleContainer,
-			lazyModule,
-		);
+		const segment = await this.enqueueCompile(async () => {
+			const moduleContainer = await this.modulesContainer.addModule(loaded);
+			return this.graph.compileSegment(moduleContainer, lazyModule);
+		});
 
 		if (segment.errors.length > 0) {
 			throw new LazyModuleGraphError(lazyModule.name, segment.errors);

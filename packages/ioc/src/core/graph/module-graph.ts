@@ -52,6 +52,12 @@ export class ModuleGraph implements ModuleGraphInterface {
 	private _globalModules: Map<InjectionToken, ModuleContainerInterface> =
 		new Map();
 	private readonly _errors: GraphError[] = [];
+	/**
+	 * While a segment compiles, its errors are collected here instead of in
+	 * `_errors`, so they are never mixed with (or mistaken for) errors of the
+	 * eager graph or of another segment.
+	 */
+	private _errorSink: GraphError[] | null = null;
 
 	constructor(
 		private readonly _root: ModuleContainerInterface,
@@ -68,6 +74,11 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 	public get errors() {
 		return this._errors;
+	}
+
+	/** Records a graph error in the active sink, or in the shared list. */
+	private pushError(error: GraphError) {
+		(this._errorSink ?? this._errors).push(error);
 	}
 
 	/**
@@ -97,10 +108,15 @@ export class ModuleGraph implements ModuleGraphInterface {
 	 *
 	 * The pass is atomic: if it produces any error the segment is rolled back
 	 * (every node, edge, global registration and LAZY placeholder it created is
-	 * removed and its errors are spliced out of `this.errors`) and the
-	 * placeholder stays unloaded. On success the placeholder is marked loaded.
-	 * A placeholder that already existed before the segment started is never
-	 * removed.
+	 * removed) and the placeholder stays unloaded. On success the placeholder is
+	 * marked loaded. A placeholder that already existed before the segment
+	 * started is never removed.
+	 *
+	 * The segment's errors are collected in a segment-local sink and never
+	 * reach `this.errors`, so they cannot be attributed to the eager graph or
+	 * to another segment. The caller (`Container.load`) runs one segment at a
+	 * time, which is what makes the sink and the graph mutations safe under
+	 * concurrent loads of different refs.
 	 */
 	public async compileSegment(
 		root: ModuleContainerInterface,
@@ -112,35 +128,40 @@ export class ModuleGraph implements ModuleGraphInterface {
 			this.addNode(lazyModule.id, new AnalyzeLazyModule(lazyModule));
 		}
 
-		const errorsBefore = this._errors.length;
-		const added = await this.addModules(root, true);
+		const errors: GraphError[] = [];
+		const previousSink = this._errorSink;
+		this._errorSink = errors;
 
-		await this.addDependencies(added.providerTokens);
-		await this.detectCircularDependencies(added.providerTokens);
-		await this.detectCircularImports(added.moduleTokens);
+		try {
+			const added = await this.addModules(root, true);
 
-		const errors = this._errors.splice(errorsBefore);
+			await this.addDependencies(added.providerTokens);
+			await this.detectCircularDependencies(added.providerTokens);
+			await this.detectCircularImports(added.moduleTokens);
 
-		if (errors.length > 0) {
-			this.removeTokens([
-				...added.moduleTokens,
-				...added.providerTokens,
-				...added.lazyTokens,
-				...(createdPlaceholder ? [lazyModule.id] : []),
-			]);
-		} else {
-			(this._nodes.get(lazyModule.id) as AnalyzeLazyModule).markLoaded(
-				root.token,
-			);
+			if (errors.length > 0) {
+				this.removeTokens([
+					...added.moduleTokens,
+					...added.providerTokens,
+					...added.lazyTokens,
+					...(createdPlaceholder ? [lazyModule.id] : []),
+				]);
+			} else {
+				(this._nodes.get(lazyModule.id) as AnalyzeLazyModule).markLoaded(
+					root.token,
+				);
+			}
+
+			return {
+				lazyModule,
+				moduleContainer: root,
+				moduleTokens: added.moduleTokens,
+				providerTokens: added.providerTokens,
+				errors,
+			};
+		} finally {
+			this._errorSink = previousSink;
 		}
-
-		return {
-			lazyModule,
-			moduleContainer: root,
-			moduleTokens: added.moduleTokens,
-			providerTokens: added.providerTokens,
-			errors,
-		};
 	}
 
 	private removeTokens(tokens: InjectionToken[]) {
@@ -273,7 +294,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 				(existing as AnalyzeProvider).moduleContainer.token !==
 					analyzeModule.moduleContainer.token
 			) {
-				this.errors.push({
+				this.pushError({
 					type: "PROVIDER_TOKEN_CONFLICT",
 					token: analyzeProvider.label,
 					module: analyzeModule.label,
@@ -353,7 +374,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 				(await this.isProviderExported(node.moduleContainer, dependencyToken));
 
 			if (!isExported) {
-				this.errors.push({
+				this.pushError({
 					type: "UNREACHED_DEP_CONSTRUCTOR",
 					token: node.label,
 					dependency: tokenToString(dependencyToken),
@@ -391,7 +412,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 				(await this.isProviderExported(node.moduleContainer, dependencyToken));
 
 			if (!isExported) {
-				this.errors.push({
+				this.pushError({
 					type: "UNREACHED_DEP_PROPERTY",
 					token: node.label,
 					dependency: tokenToString(dependencyToken),
@@ -435,7 +456,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 				(await this.isProviderExported(node.moduleContainer, dependencyToken));
 
 			if (!isExported) {
-				this.errors.push({
+				this.pushError({
 					type: "UNREACHED_DEP_CONSTRUCTOR",
 					token: node.label,
 					dependency: tokenToString(dependencyToken),
@@ -469,7 +490,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 				(await this.isProviderExported(node.moduleContainer, dependencyToken));
 
 			if (!isExported) {
-				this.errors.push({
+				this.pushError({
 					type: "UNREACHED_DEP_PROPERTY",
 					token: node.label,
 					dependency: tokenToString(dependencyToken),
@@ -510,7 +531,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 			);
 
 			if (!isExported) {
-				this.errors.push({
+				this.pushError({
 					type: "UNREACHED_DEP_FACTORY",
 					token: node.label,
 					dependency: tokenToString(dependencyToken),
@@ -639,7 +660,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 					});
 
 					if (!hasForwardRef) {
-						this.errors.push({
+						this.pushError({
 							type: "CD_PROVIDERS",
 							path: cyclePath,
 						});
@@ -690,7 +711,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 						const edge = edges.find((e) => e.source === to);
 
 						if (edge && edge.type === EdgeTypeEnum.IMPORT) {
-							this.errors.push({
+							this.pushError({
 								type: "CD_IMPORTS",
 								path: cyclePath
 									.map((token) => this.getNode(token))
