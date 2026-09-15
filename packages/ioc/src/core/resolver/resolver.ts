@@ -41,6 +41,33 @@ export class Resolver {
 		this.initializationOrder.length = 0;
 	}
 
+	/**
+	 * Destroys exactly the given singletons: `onModuleDestroy` in reverse
+	 * initialization order, then removed from the cache and from
+	 * `initializationOrder`. A token that was never instantiated (never
+	 * resolved, or `Transient`/non-singleton scope) is silently skipped.
+	 */
+	public async destroy(tokens: InjectionToken[]): Promise<void> {
+		const dead = new Set(tokens);
+		const orderedDead = this.initializationOrder.filter((token) =>
+			dead.has(token),
+		);
+
+		for (const token of [...orderedDead].reverse()) {
+			const instance = this.providersContainer.get(token);
+			if (instance?.onModuleDestroy) {
+				await instance.onModuleDestroy();
+			}
+			this.providersContainer.delete(token);
+		}
+
+		const survivors = this.initializationOrder.filter(
+			(token) => !dead.has(token),
+		);
+		this.initializationOrder.length = 0;
+		this.initializationOrder.push(...survivors);
+	}
+
 	public async resolveProvider<T>(
 		token: InjectionToken,
 		resolveCache: ProvidersContainer = new ProvidersContainer(),
