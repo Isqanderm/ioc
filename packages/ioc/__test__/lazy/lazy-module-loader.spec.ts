@@ -6,7 +6,10 @@ import {
 	lazy,
 	Module,
 	NexusApplication,
+	type Node,
+	NodeTypeEnum,
 } from "../../src";
+import type { AnalyzeModule } from "../../src/core/graph/analyze-module";
 
 describe("LazyModuleLoader", () => {
 	@Injectable()
@@ -68,7 +71,24 @@ describe("LazyModuleLoader", () => {
 	it("does not leak into the graph as a user module", async () => {
 		@Module({})
 		class AppModule {}
-		const app = await NexusApplication.create(AppModule).bootstrap();
+
+		const isInternalModule = (node: Node): node is AnalyzeModule =>
+			node.type === NodeTypeEnum.MODULE && node.label === "NexusInternalModule";
+
+		let nodes: Node[] = [];
+		const app = await NexusApplication.create(AppModule)
+			.addScannerPlugin({
+				async scan(graph) {
+					nodes = graph.getAllNodes();
+				},
+			})
+			.bootstrap();
+
+		const internalModules = nodes.filter(isInternalModule);
+
+		expect(internalModules).toHaveLength(1);
+		expect(internalModules[0].isGlobal).toBe(true);
+		expect(await app.get(LazyModuleLoader)).toBeInstanceOf(LazyModuleLoader);
 		expect(app.errors).toEqual([]);
 		await app.close();
 	});
