@@ -145,6 +145,24 @@ describe("NexusApplication.load", () => {
 		await app.close();
 	});
 
+	it("get() returns undefined for non-provider tokens instead of throwing", async () => {
+		const PostsLazy = lazy(async () => PostsModule, { name: "Posts" });
+		@Module({ imports: [PostsLazy] })
+		class AppModule {}
+
+		const app = await NexusApplication.create(AppModule).bootstrap();
+
+		expect(await app.get(PostsLazy.id)).toBeUndefined();
+		expect(await app.get(AppModule)).toBeUndefined();
+
+		await app.load(PostsLazy);
+
+		expect(await app.get(PostsLazy.id)).toBeUndefined();
+		expect(await app.get(PostsModule)).toBeUndefined();
+
+		await app.close();
+	});
+
 	it("close() destroys providers loaded lazily", async () => {
 		const destroyed: string[] = [];
 		@Injectable()
