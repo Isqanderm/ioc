@@ -20,6 +20,8 @@ function formatError(error: GraphError): string {
 			return `  Missing provider "${error.dependency}" in ${error.token} (property "${error.key}")`;
 		case "UNREACHED_DEP_FACTORY":
 			return `  Missing provider "${error.dependency}" in ${error.token} (inject[${error.key}])`;
+		case "PROVIDER_TOKEN_CONFLICT":
+			return `  Provider token "${error.token}" in ${error.module} is already registered by ${error.existingModule}`;
 	}
 }
 

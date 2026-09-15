@@ -11,3 +11,5 @@ export * from "./interfaces";
 export type { ForwardRef } from "./utils/forward-ref";
 export { forwardRef } from "./utils/forward-ref";
 export * from "./utils/helpers";
+export type { LazyModuleOptions } from "./utils/lazy-module";
+export { isLazyModule, lazy } from "./utils/lazy-module";

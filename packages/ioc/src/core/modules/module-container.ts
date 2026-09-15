@@ -3,6 +3,7 @@ import type {
 	ContainerBaseInterface,
 	DynamicModule,
 	InjectionToken,
+	LazyModule,
 	ModuleContainerInterface,
 	Provider,
 	Type,
@@ -31,7 +32,7 @@ export class ModuleContainer implements ModuleContainerInterface {
 	}
 
 	public get imports(): Promise<ModuleContainerInterface[]> {
-		let modules: (Type | DynamicModule)[];
+		let modules: (Type | DynamicModule | LazyModule)[];
 		if (isDynamicModule(this.metatype)) {
 			modules = this.metatype.imports || [];
 		} else {
@@ -43,8 +44,8 @@ export class ModuleContainer implements ModuleContainerInterface {
 		return new Promise<ModuleContainerInterface[]>((resolved) => {
 			async function run() {
 				const imports = await Promise.all(
-					modules.map((item: Type | DynamicModule) => {
-						return self.container.addModule(item);
+					modules.map((item: Type | DynamicModule | LazyModule) => {
+						return self.container.addModule(item as Type | DynamicModule);
 					}),
 				);
 

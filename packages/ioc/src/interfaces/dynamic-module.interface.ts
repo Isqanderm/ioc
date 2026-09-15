@@ -1,3 +1,4 @@
+import type { LazyModule } from "@nexus-ioc/shared";
 import type { InjectionToken } from "./injection-token.interface";
 import type { Provider } from "./module-types.interface";
 import type { Type } from "./type.interface";
@@ -11,5 +12,5 @@ export interface DynamicModule {
 	};
 	providers?: Provider[];
 	exports?: InjectionToken[];
-	imports?: (Type | DynamicModule)[];
+	imports?: (Type | DynamicModule | LazyModule)[];
 }
