@@ -2,8 +2,8 @@ import "reflect-metadata";
 import {
 	MODULE_METADATA,
 	MODULE_WATERMARK,
+	Module,
 	type ModuleMetadata,
-	NsModule,
 } from "@nexus-ioc/core";
 import { TestingCreator } from "../src/core/testing-creator";
 
@@ -20,7 +20,7 @@ describe("TestingCreator", () => {
 				providers: [],
 			};
 
-			const moduleClass = creator.create(metadata, NsModule);
+			const moduleClass = creator.create(metadata, Module);
 
 			expect(moduleClass).toBeDefined();
 			expect(typeof moduleClass).toBe("function");
@@ -33,7 +33,7 @@ describe("TestingCreator", () => {
 				exports: [],
 			};
 
-			const moduleClass = creator.create(metadata, NsModule);
+			const moduleClass = creator.create(metadata, Module);
 
 			// Check that the decorator was applied by verifying watermark exists
 			const hasWatermark = Reflect.getMetadata(MODULE_WATERMARK, moduleClass);
@@ -47,7 +47,7 @@ describe("TestingCreator", () => {
 				providers: [TestService],
 			};
 
-			const moduleClass = creator.create(metadata, NsModule);
+			const moduleClass = creator.create(metadata, Module);
 
 			const providers = Reflect.getMetadata(
 				MODULE_METADATA.PROVIDERS,
@@ -65,7 +65,7 @@ describe("TestingCreator", () => {
 				providers: [],
 			};
 
-			const moduleClass = creator.create(metadata, NsModule);
+			const moduleClass = creator.create(metadata, Module);
 
 			const imports = Reflect.getMetadata(MODULE_METADATA.IMPORTS, moduleClass);
 			expect(imports).toBeDefined();
@@ -80,7 +80,7 @@ describe("TestingCreator", () => {
 				exports: [ExportedService],
 			};
 
-			const moduleClass = creator.create(metadata, NsModule);
+			const moduleClass = creator.create(metadata, Module);
 
 			const exports = Reflect.getMetadata(MODULE_METADATA.EXPORTS, moduleClass);
 			expect(exports).toBeDefined();
@@ -98,7 +98,7 @@ describe("TestingCreator", () => {
 				exports: [ExportedService],
 			};
 
-			const moduleClass = creator.create(metadata, NsModule);
+			const moduleClass = creator.create(metadata, Module);
 
 			const imports = Reflect.getMetadata(MODULE_METADATA.IMPORTS, moduleClass);
 			const providers = Reflect.getMetadata(
@@ -141,8 +141,8 @@ describe("TestingCreator", () => {
 				imports: [],
 			};
 
-			const moduleClass1 = creator.create(metadata1, NsModule);
-			const moduleClass2 = creator.create(metadata2, NsModule);
+			const moduleClass1 = creator.create(metadata1, Module);
+			const moduleClass2 = creator.create(metadata2, Module);
 
 			// They should be different class instances
 			expect(moduleClass1).not.toBe(moduleClass2);
@@ -151,7 +151,7 @@ describe("TestingCreator", () => {
 		it("should handle empty metadata", () => {
 			const metadata: ModuleMetadata = {};
 
-			const moduleClass = creator.create(metadata, NsModule);
+			const moduleClass = creator.create(metadata, Module);
 
 			expect(moduleClass).toBeDefined();
 			const hasWatermark = Reflect.getMetadata(MODULE_WATERMARK, moduleClass);
