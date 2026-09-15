@@ -1,7 +1,7 @@
-import { NsModule } from "nexus-ioc";
+import { Module } from "nexus-ioc";
 import { ConfigService } from "./config.service";
 
-@NsModule({
+@Module({
 	providers: [ConfigService],
 	exports: [ConfigService],
 })

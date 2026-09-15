@@ -116,7 +116,7 @@ export class ErrorFormatter {
 				"Make sure your entry file contains a NexusFactory.create() call",
 			);
 			suggestions.push(
-				"Check that the root module is properly decorated with @NsModule",
+				"Check that the root module is properly decorated with @Module",
 			);
 			suggestions.push("");
 			suggestions.push("Example entry file:");

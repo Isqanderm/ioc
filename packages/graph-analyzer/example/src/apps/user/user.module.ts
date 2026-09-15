@@ -1,8 +1,8 @@
-import { NsModule } from "nexus-ioc";
+import { Module } from "nexus-ioc";
 import { HttpModule } from "../http/http.module";
 import { UserService } from "./user.service";
 
-@NsModule({
+@Module({
 	imports: [HttpModule],
 	providers: [UserService],
 })

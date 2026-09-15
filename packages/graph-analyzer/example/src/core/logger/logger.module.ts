@@ -1,8 +1,8 @@
-import { NsModule } from "nexus-ioc";
+import { Module } from "nexus-ioc";
 import { ConfigModule } from "../config/config.module";
 import { LoggerService } from "./logger.service";
 
-@NsModule({
+@Module({
 	imports: [ConfigModule],
 	providers: [LoggerService],
 	exports: [LoggerService],

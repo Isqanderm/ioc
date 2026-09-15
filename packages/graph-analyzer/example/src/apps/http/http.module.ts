@@ -1,15 +1,15 @@
-import { Global, NsModule, Scope } from "nexus-ioc";
+import { Global, Module, Scope } from "nexus-ioc";
 import { HttpService } from "./http.service";
 
 @Global()
-@NsModule({
+@Module({
 	providers: [
 		HttpService,
 		{ provide: "URL", useValue: "https://api.*.com" },
 		{
 			provide: "REQUEST_ID",
 			useValue: "request-123",
-			scope: Scope.Request,
+			scope: Scope.Scoped,
 		},
 		{
 			provide: "requestFactory",
@@ -17,7 +17,7 @@ import { HttpService } from "./http.service";
 				return `Request: ${requestId}`;
 			},
 			inject: ["REQUEST_ID"],
-			scope: Scope.Request,
+			scope: Scope.Scoped,
 		},
 	],
 	exports: [HttpService],

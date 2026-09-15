@@ -205,7 +205,7 @@ export class JsonFormatter {
 				output.analysis.scopeAnalysis = {
 					totalProviders: analysis.totalProviders,
 					singletonProviders: analysis.singletonProviders,
-					requestProviders: analysis.requestProviders,
+					scopedProviders: analysis.scopedProviders,
 					scopeMismatches: analysis.scopeMismatches,
 					providerScopes: analysis.providerScopes,
 				};
@@ -249,7 +249,7 @@ export class JsonFormatter {
 		if (provider.scope) {
 			providerInfo.scope = provider.scope as
 				| "Singleton"
-				| "Request"
+				| "Scoped"
 				| "Transient";
 		}
 

@@ -1,9 +1,9 @@
-import { NsModule } from "nexus-ioc";
+import { Module } from "nexus-ioc";
 import { ConfigModule } from "../config/config.module";
 import { LoggerModule } from "../logger/logger.module";
 import { DatabaseService } from "./database.service";
 
-@NsModule({
+@Module({
 	imports: [ConfigModule, LoggerModule],
 	providers: [DatabaseService],
 	exports: [DatabaseService],

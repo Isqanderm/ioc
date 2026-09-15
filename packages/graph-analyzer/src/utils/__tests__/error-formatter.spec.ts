@@ -96,7 +96,7 @@ describe("ErrorFormatter", () => {
 			const formatted = ErrorFormatter.formatError(error);
 
 			expect(formatted).toContain("NexusFactory.create()");
-			expect(formatted).toContain("@NsModule");
+			expect(formatted).toContain("@Module");
 		});
 
 		it("should provide suggestions for configuration errors", () => {

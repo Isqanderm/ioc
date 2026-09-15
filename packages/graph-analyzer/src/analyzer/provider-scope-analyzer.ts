@@ -6,7 +6,7 @@ import type {
 /**
  * Provider scope types
  */
-export type ProviderScope = "Singleton" | "Request";
+export type ProviderScope = "Singleton" | "Scoped";
 
 /**
  * Information about a provider's scope
@@ -56,8 +56,8 @@ export interface ProviderScopeAnalysis {
 	totalProviders: number;
 	/** Number of singleton providers */
 	singletonProviders: number;
-	/** Number of request-scoped providers */
-	requestProviders: number;
+	/** Number of scoped providers */
+	scopedProviders: number;
 	/** Scope mismatches detected */
 	scopeMismatches: ScopeMismatch[];
 	/** All provider scope information */
@@ -68,7 +68,7 @@ export interface ProviderScopeAnalysis {
  * Analyzes provider scopes and detects scope-related issues
  *
  * This analyzer identifies:
- * - Singleton providers depending on request-scoped providers (scope mismatch)
+ * - Singleton providers depending on Scoped providers (scope mismatch)
  * - Potential memory leaks from scope misuse
  * - Scope optimization opportunities
  */
@@ -89,15 +89,15 @@ export class ProviderScopeAnalyzer {
 		const singletonCount = providerScopes.filter(
 			(p) => p.scope === "Singleton",
 		).length;
-		const requestCount = providerScopes.filter(
-			(p) => p.scope === "Request",
+		const scopedCount = providerScopes.filter(
+			(p) => p.scope === "Scoped",
 		).length;
 
 		return {
 			hasScopeAnalysis: true,
 			totalProviders: providerScopes.length,
 			singletonProviders: singletonCount,
-			requestProviders: requestCount,
+			scopedProviders: scopedCount,
 			scopeMismatches,
 			providerScopes,
 		};
@@ -136,8 +136,8 @@ export class ProviderScopeAnalyzer {
 		// Check if scope is explicitly defined (applies to all provider types)
 		if (provider.scope) {
 			const scopeStr = provider.scope.toLowerCase();
-			if (scopeStr.includes("request") || scopeStr === "1") {
-				return "Request";
+			if (scopeStr.includes("scoped") || scopeStr === "1") {
+				return "Scoped";
 			}
 		}
 
@@ -175,7 +175,7 @@ export class ProviderScopeAnalyzer {
 		for (const module of this.graphModel.modules.values()) {
 			for (const provider of module.providers) {
 				const scope = this.extractProviderScope(provider);
-				// Only check Singleton providers (they shouldn't depend on Request-scoped)
+				// Only check Singleton providers (they shouldn't depend on Scoped)
 				if (scope !== "Singleton") {
 					continue;
 				}
@@ -184,8 +184,8 @@ export class ProviderScopeAnalyzer {
 					if (dep.optional || !dep.tokenId) continue;
 					const dependency = scopeMap.get(dep.tokenId);
 
-					// If dependency is Request-scoped, this is a scope mismatch
-					if (dependency && dependency.scope === "Request") {
+					// If dependency is Scoped, this is a scope mismatch
+					if (dependency && dependency.scope === "Scoped") {
 						mismatches.push({
 							provider: provider.token,
 							providerScope: scope,
@@ -193,11 +193,11 @@ export class ProviderScopeAnalyzer {
 							dependency: dependency.token,
 							dependencyScope: dependency.scope,
 							severity: "error",
-							message: `Singleton provider '${provider.token}' depends on Request-scoped provider '${dependency.token}'. This can cause memory leaks and unexpected behavior.`,
+							message: `Singleton provider '${provider.token}' depends on Scoped provider '${dependency.token}'. This can cause memory leaks and unexpected behavior.`,
 							suggestions: [
-								`Change '${provider.token}' to Request scope`,
-								`Change '${dependency.token}' to Singleton scope if it doesn't need request-specific state`,
-								"Use a factory or lazy injection to resolve the dependency per request",
+								`Change '${provider.token}' to Scoped scope`,
+								`Change '${dependency.token}' to Singleton scope if it doesn't need scoped state`,
+								"Use a factory or lazy injection to resolve the dependency per scope",
 							],
 						});
 					}
