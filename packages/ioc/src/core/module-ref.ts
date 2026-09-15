@@ -3,6 +3,7 @@ import type {
 	GraphSegment,
 	InjectionToken,
 	Type,
+	UnloadResult,
 } from "../interfaces";
 import { isDynamicModule } from "../utils/helpers";
 
@@ -20,6 +21,8 @@ export interface ModuleRefGetOptions {
  * application's single container; `get()` only scopes what is visible.
  */
 export class ModuleRef {
+	private _loaded = true;
+
 	constructor(
 		private readonly container: ContainerInterface,
 		private readonly segment: GraphSegment,
@@ -34,10 +37,20 @@ export class ModuleRef {
 		return isDynamicModule(metatype) ? metatype.module : metatype;
 	}
 
+	/** `false` once `unload()` has run; a later `load()` of the same ref
+	 * returns a new `ModuleRef` instead of reactivating this one. */
+	public get loaded(): boolean {
+		return this._loaded;
+	}
+
 	public async get<T>(
 		token: InjectionToken,
 		options: ModuleRefGetOptions = {},
 	): Promise<T | undefined> {
+		if (!this._loaded) {
+			return undefined;
+		}
+
 		const strict = options.strict ?? true;
 
 		if (
@@ -51,5 +64,19 @@ export class ModuleRef {
 		}
 
 		return this.container.get<T>(token);
+	}
+
+	/**
+	 * Unloads this segment: destroys every singleton and module nothing else
+	 * still needs. A no-op if already unloaded.
+	 */
+	public async unload(): Promise<UnloadResult> {
+		if (!this._loaded) {
+			return { destroyedModules: [], destroyedProviders: [] };
+		}
+
+		const result = await this.container.unload(this.segment.lazyModule);
+		this._loaded = false;
+		return result;
 	}
 }
