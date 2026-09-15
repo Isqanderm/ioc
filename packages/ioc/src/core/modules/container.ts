@@ -151,6 +151,8 @@ export class Container implements ContainerInterface {
 	 * This method must be called before using get() to resolve dependencies.
 	 *
 	 * @param rootModule - The root module of the application
+	 * @param internalModules - Framework-provided global modules compiled before
+	 *   the user root, so their exports are visible to every user module
 	 * @returns A promise that resolves when initialization is complete
 	 * @throws {Error} If there are circular dependencies or missing providers
 	 *
@@ -161,10 +163,16 @@ export class Container implements ContainerInterface {
 	 * // Now you can use container.get() to resolve dependencies
 	 * ```
 	 */
-	public async run(rootModule: Type): Promise<void> {
+	public async run(
+		rootModule: Type,
+		internalModules: DynamicModule[] = [],
+	): Promise<void> {
 		const root = await this.modulesContainer.addModule(rootModule);
+		const internals = await Promise.all(
+			internalModules.map((module) => this.modulesContainer.addModule(module)),
+		);
 
-		this._graph = new ModuleGraph(root);
+		this._graph = new ModuleGraph(root, internals);
 
 		this.moduleGraphResolver = new Resolver(this._graph);
 

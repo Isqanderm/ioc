@@ -11,6 +11,7 @@ import {
 	type Type,
 } from "../interfaces";
 import { HashUtil } from "../utils/hash-utils";
+import { createInternalModule, LazyModuleLoader } from "./lazy-module-loader";
 import { ModuleRef } from "./module-ref";
 import { Container } from "./modules/container";
 
@@ -37,6 +38,9 @@ export class NexusApplication implements NexusApplicationInterface {
 	private readonly container = new Container(this.hashUtil);
 	private readonly scannerPlugins: ScannerPluginInterface[] = [];
 	private _parentContainer: NexusApplicationInterface | null = null;
+	private readonly lazyModuleLoader = new LazyModuleLoader((lazyModule) =>
+		this.load(lazyModule),
+	);
 
 	/**
 	 * Creates a new NexusApplication instance.
@@ -96,7 +100,9 @@ export class NexusApplication implements NexusApplicationInterface {
 	 * ```
 	 */
 	public async bootstrap(options?: BootstrapOptions): Promise<this> {
-		await this.container.run(this.rootModule);
+		await this.container.run(this.rootModule, [
+			createInternalModule(this.lazyModuleLoader),
+		]);
 
 		for (const scannerPlugin of this.scannerPlugins) {
 			await scannerPlugin.scan(this.container.graph);

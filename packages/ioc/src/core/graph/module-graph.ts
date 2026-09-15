@@ -53,7 +53,10 @@ export class ModuleGraph implements ModuleGraphInterface {
 		new Map();
 	private readonly _errors: GraphError[] = [];
 
-	constructor(private readonly _root: ModuleContainerInterface) {}
+	constructor(
+		private readonly _root: ModuleContainerInterface,
+		private readonly _internalRoots: ModuleContainerInterface[] = [],
+	) {}
 
 	public get nodes() {
 		return this._nodes;
@@ -67,12 +70,25 @@ export class ModuleGraph implements ModuleGraphInterface {
 		return this._errors;
 	}
 
+	/**
+	 * Compiles the eager graph. Internal roots are added before the user root so
+	 * `_globalModules` already contains the internal modules when user providers
+	 * are checked by `isProviderExported`.
+	 */
 	public async compile() {
-		const added = await this.addModules(this._root, false);
+		const moduleTokens: string[] = [];
+		const providerTokens: InjectionToken[] = [];
 
-		await this.addDependencies(added.providerTokens);
-		await this.detectCircularDependencies(added.providerTokens);
-		await this.detectCircularImports(added.moduleTokens);
+		for (const root of [...this._internalRoots, this._root]) {
+			const added = await this.addModules(root, false);
+
+			moduleTokens.push(...added.moduleTokens);
+			providerTokens.push(...added.providerTokens);
+		}
+
+		await this.addDependencies(providerTokens);
+		await this.detectCircularDependencies(providerTokens);
+		await this.detectCircularImports(moduleTokens);
 	}
 
 	/**
