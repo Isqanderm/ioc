@@ -1,4 +1,4 @@
-import { NsModule } from "@nexus-ioc/core";
+import { Module } from "@nexus-ioc/core";
 import { ConfigService, type DatabaseConfig } from "./config.service";
 import { FeatureWithGlobalDepsModule } from "./feature-with-global-deps.module";
 import { GlobalConfigModule } from "./global-config.module";
@@ -19,7 +19,7 @@ import { UserModule } from "./user.module";
  * - Global modules (GlobalConfigModule, GlobalLoggerModule)
  * - Property injection (via PropertyInjectionModule)
  */
-@NsModule({
+@Module({
 	imports: [
 		GlobalConfigModule,
 		GlobalLoggerModule,

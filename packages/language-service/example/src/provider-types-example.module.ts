@@ -1,4 +1,4 @@
-import { NsModule } from "@nexus-ioc/core";
+import { Module } from "@nexus-ioc/core";
 import {
 	ConfigService,
 	DatabaseService,
@@ -24,7 +24,7 @@ import {
  * 3. useValue providers - provide static values
  * 4. useFactory providers - provide values from factory functions
  */
-@NsModule({
+@Module({
 	providers: [
 		// ============================================================================
 		// Class Providers (Shorthand)

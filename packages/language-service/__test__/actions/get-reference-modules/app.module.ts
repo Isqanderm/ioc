@@ -1,7 +1,7 @@
-import { NsModule } from "@nexus-ioc/core";
+import { Module } from "@nexus-ioc/core";
 import { AppService } from "./app.service";
 
-@NsModule({
+@Module({
 	providers: [AppService],
 	exports: [AppService],
 })

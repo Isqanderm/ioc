@@ -1,4 +1,4 @@
-import { NsModule } from "@nexus-ioc/core";
+import { Module } from "@nexus-ioc/core";
 import { DatabaseService } from "./database.service";
 import { LoggerService } from "./logger.service";
 import { UserService } from "./user.service";
@@ -10,7 +10,7 @@ import { UserService } from "./user.service";
  * - Module with providers array
  * - Exporting services to make them available to other modules
  */
-@NsModule({
+@Module({
 	providers: [UserService, DatabaseService, LoggerService],
 	exports: [UserService],
 })

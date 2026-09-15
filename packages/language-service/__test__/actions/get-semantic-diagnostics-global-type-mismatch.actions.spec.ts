@@ -41,7 +41,7 @@ describe("getSemanticDiagnosticsActions - Global Module Type Mismatch", () => {
 	it("should report type mismatch for global module dependency with incompatible type", () => {
 		// Single file with all code to ensure proper type resolution
 		const sourceCode = `
-import { Injectable, Inject, Global, NsModule } from '@nexus-ioc/core';
+import { Injectable, Inject, Global, Module } from '@nexus-ioc/core';
 
 @Injectable()
 class GlobalConfigService {
@@ -51,7 +51,7 @@ class GlobalConfigService {
 }
 
 @Global()
-@NsModule({
+@Module({
   providers: [GlobalConfigService],
   exports: [GlobalConfigService],
 })
@@ -119,7 +119,7 @@ class FeatureService {
 	it("should NOT report type mismatch for global module dependency with correct type", () => {
 		// Single file with all code to ensure proper type resolution
 		const sourceCode = `
-import { Injectable, Inject, Global, NsModule } from '@nexus-ioc/core';
+import { Injectable, Inject, Global, Module } from '@nexus-ioc/core';
 
 @Injectable()
 class GlobalConfigService {
@@ -129,7 +129,7 @@ class GlobalConfigService {
 }
 
 @Global()
-@NsModule({
+@Module({
   providers: [GlobalConfigService],
   exports: [GlobalConfigService],
 })

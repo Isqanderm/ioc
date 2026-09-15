@@ -20,7 +20,7 @@ describe("getSemanticDiagnosticsActions", () => {
 			[
 				"test.ts",
 				`
-				import { NsModule, Injectable, Inject } from "@nexus-ioc/core";
+				import { Module, Injectable, Inject } from "@nexus-ioc/core";
 				import { AppService } from "./app.service";
 				import { UserModule } from "./user/user.module";
 
@@ -33,7 +33,7 @@ describe("getSemanticDiagnosticsActions", () => {
 					) {}
 				}
 
-				@NsModule({
+				@Module({
 					imports: [UserModule],
 					providers: [
 						AppService,

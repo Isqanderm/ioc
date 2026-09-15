@@ -1,4 +1,4 @@
-import { Inject, Injectable, NsModule } from "@nexus-ioc/core";
+import { Inject, Injectable, Module } from "@nexus-ioc/core";
 import { DatabaseService } from "./database.service";
 import { TypeMismatchTestService } from "./type-mismatch-test.service";
 
@@ -34,7 +34,7 @@ export class ServiceExpectingObject {
  * - PORT is provided as string but expected as number
  * - DB_CONFIG is provided as string but expected as object
  */
-@NsModule({
+@Module({
 	providers: [
 		// Type mismatch: providing number instead of string
 		{

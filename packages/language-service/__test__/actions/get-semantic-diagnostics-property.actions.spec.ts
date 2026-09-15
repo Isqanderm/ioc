@@ -32,7 +32,7 @@ describe("getSemanticDiagnosticsActions - Property Injection", () => {
 
 	it("should NOT report error when property dependency is provided in module", () => {
 		const sourceCode = `
-import { Injectable, Inject, NsModule } from '@nexus-ioc/core';
+import { Injectable, Inject, Module } from '@nexus-ioc/core';
 
 @Injectable()
 class DatabaseService {
@@ -49,7 +49,7 @@ class UserService {
   }
 }
 
-@NsModule({
+@Module({
   providers: [DatabaseService, UserService]
 })
 class AppModule {}
@@ -105,7 +105,7 @@ class AppModule {}
 
 	it("should report error when property dependency is NOT provided in module", () => {
 		const sourceCode = `
-import { Injectable, Inject, NsModule } from '@nexus-ioc/core';
+import { Injectable, Inject, Module } from '@nexus-ioc/core';
 
 @Injectable()
 class DatabaseService {
@@ -122,7 +122,7 @@ class UserService {
   }
 }
 
-@NsModule({
+@Module({
   providers: [UserService]
 })
 class AppModule {}
@@ -178,7 +178,7 @@ class AppModule {}
 
 	it("should NOT report error for optional property dependency", () => {
 		const sourceCode = `
-import { Injectable, Inject, Optional, NsModule } from '@nexus-ioc/core';
+import { Injectable, Inject, Optional, Module } from '@nexus-ioc/core';
 
 @Injectable()
 class CacheService {
@@ -196,7 +196,7 @@ class UserService {
   }
 }
 
-@NsModule({
+@Module({
   providers: [UserService]
 })
 class AppModule {}
@@ -251,7 +251,7 @@ class AppModule {}
 
 	it("should handle mixed constructor and property injection", () => {
 		const sourceCode = `
-import { Injectable, Inject, NsModule } from '@nexus-ioc/core';
+import { Injectable, Inject, Module } from '@nexus-ioc/core';
 
 @Injectable()
 class DatabaseService {
@@ -278,7 +278,7 @@ class UserService {
   }
 }
 
-@NsModule({
+@Module({
   providers: [DatabaseService, CacheService, UserService]
 })
 class AppModule {}
@@ -334,7 +334,7 @@ class AppModule {}
 
 	it("should NOT report type mismatch for property injection with class reference types", () => {
 		const sourceCode = `
-import { Injectable, Inject, NsModule } from '@nexus-ioc/core';
+import { Injectable, Inject, Module } from '@nexus-ioc/core';
 
 @Injectable()
 class DatabaseService {
@@ -360,7 +360,7 @@ class UserService {
   }
 }
 
-@NsModule({
+@Module({
   providers: [DatabaseService, LoggerService, UserService]
 })
 class AppModule {}
@@ -417,7 +417,7 @@ class AppModule {}
 
 	it("should report type mismatch when property type is incompatible with provider type", () => {
 		const sourceCode = `
-import { Injectable, Inject, NsModule } from '@nexus-ioc/core';
+import { Injectable, Inject, Module } from '@nexus-ioc/core';
 
 @Injectable()
 class DatabaseService {
@@ -434,7 +434,7 @@ class UserService {
   }
 }
 
-@NsModule({
+@Module({
   providers: [DatabaseService, UserService]
 })
 class AppModule {}

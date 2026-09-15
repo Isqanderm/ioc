@@ -1,9 +1,9 @@
-import { NsModulesParser } from "@nexus-ioc/type-checker";
+import { ModulesParser } from "@nexus-ioc/type-checker";
 import * as ts from "typescript/lib/tsserverlibrary";
 import { vi } from "vitest";
 import type { Logger } from "../../src/logger";
 
-describe("NsModulesParser", () => {
+describe("ModulesParser", () => {
 	let sourceFile: ts.SourceFile;
 	let mockLogger: Logger;
 	let typeChecker: ts.TypeChecker;
@@ -11,11 +11,11 @@ describe("NsModulesParser", () => {
 
 	beforeEach(() => {
 		const sourceText = `
-      import { NsModule } from "@nexus-ioc/core";
+      import { Module } from "@nexus-ioc/core";
       import { AppService } from "./app.service";
       import { UserModule } from "./user/user.module";
 
-      @NsModule({
+      @Module({
         imports: [UserModule],
         providers: [
           AppService,
@@ -82,8 +82,8 @@ describe("NsModulesParser", () => {
 	});
 
 	describe("execute", () => {
-		it("should return class declarations with NsModule decorator", () => {
-			const result = NsModulesParser.execute(sourceFile);
+		it("should return class declarations with Module decorator", () => {
+			const result = ModulesParser.execute(sourceFile);
 
 			expect(result).toHaveLength(1);
 			expect(result[0].name?.text).toBe("AppModule");
@@ -97,7 +97,7 @@ describe("NsModulesParser", () => {
 				kind: ts.SyntaxKind.ClassDeclaration,
 			} as ts.ClassDeclaration;
 
-			const result = NsModulesParser.executeByClassDependency(
+			const result = ModulesParser.executeByClassDependency(
 				sourceFile,
 				mockClassDependency,
 				mockLogger,
@@ -113,7 +113,7 @@ describe("NsModulesParser", () => {
 				kind: ts.SyntaxKind.ClassDeclaration,
 			} as ts.ClassDeclaration;
 
-			const result = NsModulesParser.executeByClassDependency(
+			const result = ModulesParser.executeByClassDependency(
 				sourceFile,
 				mockClassDependency,
 				mockLogger,
@@ -131,7 +131,7 @@ describe("NsModulesParser", () => {
 		it.skip("should return modules that match the specified module name", () => {
 			const mockModuleDeclaration = ts.factory.createIdentifier("AppModule");
 
-			const result = NsModulesParser.executeByModuleName(
+			const result = ModulesParser.executeByModuleName(
 				sourceFile,
 				mockModuleDeclaration,
 				typeChecker,
@@ -146,7 +146,7 @@ describe("NsModulesParser", () => {
 			const mockModuleDeclaration =
 				ts.factory.createIdentifier("NonExistentModule");
 
-			const result = NsModulesParser.executeByModuleName(
+			const result = ModulesParser.executeByModuleName(
 				sourceFile,
 				mockModuleDeclaration,
 				typeChecker,

@@ -1,7 +1,7 @@
 import {
 	findTypeReferences,
-	NsModuleParser,
-	NsModulesParser,
+	ModuleParser,
+	ModulesParser,
 } from "@nexus-ioc/type-checker";
 import type { CompletionEntry } from "typescript";
 import ts from "typescript/lib/tsserverlibrary";
@@ -22,13 +22,13 @@ export const getCompletionInfoActions = (
 			const sourceFile = tsNsLs.tsLS
 				.getProgram()
 				?.getSourceFile(item.fileName) as ts.SourceFile;
-			return NsModulesParser.executeByClassDependency(
+			return ModulesParser.executeByClassDependency(
 				sourceFile,
 				classDeclaration,
 				tsNsLs,
 			);
 		})
-		.flatMap((items) => NsModuleParser.execute(items, typeChecker, tsNsLs))
+		.flatMap((items) => ModuleParser.execute(items, typeChecker, tsNsLs))
 		.flatMap((module) => module.providers)
 		.map((provider, index): CompletionEntry | null => {
 			if (ts.isStringLiteral(provider.provide)) {

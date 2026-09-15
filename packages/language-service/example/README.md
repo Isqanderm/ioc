@@ -387,7 +387,7 @@ export class FeatureWithGlobalDepsService {
 
 ```typescript
 // In feature-with-global-deps.module.ts
-@NsModule({
+@Module({
   providers: [FeatureWithGlobalDepsService],
   exports: [FeatureWithGlobalDepsService],
   // Notice: NO imports of GlobalConfigModule or GlobalLoggerModule
@@ -588,14 +588,14 @@ The plugin supports all provider types in Nexus IoC and validates factory provid
 
 **1. Class Provider (Shorthand)**
 ```typescript
-@NsModule({
+@Module({
   providers: [DatabaseService]
 })
 ```
 
 **2. useClass Provider**
 ```typescript
-@NsModule({
+@Module({
   providers: [
     {
       provide: "DB_SERVICE",
@@ -607,7 +607,7 @@ The plugin supports all provider types in Nexus IoC and validates factory provid
 
 **3. useValue Provider**
 ```typescript
-@NsModule({
+@Module({
   providers: [
     {
       provide: "API_KEY",
@@ -627,7 +627,7 @@ The plugin supports all provider types in Nexus IoC and validates factory provid
 
 **4. useFactory Provider**
 ```typescript
-@NsModule({
+@Module({
   providers: [
     // Factory without dependencies
     {

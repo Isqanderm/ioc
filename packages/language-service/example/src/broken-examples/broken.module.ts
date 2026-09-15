@@ -1,4 +1,4 @@
-import { NsModule } from "@nexus-ioc/core";
+import { Module } from "@nexus-ioc/core";
 import { LoggerService } from "../logger.service";
 import { MissingDependencyService } from "./missing-dependency.service";
 import { TypeMismatchService } from "./type-mismatch.service";
@@ -11,7 +11,7 @@ import { TypeMismatchService } from "./type-mismatch.service";
  *
  * Note: OrphanService is NOT included here - that's the point!
  */
-@NsModule({
+@Module({
 	providers: [
 		MissingDependencyService,
 		TypeMismatchService,

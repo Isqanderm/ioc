@@ -32,7 +32,7 @@ describe("getSemanticDiagnosticsActions - Reference Types", () => {
 
 	it("should NOT report type mismatch for class reference types in constructor", () => {
 		const sourceCode = `
-      import { Injectable, Inject, NsModule } from '@nexus-ioc/core';
+      import { Injectable, Inject, Module } from '@nexus-ioc/core';
 
       @Injectable()
       class DatabaseService {
@@ -47,7 +47,7 @@ describe("getSemanticDiagnosticsActions - Reference Types", () => {
         ) {}
       }
 
-      @NsModule({
+      @Module({
         providers: [
           DatabaseService,  // ClassDeclaration
           UserService,
@@ -113,7 +113,7 @@ describe("getSemanticDiagnosticsActions - Reference Types", () => {
 
 	it("should NOT report type mismatch for class reference types in properties", () => {
 		const sourceCode = `
-      import { Injectable, Inject, NsModule } from '@nexus-ioc/core';
+      import { Injectable, Inject, Module } from '@nexus-ioc/core';
 
       @Injectable()
       class LoggerService {
@@ -130,7 +130,7 @@ describe("getSemanticDiagnosticsActions - Reference Types", () => {
         }
       }
 
-      @NsModule({
+      @Module({
         providers: [
           LoggerService,  // ClassDeclaration
           UserService,
@@ -196,7 +196,7 @@ describe("getSemanticDiagnosticsActions - Reference Types", () => {
 
 	it("should NOT report type mismatch for interface reference types", () => {
 		const sourceCode = `
-      import { Injectable, Inject, NsModule } from '@nexus-ioc/core';
+      import { Injectable, Inject, Module } from '@nexus-ioc/core';
 
       interface ILogger {
         log(msg: string): void;
@@ -217,7 +217,7 @@ describe("getSemanticDiagnosticsActions - Reference Types", () => {
         ) {}
       }
 
-      @NsModule({
+      @Module({
         providers: [
           { provide: 'ILogger', useClass: ConsoleLogger },
           UserService,

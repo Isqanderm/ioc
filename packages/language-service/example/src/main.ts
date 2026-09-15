@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import { NexusApplications } from "@nexus-ioc/core";
+import { NexusApplication } from "@nexus-ioc/core";
 import { AppModule } from "./app.module";
 import { FeatureWithGlobalDepsService } from "./feature-with-global-deps.service";
 import { GlobalLoggerService } from "./global-logger.service";
@@ -18,7 +18,7 @@ import { PropertyInjectionService } from "./property-injection.service";
  * 2. Try the features described in README.md
  */
 async function bootstrap() {
-	const app = await NexusApplications.create(AppModule).bootstrap();
+	const app = await NexusApplication.create(AppModule).bootstrap();
 	console.log("Application started successfully!");
 
 	// Demonstrate optional dependencies
