@@ -9,6 +9,7 @@ import {
 	type ScannerPluginInterface,
 	Scope,
 	type Type,
+	type UnloadResult,
 } from "../interfaces";
 import { HashUtil } from "../utils/hash-utils";
 import { createInternalModule, LazyModuleLoader } from "./lazy-module-loader";
@@ -218,6 +219,15 @@ export class NexusApplication implements NexusApplicationInterface {
 		const segment = await this.container.load(lazyModule);
 		await this.warmUpSingletons(segment.providerTokens);
 		return new ModuleRef(this.container, segment);
+	}
+
+	/**
+	 * Unloads a lazy module previously returned by `load()` (directly or via
+	 * `LazyModuleLoader`): destroys every singleton and module nothing else
+	 * still needs. A no-op if `ref` is already unloaded.
+	 */
+	public async unload(ref: ModuleRef): Promise<UnloadResult> {
+		return ref.unload();
 	}
 
 	/**
