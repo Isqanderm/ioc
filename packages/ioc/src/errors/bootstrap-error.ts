@@ -25,10 +25,13 @@ function formatError(error: GraphError): string {
 	}
 }
 
+export function formatGraphErrors(errors: GraphError[]): string {
+	return errors.map(formatError).join("\n");
+}
+
 export class BootstrapError extends Error {
 	constructor(public readonly errors: GraphError[]) {
-		const formatted = errors.map(formatError).join("\n");
-		super(`Application bootstrap failed:\n${formatted}`);
+		super(`Application bootstrap failed:\n${formatGraphErrors(errors)}`);
 		this.name = "BootstrapError";
 		Object.setPrototypeOf(this, BootstrapError.prototype);
 	}

@@ -6,7 +6,11 @@ export { Inject } from "./decorators/inject";
 export { Injectable } from "./decorators/injectable";
 export { Module } from "./decorators/module";
 export { Optional } from "./decorators/optional";
-export { BootstrapError } from "./errors";
+export {
+	BootstrapError,
+	LazyModuleGraphError,
+	LazyModuleLoadError,
+} from "./errors";
 export * from "./interfaces";
 export type { ForwardRef } from "./utils/forward-ref";
 export { forwardRef } from "./utils/forward-ref";

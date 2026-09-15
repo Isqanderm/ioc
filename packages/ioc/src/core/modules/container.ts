@@ -1,12 +1,19 @@
+import "reflect-metadata";
+import { ContainerNotCompiledError } from "@nexus-ioc/shared";
+import { LazyModuleGraphError, LazyModuleLoadError } from "../../errors";
 import type {
 	ContainerInterface,
 	DynamicModule,
+	GraphSegment,
 	HashUtilInterface,
 	InjectionToken,
+	LazyModule,
 	ModuleContainerInterface,
 	ModuleGraphInterface,
 	Type,
 } from "../../interfaces";
+import { MODULE_WATERMARK } from "../../interfaces";
+import { isDynamicModule } from "../../utils/helpers";
 import { ModuleGraph } from "../graph/module-graph";
 import { Resolver } from "../resolver/resolver";
 import { ModulesContainer } from "./modules-container";
@@ -36,6 +43,7 @@ export class Container implements ContainerInterface {
 
 	private _graph: ModuleGraphInterface | null = null;
 	private moduleGraphResolver: Resolver | null = null;
+	private readonly segments = new Map<symbol, Promise<GraphSegment>>();
 
 	/**
 	 * Creates a new Container instance.
@@ -161,6 +169,71 @@ export class Container implements ContainerInterface {
 		this.moduleGraphResolver = new Resolver(this._graph);
 
 		await this._graph.compile();
+	}
+
+	/**
+	 * Loads a lazy module into this container: runs its loader, registers the
+	 * module and compiles only the new part of the graph. Idempotent per ref;
+	 * concurrent calls share one in-flight load. A failed load is not cached,
+	 * so the caller may retry.
+	 *
+	 * @param lazyModule - The lazy module reference, created via `lazy()`
+	 * @returns A promise that resolves to the graph segment added by this load
+	 * @throws {ContainerNotCompiledError} If run() has not been called yet
+	 * @throws {LazyModuleLoadError} If the loader rejects or does not return a @Module() class
+	 * @throws {LazyModuleGraphError} If the loaded module fails to compile
+	 */
+	public async load(lazyModule: LazyModule): Promise<GraphSegment> {
+		if (!this._graph) {
+			throw new ContainerNotCompiledError();
+		}
+
+		const inFlight = this.segments.get(lazyModule.id);
+		if (inFlight) {
+			return inFlight;
+		}
+
+		const loading = this.loadSegment(lazyModule).catch((error) => {
+			this.segments.delete(lazyModule.id);
+			throw error;
+		});
+		this.segments.set(lazyModule.id, loading);
+		return loading;
+	}
+
+	private async loadSegment(lazyModule: LazyModule): Promise<GraphSegment> {
+		let loaded: Type | DynamicModule;
+		try {
+			loaded = await lazyModule.load();
+		} catch (error) {
+			throw new LazyModuleLoadError(
+				lazyModule.name,
+				error instanceof Error ? error.message : String(error),
+			);
+		}
+
+		const metatype = loaded && isDynamicModule(loaded) ? loaded.module : loaded;
+		if (
+			typeof metatype !== "function" ||
+			!Reflect.hasMetadata(MODULE_WATERMARK, metatype)
+		) {
+			throw new LazyModuleLoadError(
+				lazyModule.name,
+				"loader did not return a class decorated with @Module()",
+			);
+		}
+
+		const moduleContainer = await this.modulesContainer.addModule(loaded);
+		const segment = await this.graph.compileSegment(
+			moduleContainer,
+			lazyModule,
+		);
+
+		if (segment.errors.length > 0) {
+			throw new LazyModuleGraphError(lazyModule.name, segment.errors);
+		}
+
+		return segment;
 	}
 
 	/**
