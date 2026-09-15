@@ -34,7 +34,7 @@ function createAnalyzer(decoratedKinds: Set<string>) {
 describe("typescript-utils", () => {
 	it("checks Nexus decorators through the semantic analyzer", () => {
 		const node = getClass("class UserService {}");
-		const analyzer = createAnalyzer(new Set(["Injectable", "NsModule"]));
+		const analyzer = createAnalyzer(new Set(["Injectable", "Module"]));
 
 		expect(hasNexusDecorator(analyzer, node, "Injectable")).toBe(true);
 		expect(isInjectableClass(analyzer, node)).toBe(true);
@@ -56,7 +56,7 @@ describe("typescript-utils", () => {
 			true,
 			ts.ScriptKind.TS,
 		);
-		const analyzer = createAnalyzer(new Set(["Injectable", "NsModule"]));
+		const analyzer = createAnalyzer(new Set(["Injectable", "Module"]));
 
 		expect(isInjectableClass(analyzer, sourceFile.statements[0])).toBe(false);
 		expect(isModuleClass(analyzer, sourceFile.statements[0])).toBe(false);
