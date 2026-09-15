@@ -20,6 +20,7 @@ Nexus IoC is a powerful and flexible Inversion of Control (IoC) container for Ty
 - [Features](#features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Lazy Modules](#lazy-modules)
 - [Testing](#testing)
 - [License](#license)
 - [Author](#author)
@@ -93,6 +94,51 @@ async function bootstrap() {
 
 bootstrap();
 
+```
+
+## Lazy Modules
+
+Declare a module import as lazy to keep it out of the initial bundle. The
+module is loaded into the same container on demand and its providers become
+resolvable afterwards.
+
+```typescript
+import { lazy, Module, NexusApplication } from '@nexus-ioc/core';
+
+export const FeatureLazy = lazy(() =>
+  import('./feature/feature.module').then((m) => m.FeatureModule),
+);
+
+@Module({ imports: [CoreModule, FeatureLazy] })
+export class AppModule {}
+
+const app = await NexusApplication.create(AppModule).bootstrap();
+const ref = await app.load(FeatureLazy);
+const service = await ref.get(FeatureService);
+```
+
+Rules:
+
+- Eager providers cannot depend on providers of a not yet loaded module;
+  `bootstrap()` reports it as a missing provider.
+- Loading is idempotent: the loader runs once per `lazy()` ref.
+- Modules already in the container (for example a `SharedModule` imported by
+  both the root and the lazy module) are reused, so singletons are shared.
+- A lazy module that registers a token another module already provides fails
+  with `PROVIDER_TOKEN_CONFLICT` and is rolled back.
+
+To load from a service, inject the built-in `LazyModuleLoader`:
+
+```typescript
+@Injectable()
+class OrdersService {
+  constructor(@Inject(LazyModuleLoader) private readonly loader: LazyModuleLoader) {}
+
+  async check(order: Order) {
+    const ref = await this.loader.load(FraudLazy);
+    return (await ref.get(FraudService)).check(order);
+  }
+}
 ```
 
 ## Testing
