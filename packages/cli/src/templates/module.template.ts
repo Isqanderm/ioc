@@ -54,7 +54,7 @@ export class ModuleTemplate {
 
 	public generate() {
 		return `
-      @NsModule({
+      @Module({
         imports: [${this.imports}],
         providers: [${this.providers}],
         exports: [${this.exports}],

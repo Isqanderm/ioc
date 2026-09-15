@@ -51,7 +51,7 @@ export class BootstrapAction extends AbstractAction {
 		const moduleTemplate = new ModuleTemplate({ name: "App" });
 
 		const sourceText = `
-      import { NsModule } from '@nexus-ioc/core';
+      import { Module } from '@nexus-ioc/core';
       
       ${moduleTemplate.generate()}
     `;

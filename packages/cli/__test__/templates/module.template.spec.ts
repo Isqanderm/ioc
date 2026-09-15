@@ -7,7 +7,7 @@ describe("ModuleTemplate", () => {
 			const template = new ModuleTemplate({ name: "Auth" });
 			const result = template.generate();
 
-			expect(result).toContain("@NsModule({");
+			expect(result).toContain("@Module({");
 			expect(result).toContain("export class AuthModule");
 			expect(result).toContain("imports: []");
 			expect(result).toContain("providers: []");
@@ -109,7 +109,7 @@ describe("ModuleTemplate", () => {
 	describe("parse existing template", () => {
 		it("should parse imports from existing template", () => {
 			const existingTemplate = `
-        @NsModule({
+        @Module({
           imports: [DatabaseModule, ConfigModule],
           providers: [],
           exports: [],
@@ -124,7 +124,7 @@ describe("ModuleTemplate", () => {
 
 		it("should parse providers from existing template", () => {
 			const existingTemplate = `
-        @NsModule({
+        @Module({
           imports: [],
           providers: [AuthService, UserService],
           exports: [],
@@ -139,7 +139,7 @@ describe("ModuleTemplate", () => {
 
 		it("should parse exports from existing template", () => {
 			const existingTemplate = `
-        @NsModule({
+        @Module({
           imports: [],
           providers: [],
           exports: [AuthService],
@@ -154,7 +154,7 @@ describe("ModuleTemplate", () => {
 
 		it("should parse and add new items to existing template", () => {
 			const existingTemplate = `
-        @NsModule({
+        @Module({
           imports: [DatabaseModule],
           providers: [AuthService],
           exports: [AuthService],
@@ -174,7 +174,7 @@ describe("ModuleTemplate", () => {
 
 		it("should handle templates with trailing commas", () => {
 			const existingTemplate = `
-        @NsModule({
+        @Module({
           imports: [DatabaseModule,],
           providers: [AuthService,],
           exports: [AuthService,],
@@ -199,7 +199,7 @@ describe("ModuleTemplate", () => {
 			template.addExport("AuthService");
 			const result = template.generate();
 
-			expect(result).toContain("@NsModule({");
+			expect(result).toContain("@Module({");
 			expect(result).toContain("export class AuthModule");
 			expect(result).toContain("imports: [DatabaseModule,ConfigModule]");
 			expect(result).toContain(
