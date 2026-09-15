@@ -1,4 +1,5 @@
 import type { GraphError } from "@nexus-ioc/shared";
+import type { AnalyzeLazyModule } from "../../core/graph/analyze-lazy-module";
 import type { AnalyzeModule } from "../../core/graph/analyze-module";
 import type { AnalyzeProvider } from "../../core/graph/analyze-provider";
 import type { InjectionToken } from "../injection-token.interface";
@@ -9,6 +10,7 @@ export type { GraphError } from "@nexus-ioc/shared";
 export enum NodeTypeEnum {
 	MODULE = "module",
 	PROVIDER = "provider",
+	LAZY = "lazy",
 }
 
 export enum EdgeTypeEnum {
@@ -16,9 +18,10 @@ export enum EdgeTypeEnum {
 	EXPORT = "export",
 	PROVIDER = "provider",
 	DEPENDENCY = "dependency",
+	LAZY = "lazy",
 }
 
-export type Node = AnalyzeModule | AnalyzeProvider;
+export type Node = AnalyzeModule | AnalyzeProvider | AnalyzeLazyModule;
 
 export type Edge = {
 	type: EdgeTypeEnum;

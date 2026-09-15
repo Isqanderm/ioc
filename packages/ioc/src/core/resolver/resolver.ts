@@ -101,7 +101,7 @@ export class Resolver {
 		resolveCache: ProvidersContainer,
 		isCircularDependency = false,
 	): Promise<[Type, boolean]> {
-		const provider = node.metatype as Provider;
+		const provider = (node as AnalyzeProvider).metatype as Provider;
 		const dependencyEdges = this.graph
 			.getEdge(node.id)
 			.filter(

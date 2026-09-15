@@ -23,6 +23,7 @@ import {
 	getProviderToken,
 	isModule,
 } from "../../utils/helpers";
+import { AnalyzeLazyModule } from "./analyze-lazy-module";
 import { AnalyzeModule } from "./analyze-module";
 import type { AnalyzeProvider } from "./analyze-provider";
 import {
@@ -131,6 +132,16 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 		for (const importEdge of imports) {
 			this.addEdge(analyzeModule.id, importEdge);
+		}
+
+		for (const lazyModule of analyzeModule.lazyImports) {
+			if (!this._nodes.has(lazyModule.id)) {
+				this.addNode(lazyModule.id, new AnalyzeLazyModule(lazyModule));
+			}
+		}
+
+		for (const lazyEdge of analyzeModule.lazyEdges) {
+			this.addEdge(analyzeModule.id, lazyEdge);
 		}
 	}
 
