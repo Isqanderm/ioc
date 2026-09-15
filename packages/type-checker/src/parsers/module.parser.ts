@@ -31,7 +31,7 @@ export type ExportType = {
 	illegal: boolean;
 };
 
-export type NsModuleDeclaration = {
+export type ModuleDeclaration = {
 	moduleName: string;
 	providers: ProviderType[];
 	imports: ImportType[];
@@ -57,16 +57,16 @@ const findPropertyInObject = (obj: ts.ObjectLiteralExpression, key: string) =>
 	});
 
 /**
- * Parser for @NsModule decorator metadata
+ * Parser for @Module decorator metadata
  *
  * Extracts and analyzes module declarations including providers, imports, and exports.
  */
 // biome-ignore lint/complexity/noStaticOnlyClass: static-only class provides namespace for related parsing methods
-export class NsModuleParser {
+export class ModuleParser {
 	/**
-	 * Parses @NsModule decorators from class declarations
+	 * Parses @Module decorators from class declarations
 	 *
-	 * @param modules - Array of class declarations with @NsModule decorators
+	 * @param modules - Array of class declarations with @Module decorators
 	 * @param typeChecker - TypeScript type checker for type analysis
 	 * @param tsNsLs - The Nexus IoC Language Service instance
 	 * @returns Array of parsed module declarations with providers, imports, and exports
@@ -75,13 +75,13 @@ export class NsModuleParser {
 		modules: ts.ClassDeclaration[],
 		typeChecker: ts.TypeChecker,
 		tsNsLs: ILanguageServiceLike,
-	): NsModuleDeclaration[] {
-		const result: NsModuleDeclaration[] = [];
+	): ModuleDeclaration[] {
+		const result: ModuleDeclaration[] = [];
 
 		for (const module of modules) {
-			const moduleName = NsModuleParser.getNsModuleName(module);
+			const moduleName = ModuleParser.getModuleName(module);
 
-			if (!NsModuleParser) {
+			if (!ModuleParser) {
 				continue;
 			}
 
@@ -89,8 +89,8 @@ export class NsModuleParser {
 			const end = module.getEnd();
 			const length = end - start;
 			const { providers, imports, exports } =
-				NsModuleParser.getNsModuleDecoratorValue(module, typeChecker, tsNsLs);
-			const isGlobal = NsModuleParser.hasGlobalDecorator(module);
+				ModuleParser.getModuleDecoratorValue(module, typeChecker, tsNsLs);
+			const isGlobal = ModuleParser.hasGlobalDecorator(module);
 			const sourceFile = module.getSourceFile();
 
 			result.push({
@@ -109,7 +109,7 @@ export class NsModuleParser {
 		return result;
 	}
 
-	private static getNsModuleName(classDeclaration: ts.ClassDeclaration) {
+	private static getModuleName(classDeclaration: ts.ClassDeclaration) {
 		return classDeclaration.name?.getText() as string;
 	}
 
@@ -146,7 +146,7 @@ export class NsModuleParser {
 		return false;
 	}
 
-	private static getNsModuleDecoratorValue(
+	private static getModuleDecoratorValue(
 		classDeclaration: ts.ClassDeclaration,
 		typeChecker: ts.TypeChecker,
 		tsNsLs: ILanguageServiceLike,
@@ -154,7 +154,7 @@ export class NsModuleParser {
 		const [decoratorValue] =
 			tsquery.query<ts.ObjectLiteralExpression>(
 				classDeclaration,
-				`CallExpression:has(Identifier[name="NsModule"]) > ObjectLiteralExpression`,
+				`CallExpression:has(Identifier[name="Module"]) > ObjectLiteralExpression`,
 			) || [];
 
 		const providersRaw = decoratorValue.properties.find(
@@ -168,19 +168,19 @@ export class NsModuleParser {
 		) as ts.PropertyAssignment;
 
 		const providers = providersRaw?.initializer
-			? NsModuleParser.parseProviders(
+			? ModuleParser.parseProviders(
 					providersRaw.initializer as ts.ArrayLiteralExpression,
 					tsNsLs,
 				)
 			: [];
 		const imports = importsRaw?.initializer
-			? NsModuleParser.parseImports(
+			? ModuleParser.parseImports(
 					importsRaw.initializer as ts.ArrayLiteralExpression,
 					tsNsLs,
 				)
 			: [];
 		const exports = exportsRaw?.initializer
-			? NsModuleParser.parseExports(
+			? ModuleParser.parseExports(
 					exportsRaw.initializer as ts.ArrayLiteralExpression,
 					providers,
 					typeChecker,
@@ -354,7 +354,7 @@ export class NsModuleParser {
 			}
 
 			if (ts.isObjectLiteralExpression(child)) {
-				const provider = NsModuleParser.parseUseProvider(child, tsNsLs);
+				const provider = ModuleParser.parseUseProvider(child, tsNsLs);
 
 				if (provider) {
 					result.push(provider);

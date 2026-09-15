@@ -6,7 +6,7 @@ import { createNexusAnalyzer, createNexusApplicationAnalyzer } from "../src";
 const FILES = new Map<string, string>([
 	[
 		"/app/app.module.ts",
-		`import { Inject as Dependency, NsModule as Module } from "@nexus-ioc/core";
+		`import { Inject as Dependency, Module } from "@nexus-ioc/core";
 import { FirstService, SecondService } from "../services";
 import { UnreachableService } from "../services/unreachable";
 import { CycleA as RootCycleA } from "../services/cycle-a";
@@ -26,7 +26,7 @@ export class AppModule {
 	],
 	[
 		"/services/database.module.ts",
-		`import { Injectable as Service, NsModule as Module } from "@nexus-ioc/core";
+		`import { Injectable as Service, Module } from "@nexus-ioc/core";
 
 @Service()
 export class DatabaseService {}
@@ -424,7 +424,7 @@ describe("NexusApplicationAnalyzer", () => {
 		const files = new Map<string, string>([
 			[
 				"/app/app.module.ts",
-				`import { NsModule as Module } from "@nexus-ioc/core";
+				`import { Module } from "@nexus-ioc/core";
 import { SharedModule as AlphaModule } from "../alpha/shared.module";
 import { SharedModule as BetaModule } from "../beta/shared.module";
 
@@ -434,7 +434,7 @@ export class AppModule {}
 			],
 			[
 				"/alpha/shared.module.ts",
-				`import { NsModule as Module } from "@nexus-ioc/core";
+				`import { Module } from "@nexus-ioc/core";
 
 @Module({})
 export class SharedModule {}
@@ -442,7 +442,7 @@ export class SharedModule {}
 			],
 			[
 				"/beta/shared.module.ts",
-				`import { NsModule as Module } from "@nexus-ioc/core";
+				`import { Module } from "@nexus-ioc/core";
 
 @Module({})
 export class SharedModule {}

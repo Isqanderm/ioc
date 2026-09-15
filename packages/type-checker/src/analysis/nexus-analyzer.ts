@@ -87,7 +87,7 @@ export class NexusAnalyzer {
 			undeclaredDependencies,
 			isInjectable: decorators.some((item) => item.kind === "Injectable"),
 			isModule: decorators.some(
-				(item) => item.kind === "NsModule" || item.kind === "Global",
+				(item) => item.kind === "Module" || item.kind === "Global",
 			),
 			isGlobal: decorators.some((item) => item.kind === "Global"),
 			module: this.getModule(node),
@@ -218,7 +218,7 @@ export class NexusAnalyzer {
 				this.getSourceSpan(declaration.type),
 			),
 			isInjectable: this.getDecorators(classDeclaration).some(
-				(item) => item.kind === "Injectable" || item.kind === "NsModule",
+				(item) => item.kind === "Injectable" || item.kind === "Module",
 			),
 		};
 	}
@@ -380,7 +380,7 @@ export class NexusAnalyzer {
 		if (!ts.canHaveDecorators(node)) return undefined;
 
 		for (const decorator of ts.getDecorators(node) ?? []) {
-			if (this.resolveDecoratorKind(decorator) !== "NsModule") continue;
+			if (this.resolveDecoratorKind(decorator) !== "Module") continue;
 			if (!ts.isCallExpression(decorator.expression)) continue;
 
 			const [argument] = decorator.expression.arguments;
@@ -613,7 +613,7 @@ export class NexusAnalyzer {
 		const name = this.resolveAlias(symbol)?.getName();
 		return name === "Inject" ||
 			name === "Injectable" ||
-			name === "NsModule" ||
+			name === "Module" ||
 			name === "Optional" ||
 			name === "Global"
 			? name

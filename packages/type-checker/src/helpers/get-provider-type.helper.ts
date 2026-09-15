@@ -1,5 +1,5 @@
 import * as ts from "typescript/lib/tsserverlibrary";
-import type { ProviderType } from "../parsers/ns-module.parser";
+import type { ProviderType } from "../parsers/module.parser";
 
 /**
  * Gets the actual type that a provider provides

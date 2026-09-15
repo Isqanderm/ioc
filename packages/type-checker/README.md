@@ -23,8 +23,8 @@ This package provides the core type-checking, parsing, and analysis logic for Ne
 
 - **InjectParser** - Extracts `@Inject` decorated parameters and properties from classes
 - **InjectableParser** - Finds all `@Injectable` decorated classes in a source file
-- **NsModuleParser** - Parses `@NsModule` decorators and extracts module metadata
-- **NsModulesParser** - Finds all `@NsModule` decorated classes in a source file
+- **ModuleParser** - Parses `@Module` decorators and extracts module metadata
+- **ModulesParser** - Finds all `@Module` decorated classes in a source file
 
 ### Helpers
 
@@ -43,7 +43,7 @@ This package provides the core type-checking, parsing, and analysis logic for Ne
 - **NexusToken** - Semantic injection token information
 - **NexusSourceSpan** - Source location information
 - **NexusApplication** - Semantic representation of classes reachable from an application entry point
-- **NexusModule** - Semantic representation of an `@NsModule` class's `providers`/`imports`/`exports`
+- **NexusModule** - Semantic representation of an `@Module` class's `providers`/`imports`/`exports`
 - **NexusProvider** - Semantic representation of one `providers` array entry (`class`/`useClass`/`useValue`/`useFactory`)
 - **NexusApplicationGraph** - Resolved view of a `NexusApplication`: which provider satisfies each dependency, plus unresolved dependencies and provider cycles
 - **NexusProviderCycle** - A detected `useFactory` `inject` cycle
@@ -117,7 +117,7 @@ console.log(nexusModule?.imports);
 console.log(nexusModule?.exports);
 ```
 
-`getModule()` parses an `@NsModule({ providers, imports, exports })` decorator argument into `providers: readonly NexusProvider[]`, `imports: readonly NexusModuleImport[]`, and `exports: readonly NexusModuleExport[]`. Each `NexusProvider` captures one `providers` entry — a bare class reference (`kind: "class"`) or an object literal (`useClass`/`useValue`/`useFactory`, the latter carrying its `inject` tokens on `factoryInject`). `getClass()` calls `getModule()` internally and exposes the result as `NexusClass.module`, which is populated only for classes carrying an `@NsModule(...)` decorator — every other class has `module: undefined`.
+`getModule()` parses an `@Module({ providers, imports, exports })` decorator argument into `providers: readonly NexusProvider[]`, `imports: readonly NexusModuleImport[]`, and `exports: readonly NexusModuleExport[]`. Each `NexusProvider` captures one `providers` entry — a bare class reference (`kind: "class"`) or an object literal (`useClass`/`useValue`/`useFactory`, the latter carrying its `inject` tokens on `factoryInject`). `getClass()` calls `getModule()` internally and exposes the result as `NexusClass.module`, which is populated only for classes carrying an `@Module(...)` decorator — every other class has `module: undefined`.
 
 A dynamic-module import (`FooModule.forRoot(...)` inside `imports: [...]`) resolves to the concrete module class via the factory's inferred return type, so this works for any body shape as long as the factory has no explicit return-type annotation. A factory explicitly annotated `: DynamicModule` erases that inferred type, so it only resolves when the body is a single, unconditional `return { module: FooModule, ... };` statement — anything more complex falls back to an unresolvable `expression`-kind token for that import.
 
@@ -263,7 +263,7 @@ type NexusModuleExport = {
 };
 ```
 
-`undefined` for `NexusAnalyzer.getModule()` (and `NexusClass.module`) means the class has no `@NsModule(...)` decorator; `providers`/`imports`/`exports` are otherwise always present, defaulting to `[]` when the corresponding decorator property is omitted.
+`undefined` for `NexusAnalyzer.getModule()` (and `NexusClass.module`) means the class has no `@Module(...)` decorator; `providers`/`imports`/`exports` are otherwise always present, defaulting to `[]` when the corresponding decorator property is omitted.
 
 ### NexusApplicationAnalyzer
 
@@ -324,7 +324,7 @@ type NexusProviderCycle = {
 
 `unresolved` only ever contains *required* (non-optional) dependencies — see the "Application graph" usage section above for how module `imports`/`exports` scoping and `@Global()` modules affect resolution, and for the known per-module scoping limit on cycle detection.
 
-This package now covers `@NsModule` metadata, module-structure-aware reachability, module-scoped provider resolution (own/imported/global), and per-module `ts.Symbol`-identity cycle detection. It intentionally does not cover: migrating `packages/language-service` off its legacy AST/tsquery parser stack (`NsModuleParser`, `NsModulesParser`, `InjectParser`, `InjectableParser`, `CircularDependencyDetectorHelper`, `checkTypesHelper`, `compareTypes`, `findTypeReferences`) onto this model; `Scope.Singleton`/`Request`/`Transient` instance semantics, which are captured only as inert token metadata on `NexusProvider.scope` and are never interpreted; and ESLint rules or compiler code generation consuming the graph.
+This package now covers `@Module` metadata, module-structure-aware reachability, module-scoped provider resolution (own/imported/global), and per-module `ts.Symbol`-identity cycle detection. It intentionally does not cover: migrating `packages/language-service` off its legacy AST/tsquery parser stack (`ModuleParser`, `ModulesParser`, `InjectParser`, `InjectableParser`, `CircularDependencyDetectorHelper`, `checkTypesHelper`, `compareTypes`, `findTypeReferences`) onto this model; `Scope.Singleton`/`Request`/`Transient` instance semantics, which are captured only as inert token metadata on `NexusProvider.scope` and are never interpreted; and ESLint rules or compiler code generation consuming the graph.
 
 ### InjectParser
 
@@ -349,17 +349,17 @@ class InjectableParser {
 }
 ```
 
-### NsModuleParser
+### ModuleParser
 
-Parses `@NsModule` decorators and extracts module metadata.
+Parses `@Module` decorators and extracts module metadata.
 
 ```typescript
-class NsModuleParser {
+class ModuleParser {
   static execute(
     modules: ts.ClassDeclaration[],
     typeChecker: ts.TypeChecker,
     context: { tsLS: any; logger: ILogger }
-  ): NsModuleDeclaration[];
+  ): ModuleDeclaration[];
 }
 ```
 

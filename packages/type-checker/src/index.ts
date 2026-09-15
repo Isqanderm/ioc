@@ -65,11 +65,11 @@ export { InjectableParser } from "./parsers/injectable.parser";
 export {
 	type ExportType,
 	type ImportType,
-	type NsModuleDeclaration,
-	NsModuleParser,
+	type ModuleDeclaration,
+	ModuleParser,
 	type ProviderType,
-} from "./parsers/ns-module.parser";
-export { NsModulesParser } from "./parsers/ns-modules.parser";
+} from "./parsers/module.parser";
+export { ModulesParser } from "./parsers/modules.parser";
 // Program construction
 export { createNexusProgram } from "./program/create-program-from-tsconfig";
 export type { ILanguageServiceLike } from "./types/language-service.interface";

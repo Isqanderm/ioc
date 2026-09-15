@@ -4,11 +4,11 @@ import { checkTypesHelper } from "../helpers/check-types.helper";
 import type { ILanguageServiceLike } from "../types/language-service.interface";
 
 // biome-ignore lint/complexity/noStaticOnlyClass: static-only class provides namespace for related parsing methods
-export class NsModulesParser {
+export class ModulesParser {
 	public static execute(sourceFile: ts.SourceFile): ts.ClassDeclaration[] {
 		return tsquery.query<ts.ClassDeclaration>(
 			sourceFile,
-			`ClassDeclaration:has(Decorator > CallExpression > Identifier[name="NsModule"])`,
+			`ClassDeclaration:has(Decorator > CallExpression > Identifier[name="Module"])`,
 		);
 	}
 
@@ -17,7 +17,7 @@ export class NsModulesParser {
 		classDependency: ts.ClassDeclaration,
 		_tsNsLs: ILanguageServiceLike,
 	) {
-		const modules = NsModulesParser.execute(sourceFile);
+		const modules = ModulesParser.execute(sourceFile);
 		const result: ts.ClassDeclaration[] = [];
 
 		for (const module of modules) {
@@ -41,7 +41,7 @@ export class NsModulesParser {
 		typeChecker: ts.TypeChecker,
 		tsNsLs: ILanguageServiceLike,
 	): ts.ClassDeclaration[] {
-		const modules = NsModulesParser.execute(sourceFile);
+		const modules = ModulesParser.execute(sourceFile);
 		const result: ts.ClassDeclaration[] = [];
 
 		for (const module of modules) {

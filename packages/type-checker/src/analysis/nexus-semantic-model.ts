@@ -61,7 +61,7 @@ export type NexusUndeclaredDependency = {
 	index?: number;
 	/** The resolved class type, as a `"reference"` token. */
 	inferredType: NexusToken;
-	/** Whether the resolved class itself carries `@Injectable`/`@NsModule` —
+	/** Whether the resolved class itself carries `@Injectable`/`@Module` —
 	 * a stronger signal that omitting `@Inject` here is a mistake, though not
 	 * a requirement for inclusion in this list. */
 	isInferredTypeInjectable: boolean;
@@ -71,7 +71,7 @@ export type NexusUndeclaredDependency = {
 export type NexusDecoratorKind =
 	| "Inject"
 	| "Injectable"
-	| "NsModule"
+	| "Module"
 	| "Optional"
 	| "Global";
 
