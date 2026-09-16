@@ -1,4 +1,5 @@
 import {
+	type Edge,
 	EdgeTypeEnum,
 	type ModuleContainerInterface,
 	NodeTypeEnum,
@@ -67,6 +68,19 @@ export class AnalyzeModule {
 				};
 			});
 		});
+	}
+
+	public get lazyImports() {
+		return this._module.lazyImports;
+	}
+
+	public get lazyEdges(): Edge[] {
+		return this.lazyImports.map((lazyModule) => ({
+			type: EdgeTypeEnum.LAZY,
+			source: this.id,
+			target: lazyModule.id,
+			metadata: { isCircular: false, unreached: false },
+		}));
 	}
 
 	public get providers() {

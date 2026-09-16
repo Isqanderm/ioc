@@ -1,10 +1,12 @@
 import type {
 	InjectionToken,
+	LazyModule,
 	NexusApplicationInterface,
 	ScannerPluginInterface,
 	Type,
 } from "../interfaces";
 import { HashUtilsServer } from "../utils/hash-utils.server";
+import { ModuleRef } from "./module-ref";
 import { Container } from "./modules/container";
 
 /**
@@ -54,6 +56,10 @@ export class NexusApplicationServer implements NexusApplicationInterface {
 
 	public get errors() {
 		return this.container.errors;
+	}
+
+	public async load(lazyModule: LazyModule): Promise<ModuleRef> {
+		return new ModuleRef(this.container, await this.container.load(lazyModule));
 	}
 
 	lazy(): this {

@@ -1,12 +1,19 @@
+import "reflect-metadata";
+import { ContainerNotCompiledError } from "@nexus-ioc/shared";
+import { LazyModuleGraphError, LazyModuleLoadError } from "../../errors";
 import type {
 	ContainerInterface,
 	DynamicModule,
+	GraphSegment,
 	HashUtilInterface,
 	InjectionToken,
+	LazyModule,
 	ModuleContainerInterface,
 	ModuleGraphInterface,
 	Type,
 } from "../../interfaces";
+import { MODULE_WATERMARK } from "../../interfaces";
+import { isDynamicModule } from "../../utils/helpers";
 import { ModuleGraph } from "../graph/module-graph";
 import { Resolver } from "../resolver/resolver";
 import { ModulesContainer } from "./modules-container";
@@ -36,6 +43,12 @@ export class Container implements ContainerInterface {
 
 	private _graph: ModuleGraphInterface | null = null;
 	private moduleGraphResolver: Resolver | null = null;
+	private readonly segments = new Map<symbol, Promise<GraphSegment>>();
+	/**
+	 * Tail of the segment compilation chain. Loader functions run in parallel,
+	 * but the graph mutation that follows each of them runs one at a time.
+	 */
+	private compileQueue: Promise<unknown> = Promise.resolve();
 
 	/**
 	 * Creates a new Container instance.
@@ -143,6 +156,8 @@ export class Container implements ContainerInterface {
 	 * This method must be called before using get() to resolve dependencies.
 	 *
 	 * @param rootModule - The root module of the application
+	 * @param internalModules - Framework-provided global modules compiled before
+	 *   the user root, so their exports are visible to every user module
 	 * @returns A promise that resolves when initialization is complete
 	 * @throws {Error} If there are circular dependencies or missing providers
 	 *
@@ -153,14 +168,98 @@ export class Container implements ContainerInterface {
 	 * // Now you can use container.get() to resolve dependencies
 	 * ```
 	 */
-	public async run(rootModule: Type): Promise<void> {
+	public async run(
+		rootModule: Type,
+		internalModules: DynamicModule[] = [],
+	): Promise<void> {
 		const root = await this.modulesContainer.addModule(rootModule);
+		const internals = await Promise.all(
+			internalModules.map((module) => this.modulesContainer.addModule(module)),
+		);
 
-		this._graph = new ModuleGraph(root);
+		this._graph = new ModuleGraph(root, internals);
 
 		this.moduleGraphResolver = new Resolver(this._graph);
 
 		await this._graph.compile();
+	}
+
+	/**
+	 * Loads a lazy module into this container: runs its loader, registers the
+	 * module and compiles only the new part of the graph. Idempotent per ref;
+	 * concurrent calls share one in-flight load. A failed load is not cached,
+	 * so the caller may retry.
+	 *
+	 * @param lazyModule - The lazy module reference, created via `lazy()`
+	 * @returns A promise that resolves to the graph segment added by this load
+	 * @throws {ContainerNotCompiledError} If run() has not been called yet
+	 * @throws {LazyModuleLoadError} If the loader rejects or does not return a @Module() class
+	 * @throws {LazyModuleGraphError} If the loaded module fails to compile
+	 */
+	public async load(lazyModule: LazyModule): Promise<GraphSegment> {
+		if (!this._graph) {
+			throw new ContainerNotCompiledError();
+		}
+
+		const inFlight = this.segments.get(lazyModule.id);
+		if (inFlight) {
+			return inFlight;
+		}
+
+		const loading = this.loadSegment(lazyModule).catch((error) => {
+			this.segments.delete(lazyModule.id);
+			throw error;
+		});
+		this.segments.set(lazyModule.id, loading);
+		return loading;
+	}
+
+	/**
+	 * Runs `fn` after every previously enqueued task has settled, so segment
+	 * registration and compilation never interleave. A rejected task does not
+	 * break the chain for the tasks behind it.
+	 */
+	private enqueueCompile<T>(fn: () => Promise<T>): Promise<T> {
+		const run = this.compileQueue.then(fn, fn);
+		this.compileQueue = run.then(
+			() => undefined,
+			() => undefined,
+		);
+		return run;
+	}
+
+	private async loadSegment(lazyModule: LazyModule): Promise<GraphSegment> {
+		let loaded: Type | DynamicModule;
+		try {
+			loaded = await lazyModule.load();
+		} catch (error) {
+			throw new LazyModuleLoadError(
+				lazyModule.name,
+				error instanceof Error ? error.message : String(error),
+			);
+		}
+
+		const metatype = loaded && isDynamicModule(loaded) ? loaded.module : loaded;
+		if (
+			typeof metatype !== "function" ||
+			!Reflect.hasMetadata(MODULE_WATERMARK, metatype)
+		) {
+			throw new LazyModuleLoadError(
+				lazyModule.name,
+				"loader did not return a class decorated with @Module()",
+			);
+		}
+
+		const segment = await this.enqueueCompile(async () => {
+			const moduleContainer = await this.modulesContainer.addModule(loaded);
+			return this.graph.compileSegment(moduleContainer, lazyModule);
+		});
+
+		if (segment.errors.length > 0) {
+			throw new LazyModuleGraphError(lazyModule.name, segment.errors);
+		}
+
+		return segment;
 	}
 
 	/**

@@ -5,6 +5,7 @@ export * from "./forward-ref.interface";
 export * from "./graph-error.interface";
 export * from "./hash-util.interface";
 export * from "./injection-token.interface";
+export * from "./lazy-module.interface";
 export * from "./module-container.interface";
 export * from "./module-graph.interface";
 export * from "./module-types.interface";

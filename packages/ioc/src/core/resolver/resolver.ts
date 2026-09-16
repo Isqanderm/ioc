@@ -3,7 +3,7 @@ import {
 	type InjectionToken,
 	type ModuleGraphInterface,
 	type Node,
-	type Provider,
+	NodeTypeEnum,
 	Scope,
 	type Type,
 } from "../../interfaces";
@@ -52,8 +52,14 @@ export class Resolver {
 			return undefined;
 		}
 
+		// Module and LAZY placeholder nodes share the token space with providers
+		// but carry no instance, so they resolve to undefined instead of failing.
+		if (node.type !== NodeTypeEnum.PROVIDER) {
+			return undefined;
+		}
+
 		// Get the scope of the provider
-		const scope = (node as AnalyzeProvider).scope;
+		const scope = node.scope;
 
 		// For Transient scope, always create a new instance (no caching at all)
 		if (scope === Scope.Transient) {
@@ -97,11 +103,11 @@ export class Resolver {
 	}
 
 	private async createInstance(
-		node: Node,
+		node: AnalyzeProvider,
 		resolveCache: ProvidersContainer,
 		isCircularDependency = false,
 	): Promise<[Type, boolean]> {
-		const provider = node.metatype as Provider;
+		const provider = node.metatype;
 		const dependencyEdges = this.graph
 			.getEdge(node.id)
 			.filter(
@@ -152,7 +158,7 @@ export class Resolver {
 		// biome-ignore lint/suspicious/noExplicitAny: instance creation
 		let instance: any;
 		let saveInCache = true;
-		const scope = (node as AnalyzeProvider).scope;
+		const scope = node.scope;
 
 		if (isClassProvider(provider)) {
 			instance = new provider.useClass(...deps);
