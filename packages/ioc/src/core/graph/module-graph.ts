@@ -17,6 +17,7 @@ import {
 	SELF_DECLARED_DEPS_METADATA,
 	SELF_DECLARED_OPTIONAL_DEPS_METADATA,
 	type Type,
+	type UnloadResult,
 } from "../../interfaces";
 import type { ForwardRef } from "../../utils/forward-ref";
 import { isForwardRef } from "../../utils/forward-ref";
@@ -51,6 +52,16 @@ export class ModuleGraph implements ModuleGraphInterface {
 	private _edges: Map<InjectionToken, Edge[]> = new Map();
 	private _globalModules: Map<InjectionToken, ModuleContainerInterface> =
 		new Map();
+	/** Module token -> its own declared provider tokens. */
+	private readonly _moduleProviders: Map<string, Set<InjectionToken>> =
+		new Map();
+	/**
+	 * Module token -> the other module tokens that need it alive: every
+	 * module that imports it, plus every module owning a provider that
+	 * depends (via a resolved `DEPENDENCY` edge, including one resolved
+	 * through a `@Global()` module) on one of its providers.
+	 */
+	private readonly _moduleReferrers: Map<string, Set<string>> = new Map();
 	private readonly _errors: GraphError[] = [];
 	/**
 	 * While a segment compiles, its errors are collected here instead of in
@@ -74,6 +85,14 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 	public get errors() {
 		return this._errors;
+	}
+
+	public get rootToken(): string {
+		return this._root.token;
+	}
+
+	public get internalRootTokens(): string[] {
+		return this._internalRoots.map((root) => root.token);
 	}
 
 	/** Records a graph error in the active sink, or in the shared list. */
@@ -164,11 +183,224 @@ export class ModuleGraph implements ModuleGraphInterface {
 		}
 	}
 
+	/**
+	 * Rolls back a segment that failed validation: removes every node, edge
+	 * and global registration it created (module, provider and LAZY
+	 * placeholder tokens are all passed in together). Also purges
+	 * `_moduleProviders`/`_moduleReferrers` index entries for `tokens` via
+	 * `purgeModuleIndexes` — without this, a referrer entry recorded by
+	 * `addModuleImports` before the rollback (pointing at a module token
+	 * that no longer exists) would survive and could later be mistaken by
+	 * `rescueCandidates` for a live outside referrer of a module reused by a
+	 * different, successful segment.
+	 */
 	private removeTokens(tokens: InjectionToken[]) {
+		this.purgeModuleIndexes(tokens);
+
 		for (const token of tokens) {
 			this._nodes.delete(token);
 			this._edges.delete(token);
 			this._globalModules.delete(token);
+		}
+	}
+
+	/**
+	 * Unloads a loaded lazy segment. Scoped to the segment's own subgraph,
+	 * not the whole live graph: collects everything reachable from the
+	 * segment's root (pruned at any module in `protectedRoots` — the eager
+	 * root, internal roots, and every *other* currently loaded segment's
+	 * root), then rescues back anything a survivor still needs. Returns the
+	 * modules and providers that were actually destroyed; a no-op (empty
+	 * result) if the ref is not currently loaded.
+	 */
+	public unloadSegment(
+		lazyModule: LazyModule,
+		protectedRoots: Set<string>,
+	): UnloadResult {
+		const placeholder = this._nodes.get(lazyModule.id) as
+			| AnalyzeLazyModule
+			| undefined;
+
+		if (
+			!placeholder ||
+			!placeholder.loaded ||
+			placeholder.moduleToken === null
+		) {
+			return { destroyedModules: [], destroyedProviders: [] };
+		}
+
+		const candidates = this.collectCandidates(
+			placeholder.moduleToken,
+			protectedRoots,
+		);
+		const alive = this.rescueCandidates(candidates);
+
+		const destroyedModules: string[] = [];
+		const destroyedProviders: InjectionToken[] = [];
+
+		for (const moduleToken of candidates) {
+			if (alive.has(moduleToken)) {
+				continue;
+			}
+			destroyedModules.push(moduleToken);
+			for (const providerToken of this._moduleProviders.get(moduleToken) ??
+				[]) {
+				destroyedProviders.push(providerToken);
+			}
+		}
+
+		this.removeModuleTokens(destroyedModules, destroyedProviders);
+		placeholder.markUnloaded();
+
+		return { destroyedModules, destroyedProviders };
+	}
+
+	/** A module's own `IMPORT` targets, plus the declaring modules of
+	 * whatever its own providers depend on in another module. Shared by
+	 * candidate collection, rescue propagation and teardown cleanup. */
+	private moduleDependencies(moduleToken: string): string[] {
+		const dependencies: string[] = [];
+
+		for (const edge of this.getEdge(moduleToken)) {
+			if (edge.type === EdgeTypeEnum.IMPORT) {
+				dependencies.push(edge.source as string);
+			}
+		}
+
+		for (const providerToken of this._moduleProviders.get(moduleToken) ?? []) {
+			for (const edge of this.getEdge(providerToken)) {
+				if (edge.type !== EdgeTypeEnum.DEPENDENCY || edge.metadata.unreached) {
+					continue;
+				}
+				const dependency = this._nodes.get(edge.target);
+				if (dependency?.type === NodeTypeEnum.PROVIDER) {
+					dependencies.push(
+						(dependency as AnalyzeProvider).moduleContainer.token,
+					);
+				}
+			}
+		}
+
+		return dependencies;
+	}
+
+	private collectCandidates(
+		rootToken: string,
+		protectedRoots: Set<string>,
+	): Set<string> {
+		const candidates = new Set<string>();
+		const queue: string[] = [rootToken];
+
+		while (queue.length) {
+			const moduleToken = queue.shift() as string;
+
+			if (protectedRoots.has(moduleToken) || candidates.has(moduleToken)) {
+				continue;
+			}
+
+			candidates.add(moduleToken);
+			queue.push(...this.moduleDependencies(moduleToken));
+		}
+
+		return candidates;
+	}
+
+	/**
+	 * A candidate survives if something outside the candidate set still
+	 * needs it (a "seed"), or if it is only reachable through a candidate
+	 * that survives. A plain per-node check for the first case alone is not
+	 * enough — see the "rescues a module only reachable through a surviving
+	 * sibling candidate" test.
+	 */
+	private rescueCandidates(candidates: Set<string>): Set<string> {
+		const alive = new Set<string>();
+		const queue: string[] = [];
+
+		for (const moduleToken of candidates) {
+			const referrers = this._moduleReferrers.get(moduleToken);
+			const hasOutsideReferrer =
+				referrers &&
+				[...referrers].some((referrer) => !candidates.has(referrer));
+
+			if (hasOutsideReferrer) {
+				queue.push(moduleToken);
+			}
+		}
+
+		while (queue.length) {
+			const moduleToken = queue.shift() as string;
+
+			if (alive.has(moduleToken)) {
+				continue;
+			}
+
+			alive.add(moduleToken);
+			queue.push(
+				...this.moduleDependencies(moduleToken).filter((token) =>
+					candidates.has(token),
+				),
+			);
+		}
+
+		return alive;
+	}
+
+	private removeModuleTokens(
+		moduleTokens: string[],
+		providerTokens: InjectionToken[],
+	) {
+		// Drop stale referrer entries, and the modules' own index entries,
+		// before deleting the edges they were derived from, so a module that
+		// stays alive never keeps a phantom referrer from a module that no
+		// longer exists.
+		//
+		// Note: this only removes edges from the maps keyed by the destroyed
+		// tokens themselves, not from every place a destroyed token might
+		// still appear as an edge *target* elsewhere — e.g. an
+		// `unreached: true` DEPENDENCY edge left on a surviving provider, or
+		// a LAZY placeholder edge whose declaring module was destroyed.
+		// That's safe for resolution (`Resolver.resolveProvider` already
+		// returns `undefined` for a missing node), but graph-introspection
+		// consumers (like `graph-analyzer`) can still see these as orphaned
+		// edge references.
+		this.purgeModuleIndexes(moduleTokens);
+
+		for (const providerToken of providerTokens) {
+			this._nodes.delete(providerToken);
+			this._edges.delete(providerToken);
+		}
+
+		for (const moduleToken of moduleTokens) {
+			this._nodes.delete(moduleToken);
+			this._edges.delete(moduleToken);
+			this._globalModules.delete(moduleToken);
+		}
+	}
+
+	/**
+	 * Purges `_moduleProviders`/`_moduleReferrers` index entries for
+	 * `tokens`, and removes each of them from any surviving module's
+	 * referrer set. Shared by `removeModuleTokens` (destroying a live
+	 * segment) and `removeTokens` (rolling back a failed one).
+	 *
+	 * `tokens` may freely mix module tokens with provider or LAZY
+	 * placeholder tokens: both indexes are keyed by module tokens only, so a
+	 * lookup or delete with a non-module key is a harmless no-op.
+	 *
+	 * Must run before the tokens' own `_edges` entries (and, for a removed
+	 * module, its `_moduleProviders` entry) are deleted — `moduleDependencies`
+	 * reads both to determine what each token itself depended on.
+	 */
+	private purgeModuleIndexes(tokens: InjectionToken[]) {
+		for (const token of tokens) {
+			for (const dependencyModule of this.moduleDependencies(token as string)) {
+				this._moduleReferrers.get(dependencyModule)?.delete(token as string);
+			}
+		}
+
+		for (const token of tokens) {
+			this._moduleProviders.delete(token as string);
+			this._moduleReferrers.delete(token as string);
 		}
 	}
 
@@ -253,6 +485,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 		for (const importEdge of imports) {
 			this.addEdge(analyzeModule.id, importEdge);
+			this.addModuleReferrer(importEdge.source as string, analyzeModule.id);
 		}
 
 		for (const lazyModule of analyzeModule.lazyImports) {
@@ -307,6 +540,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 			this.addNode(analyzeProvider.id, analyzeProvider);
 			this.addEdge(analyzeModule.id, analyzeProvider.edge);
+			this.addModuleProvider(analyzeModule.id, analyzeProvider.id);
 			added.push(analyzeProvider.id);
 		}
 
@@ -325,6 +559,57 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 	private addNode(token: InjectionToken, node: Node) {
 		this._nodes.set(token, node);
+	}
+
+	private addModuleProvider(
+		moduleToken: string,
+		providerToken: InjectionToken,
+	) {
+		const providers = this._moduleProviders.get(moduleToken) ?? new Set();
+		providers.add(providerToken);
+		this._moduleProviders.set(moduleToken, providers);
+	}
+
+	private addModuleReferrer(dependencyModule: string, referrerModule: string) {
+		const referrers = this._moduleReferrers.get(dependencyModule) ?? new Set();
+		referrers.add(referrerModule);
+		this._moduleReferrers.set(dependencyModule, referrers);
+	}
+
+	/**
+	 * Records that `consumerToken` (a provider) keeps `dependencyToken`'s
+	 * declaring module alive, when the two providers are declared in
+	 * different modules. Called after every `DEPENDENCY` edge is added,
+	 * regardless of how the dependency was resolved (own module, import, or
+	 * `@Global()` fallback) — the edge already reflects that, so this needs
+	 * no help from `isProviderExported`.
+	 */
+	private recordCrossModuleReferrer(
+		consumerToken: InjectionToken,
+		dependencyToken: InjectionToken,
+		isExported: boolean,
+	) {
+		if (!isExported) {
+			return;
+		}
+
+		const consumer = this._nodes.get(consumerToken);
+		const dependency = this._nodes.get(dependencyToken);
+
+		if (
+			consumer?.type !== NodeTypeEnum.PROVIDER ||
+			dependency?.type !== NodeTypeEnum.PROVIDER
+		) {
+			return;
+		}
+
+		const consumerModule = (consumer as AnalyzeProvider).moduleContainer.token;
+		const dependencyModule = (dependency as AnalyzeProvider).moduleContainer
+			.token;
+
+		if (consumerModule !== dependencyModule) {
+			this.addModuleReferrer(dependencyModule, consumerModule);
+		}
 	}
 	// graph helpers
 
@@ -396,6 +681,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 			};
 
 			this.addEdge(token, newEdge);
+			this.recordCrossModuleReferrer(token, dependencyToken, isExported);
 		}
 
 		const propertiesDependencies = this.getPropertiesDependencies(
@@ -433,6 +719,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 			};
 
 			this.addEdge(token, newEdge);
+			this.recordCrossModuleReferrer(token, dependencyToken, isExported);
 		}
 	}
 
@@ -478,6 +765,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 			};
 
 			this.addEdge(token, newEdge);
+			this.recordCrossModuleReferrer(token, dependencyToken, isExported);
 		}
 
 		const propertiesDependencies = this.getPropertiesDependencies(Class);
@@ -509,6 +797,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 					inject: "property",
 				},
 			});
+			this.recordCrossModuleReferrer(token, dependencyToken, isExported);
 		}
 	}
 
@@ -553,6 +842,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 			};
 
 			this.addEdge(token, factoryDependency);
+			this.recordCrossModuleReferrer(token, dependencyToken, isExported);
 		}
 	}
 	// providers dependencies

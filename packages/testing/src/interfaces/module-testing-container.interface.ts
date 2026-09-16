@@ -1,8 +1,11 @@
 import type {
 	ContainerBaseInterface,
+	LazyModule,
 	ModuleContainerInterface,
 	ModuleMetadata,
 	ModulePluginInterface,
+	ModuleRef,
+	UnloadResult,
 } from "@nexus-ioc/core";
 
 export interface ModuleTestingContainerInterface<_T extends ModuleMetadata>
@@ -15,4 +18,8 @@ export interface ModuleTestingContainerInterface<_T extends ModuleMetadata>
 	): this;
 
 	compile(): Promise<ModuleContainerInterface>;
+
+	load(lazyModule: LazyModule): Promise<ModuleRef>;
+
+	unload(ref: ModuleRef): Promise<UnloadResult>;
 }

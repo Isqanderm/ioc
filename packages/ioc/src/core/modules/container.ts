@@ -11,6 +11,7 @@ import type {
 	ModuleContainerInterface,
 	ModuleGraphInterface,
 	Type,
+	UnloadResult,
 } from "../../interfaces";
 import { MODULE_WATERMARK } from "../../interfaces";
 import { isDynamicModule } from "../../utils/helpers";
@@ -44,6 +45,12 @@ export class Container implements ContainerInterface {
 	private _graph: ModuleGraphInterface | null = null;
 	private moduleGraphResolver: Resolver | null = null;
 	private readonly segments = new Map<symbol, Promise<GraphSegment>>();
+	/**
+	 * Root module token of every currently loaded segment, by ref id. Used
+	 * to compute `protectedRoots` for `unload`; set once a segment's
+	 * compile succeeds, cleared once it is unloaded.
+	 */
+	private readonly loadedSegments = new Map<symbol, string>();
 	/**
 	 * Tail of the segment compilation chain. Loader functions run in parallel,
 	 * but the graph mutation that follows each of them runs one at a time.
@@ -252,7 +259,16 @@ export class Container implements ContainerInterface {
 
 		const segment = await this.enqueueCompile(async () => {
 			const moduleContainer = await this.modulesContainer.addModule(loaded);
-			return this.graph.compileSegment(moduleContainer, lazyModule);
+			const compiled = await this.graph.compileSegment(
+				moduleContainer,
+				lazyModule,
+			);
+
+			if (compiled.errors.length === 0) {
+				this.loadedSegments.set(lazyModule.id, compiled.moduleContainer.token);
+			}
+
+			return compiled;
 		});
 
 		if (segment.errors.length > 0) {
@@ -260,6 +276,61 @@ export class Container implements ContainerInterface {
 		}
 
 		return segment;
+	}
+
+	/**
+	 * Unloads a previously loaded lazy segment: destroys every singleton and
+	 * module nothing else still needs, and leaves the rest untouched (a
+	 * shared module, a `@Global()` module another segment depends on, a
+	 * nested lazy module loaded from inside this one). Runs on the same
+	 * compile queue as `load`, so it never interleaves with a concurrent
+	 * load or unload of a different ref. Waits for an in-flight load of the
+	 * same ref to settle first. A ref that was never loaded is a no-op.
+	 * Concurrent `unload()` calls for the *same* ref are also safe, but only
+	 * because `ModuleGraph.unloadSegment` is idempotent (a second call
+	 * against an already-unloaded placeholder is a no-op) — `Container.unload`
+	 * itself does not enforce this, so a future change to `unloadSegment`
+	 * must preserve that idempotency or this guarantee silently breaks.
+	 */
+	public async unload(lazyModule: LazyModule): Promise<UnloadResult> {
+		if (!this._graph) {
+			throw new ContainerNotCompiledError();
+		}
+
+		const inFlight = this.segments.get(lazyModule.id);
+
+		if (!inFlight) {
+			return { destroyedModules: [], destroyedProviders: [] };
+		}
+
+		await inFlight.catch(() => undefined);
+
+		if (!this.loadedSegments.has(lazyModule.id)) {
+			return { destroyedModules: [], destroyedProviders: [] };
+		}
+
+		return this.enqueueCompile(async () => {
+			const protectedRoots = new Set<string>([
+				this.graph.rootToken,
+				...this.graph.internalRootTokens,
+				...[...this.loadedSegments.entries()]
+					.filter(([id]) => id !== lazyModule.id)
+					.map(([, token]) => token),
+			]);
+
+			const result = this.graph.unloadSegment(lazyModule, protectedRoots);
+
+			await this.moduleGraphResolver?.destroy(result.destroyedProviders);
+
+			for (const moduleToken of result.destroyedModules) {
+				this.modulesContainer.removeModule(moduleToken);
+			}
+
+			this.segments.delete(lazyModule.id);
+			this.loadedSegments.delete(lazyModule.id);
+
+			return result;
+		});
 	}
 
 	/**

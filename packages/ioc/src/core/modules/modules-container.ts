@@ -43,6 +43,10 @@ export class ModulesContainer implements ModulesContainerInterface {
 		return this.getModuleFromCache(module);
 	}
 
+	removeModule(token: Token): void {
+		this.containers.delete(token);
+	}
+
 	async replaceModule(
 		moduleToReplace: Type,
 		newModule: Type,

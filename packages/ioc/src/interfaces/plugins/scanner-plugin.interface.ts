@@ -3,7 +3,7 @@ import type { ModuleGraphInterface } from "../modules";
 export interface ScannerGraphInterface
 	extends Omit<
 		ModuleGraphInterface,
-		"compile" | "compileSegment" | "nodes" | "edges"
+		"compile" | "compileSegment" | "unloadSegment" | "nodes" | "edges"
 	> {}
 
 export interface ScannerPluginInterface {

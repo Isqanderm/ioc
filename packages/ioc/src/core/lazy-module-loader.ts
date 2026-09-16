@@ -1,7 +1,7 @@
 import "reflect-metadata";
 import { Global } from "../decorators/global";
 import { Module } from "../decorators/module";
-import type { DynamicModule, LazyModule } from "../interfaces";
+import type { DynamicModule, LazyModule, UnloadResult } from "../interfaces";
 import type { ModuleRef } from "./module-ref";
 
 /**
@@ -12,10 +12,15 @@ import type { ModuleRef } from "./module-ref";
 export class LazyModuleLoader {
 	constructor(
 		private readonly loadFn: (lazyModule: LazyModule) => Promise<ModuleRef>,
+		private readonly unloadFn: (ref: ModuleRef) => Promise<UnloadResult>,
 	) {}
 
 	public load(lazyModule: LazyModule): Promise<ModuleRef> {
 		return this.loadFn(lazyModule);
+	}
+
+	public unload(ref: ModuleRef): Promise<UnloadResult> {
+		return this.unloadFn(ref);
 	}
 }
 

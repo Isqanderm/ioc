@@ -56,12 +56,21 @@ export interface GraphSegment {
 	errors: GraphError[];
 }
 
+export interface UnloadResult {
+	destroyedModules: string[];
+	destroyedProviders: InjectionToken[];
+}
+
 export interface ModuleGraphInterface {
 	compile(): Promise<void>;
 	compileSegment(
 		root: ModuleContainerInterface,
 		lazyModule: LazyModule,
 	): Promise<GraphSegment>;
+	unloadSegment(
+		lazyModule: LazyModule,
+		protectedRoots: Set<string>,
+	): UnloadResult;
 	isProviderExported(
 		moduleContainer: ModuleContainerInterface,
 		token: InjectionToken,
@@ -72,5 +81,7 @@ export interface ModuleGraphInterface {
 	getAllEdges(): Edge[][];
 	nodes: Map<InjectionToken, Node>;
 	edges: Map<InjectionToken, Edge[]>;
+	rootToken: string;
+	internalRootTokens: string[];
 	errors: GraphError[];
 }
