@@ -8,6 +8,7 @@ import {
 	inject,
 	Module,
 	NexusApplication,
+	Scope,
 } from "../../src";
 
 describe("inject() in factories", () => {
@@ -260,5 +261,136 @@ describe("inject() in factories", () => {
 		const db = await app.resolve(DB);
 		expect(calls).toBe(2);
 		expect(db.id).toBe(2);
+	});
+
+	describe("adopting an async factory result", () => {
+		const tick = (ms = 5) => new Promise((resolve) => setTimeout(resolve, ms));
+
+		it("waits for the async inits of the factory's dependencies before its own init", async () => {
+			const DB = new InjectionToken<{ c: Conf }>("DB");
+			const log: string[] = [];
+			@Injectable()
+			class Conf {
+				ready = false;
+				async onModuleInit() {
+					await tick(10);
+					this.ready = true;
+				}
+			}
+			@Injectable()
+			class Svc {
+				readonly db = inject(DB);
+			}
+			@Module({
+				providers: [
+					Conf,
+					Svc,
+					{
+						provide: DB,
+						inject: [Conf],
+						useFactory: async (c: Conf) => ({
+							c,
+							onModuleInit() {
+								log.push(`db init sees ready=${c.ready}`);
+							},
+						}),
+					},
+				],
+			})
+			class M {}
+			const app = NexusApplication.create(M).lazy();
+			await app.bootstrap();
+			await expect(app.resolve(Svc)).rejects.toThrow(
+				AsyncProviderInjectionError,
+			);
+			const db = await app.resolve(DB);
+			expect(log).toEqual(["db init sees ready=true"]);
+			expect(db.c).toBe(app.get(Conf));
+		});
+
+		it("discards the result when a dependency's init fails, and calls the factory afresh next time", async () => {
+			const DB = new InjectionToken<{ c: Conf }>("DB");
+			let n = 0;
+			let calls = 0;
+			@Injectable()
+			class Conf {
+				readonly id = ++n;
+				async onModuleInit() {
+					await tick(20);
+					if (this.id === 1) {
+						throw new Error("conf boom");
+					}
+				}
+			}
+			@Injectable()
+			class Svc {
+				readonly db = inject(DB);
+			}
+			@Module({
+				providers: [
+					Conf,
+					Svc,
+					{
+						provide: DB,
+						inject: [Conf],
+						useFactory: async (c: Conf) => {
+							calls++;
+							return { c };
+						},
+					},
+				],
+			})
+			class M {}
+			const app = NexusApplication.create(M).lazy();
+			await app.bootstrap();
+			await expect(app.resolve(Svc)).rejects.toThrow(
+				AsyncProviderInjectionError,
+			);
+			await expect(app.resolve(DB)).rejects.toThrow(/conf boom/);
+			expect(calls).toBe(1);
+			expect(() => app.get(DB)).toThrow();
+
+			const db = await app.resolve(DB);
+			expect(calls).toBe(2);
+			expect(db.c.id).toBe(2);
+			expect(db.c).toBe(app.get(Conf));
+		});
+
+		it("shares the factory's Scoped dependencies with the adopting resolution tree", async () => {
+			const DB = new InjectionToken<{ r: Req }>("DB");
+			@Injectable({ scope: Scope.Scoped })
+			class Req {}
+			@Injectable()
+			class Svc {
+				readonly db = inject(DB);
+			}
+			@Injectable()
+			class Top {
+				constructor(
+					@Inject(DB) readonly db: { r: Req },
+					@Inject(Req) readonly req: Req,
+				) {}
+			}
+			@Module({
+				providers: [
+					Req,
+					Svc,
+					Top,
+					{
+						provide: DB,
+						inject: [Req],
+						useFactory: async (r: Req) => ({ r }),
+					},
+				],
+			})
+			class M {}
+			const app = NexusApplication.create(M).lazy();
+			await app.bootstrap();
+			await expect(app.resolve(Svc)).rejects.toThrow(
+				AsyncProviderInjectionError,
+			);
+			const top = await app.resolve(Top);
+			expect(top.db.r).toBe(top.req);
+		});
 	});
 });

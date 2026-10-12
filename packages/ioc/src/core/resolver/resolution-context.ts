@@ -9,6 +9,33 @@ export class ResolutionContext {
 	/** onModuleInit promises started during synchronous creation. */
 	readonly pendingInits: Promise<unknown>[] = [];
 
+	/** Active Scoped-instance recordings, innermost last. */
+	private readonly scopedRecordings: Map<ProviderToken, unknown>[] = [];
+
+	/**
+	 * Starts recording the Scoped instances handed out on the synchronous
+	 * path, until stopScopedRecording() is called with the returned map.
+	 */
+	startScopedRecording(): Map<ProviderToken, unknown> {
+		const recording = new Map<ProviderToken, unknown>();
+		this.scopedRecordings.push(recording);
+		return recording;
+	}
+
+	stopScopedRecording(recording: Map<ProviderToken, unknown>): void {
+		const index = this.scopedRecordings.lastIndexOf(recording);
+		if (index !== -1) {
+			this.scopedRecordings.splice(index, 1);
+		}
+	}
+
+	/** Adds a Scoped instance to every active recording. */
+	recordScoped(token: ProviderToken, instance: unknown): void {
+		for (const recording of this.scopedRecordings) {
+			recording.set(token, instance);
+		}
+	}
+
 	enter(token: ProviderToken): void {
 		this.path.push(token);
 	}
