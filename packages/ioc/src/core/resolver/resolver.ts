@@ -167,6 +167,7 @@ export class Resolver {
 		ctx.cache.set(node.id, instance);
 		if (
 			(scope === Scope.Singleton || isValueProvider(node.metatype)) &&
+			// First writer wins if concurrent creations race for the same token.
 			!this.providersContainer.has(node.id)
 		) {
 			this.providersContainer.set(node.id, instance);
@@ -406,20 +407,24 @@ export class Resolver {
 			// context, so inject() there throws InjectionContextError.
 			const runInit = () =>
 				withInjectionContext(null, () => this.callInitSync(provider, instance));
+			// Conservatively wait on every init queued before this instance (it
+			// may hold some of those instances, created here or via cache hits),
+			// even without its own onModuleInit, so a failure there evicts this
+			// instance too. No deadlock: each entry only waits on earlier ones.
+			const earlier = [...ctx.pendingInits];
 			let pendingInit: Promise<unknown> | undefined;
-			if (instance?.onModuleInit) {
-				// Every init queued so far belongs to an instance this one may
-				// have received (created here or a cache hit on one still
-				// initializing), so wait for all of them. This cannot deadlock:
-				// each deferred init only waits on inits queued before it.
-				const earlier = [...ctx.pendingInits];
-				pendingInit =
-					earlier.length > 0 ? Promise.all(earlier).then(runInit) : runInit();
+			if (earlier.length > 0) {
+				const afterEarlier = Promise.all(earlier);
+				pendingInit = instance?.onModuleInit
+					? afterEarlier.then(runInit)
+					: afterEarlier;
+			} else if (instance?.onModuleInit) {
+				pendingInit = runInit();
 			}
 
 			this.commitInstance(node, instance, ctx);
 			if (pendingInit) {
-				// A failed async init must not leave a broken cached instance.
+				// A failed init (own or earlier) must not leave a broken cached instance.
 				ctx.addPendingInit(
 					pendingInit.catch((error) => {
 						this.evictInstance(node, instance, ctx);

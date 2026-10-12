@@ -338,4 +338,48 @@ describe("inject() in class providers", () => {
 		expect(destroyed).not.toContain(broken);
 		expect(destroyed).toContain(fresh);
 	});
+
+	it("evicts an init-less dependent that holds an instance whose async init failed", async () => {
+		let failNext = true;
+		const mids: object[] = [];
+		const destroyed: object[] = [];
+		@Injectable()
+		class S implements OnModuleInit {
+			async onModuleInit() {
+				if (failNext) {
+					failNext = false;
+					throw new Error("init failed");
+				}
+			}
+		}
+		@Injectable()
+		class Mid {
+			readonly s = inject(S);
+			constructor() {
+				mids.push(this);
+			}
+			onModuleDestroy() {
+				destroyed.push(this);
+			}
+		}
+		@Injectable()
+		class Root {
+			readonly mid = inject(Mid);
+		}
+		@Module({ providers: [Root, Mid, S] })
+		class M {}
+		const app = NexusApplication.create(M).lazy();
+		await app.bootstrap();
+		await expect(app.resolve(Root)).rejects.toThrow(/init failed/);
+		const stale = mids[0] as Mid;
+
+		const mid = await app.resolve(Mid);
+		expect(mid).not.toBe(stale);
+		expect(mid.s).not.toBe(stale.s);
+		expect(mid.s).toBe(await app.resolve(S));
+
+		await app.close();
+		expect(destroyed).not.toContain(stale);
+		expect(destroyed).toContain(mid);
+	});
 });
