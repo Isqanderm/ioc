@@ -8,6 +8,7 @@ import {
 	type ModulesContainerInterface,
 	type Type,
 } from "../../interfaces";
+import { isDynamicModule } from "../../utils/helpers";
 import { ModuleContainerFactory } from "./module-container-factory";
 import { ModuleTokenFactory } from "./module-token-factory";
 
@@ -15,6 +16,13 @@ export type Token = string;
 
 export class ModulesContainer implements ModulesContainerInterface {
 	private readonly containers = new Map<Token, ModuleContainerInterface>();
+	/**
+	 * Modules registered through `replaceModule`, keyed by the replaced class.
+	 * Every lookup of a replaced module (`addModule`, `getModule`) is redirected
+	 * to its replacement, even when the replaced module was not registered yet.
+	 * Modules that were not replaced are never affected.
+	 */
+	private readonly replacements = new Map<Type, Type>();
 	private readonly moduleTokenFactory = new ModuleTokenFactory(this.hashUtils);
 	private readonly moduleContainerFactory = new ModuleContainerFactory(
 		this.moduleTokenFactory,
@@ -28,6 +36,7 @@ export class ModulesContainer implements ModulesContainerInterface {
 	async addModule(
 		module: Type | DynamicModule,
 	): Promise<ModuleContainerInterface> {
+		module = this.applyReplacement(module);
 		const cacheModule = await this.getModule(module);
 
 		if (cacheModule) {
@@ -40,7 +49,7 @@ export class ModulesContainer implements ModulesContainerInterface {
 	getModule(
 		module: Type | DynamicModule,
 	): ModuleContainerInterface | undefined {
-		return this.getModuleFromCache(module);
+		return this.getModuleFromCache(this.applyReplacement(module));
 	}
 
 	removeModule(token: Token): void {
@@ -51,7 +60,12 @@ export class ModulesContainer implements ModulesContainerInterface {
 		moduleToReplace: Type,
 		newModule: Type,
 	): Promise<ModuleContainerInterface> {
-		const tokenToReplace = this.getModule(moduleToReplace);
+		if (moduleToReplace === newModule) {
+			return this.addModule(newModule);
+		}
+
+		const tokenToReplace = this.getModuleFromCache(moduleToReplace);
+		this.replacements.set(moduleToReplace, newModule);
 		const newModuleContainer = await this.setModule(newModule);
 
 		this.containers.set(
@@ -60,6 +74,37 @@ export class ModulesContainer implements ModulesContainerInterface {
 		);
 
 		return newModuleContainer;
+	}
+
+	/**
+	 * Maps a module through the replacements. The chain is followed
+	 * (`A -> B -> C` gives `C`) and stops at a cycle (`A -> B`, `B -> A`).
+	 *
+	 * A `DynamicModule` whose `module` class is replaced is swapped for the
+	 * replacement class used as a plain static module: the replacement is a
+	 * class, so the dynamic module's own providers, imports and exports (meant
+	 * for the replaced class) are dropped.
+	 */
+	private applyReplacement(module: Type | DynamicModule): Type | DynamicModule {
+		if (this.replacements.size === 0) {
+			return module;
+		}
+
+		let current: Type = isDynamicModule(module) ? module.module : module;
+		const seen = new Set<Type>([current]);
+		let replaced = false;
+
+		for (
+			let next = this.replacements.get(current);
+			next !== undefined && !seen.has(next);
+			next = this.replacements.get(current)
+		) {
+			seen.add(next);
+			current = next;
+			replaced = true;
+		}
+
+		return replaced ? current : module;
 	}
 
 	private async setModule(

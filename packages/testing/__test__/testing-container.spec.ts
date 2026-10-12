@@ -268,6 +268,10 @@ describe("TestingContainer (Test class)", () => {
 			);
 			expect(replacedModule).toBeDefined();
 			expect(replacedModule.metatype).toBe(NewModule);
+
+			await testInstance.compile();
+			expect(testInstance.get(NewService).getValue()).toBe("new");
+			expect(testInstance.get(OldService, { optional: true })).toBeUndefined();
 		});
 	});
 

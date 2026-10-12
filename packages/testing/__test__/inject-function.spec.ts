@@ -64,8 +64,6 @@ describe("inject() with Test containers", () => {
 			imports: [HttpModule],
 			providers: [Client],
 		});
-		// replaceModule swaps the registered module, so register it first
-		await creator.addModule(HttpModule);
 		await creator.replaceModule(HttpModule, FakeHttpModule);
 		const testing = await creator.compile();
 

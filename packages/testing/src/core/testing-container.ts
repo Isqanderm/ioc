@@ -64,6 +64,9 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 		metatypeToReplace: Type,
 		newMetatype: Type,
 	): Promise<ModuleContainerInterface> {
+		if (this.containerCompiled || this._moduleContainer) {
+			throw new Error("replaceModule must be called before compile()");
+		}
 		return this.container.replaceModule(metatypeToReplace, newMetatype);
 	}
 

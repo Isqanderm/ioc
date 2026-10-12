@@ -33,6 +33,10 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 - The type-checker and graph-analyzer treat an `InjectionToken` constant as one token across re-exports.
 - `close()` is idempotent and error-tolerant: it runs `onModuleDestroy` in reverse creation order, throws one `AggregateError` if hooks fail, detaches the parent, and makes `get`/`resolve`/`load`/`unload` throw `ContainerClosedError` from the moment it is called (a `ModuleRef` throws it for visible tokens and still returns `undefined` for tokens it cannot see), while in-flight lazy loads still finish and are destroyed.
 
+### Fixed
+
+- `Container.replaceModule(Old, New)` is remembered, so it also replaces `Old` when `Old` is not registered yet (it used to store `New` as an orphan). Later `addModule`/`getModule` of `Old`, or of a `DynamicModule` of `Old`, resolve to `New`; chains are followed and cycles stop.
+
 ### Notes
 
 - New `ProviderUnloadedError`: a `resolve()` that is still creating a singleton when an unload destroys its module rejects with it; the new instance is destroyed (its `onModuleDestroy` is called on a best-effort basis) instead of cached. After `close()` the same case rejects with `ContainerClosedError`.
