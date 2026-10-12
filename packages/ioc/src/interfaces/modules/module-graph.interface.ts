@@ -70,9 +70,19 @@ export interface GraphSegment {
 	errors: GraphError[];
 }
 
-export interface UnloadResult {
+/** What `ModuleGraph.unloadSegment` removed from the graph. */
+export interface SegmentUnloadResult {
 	destroyedModules: string[];
 	destroyedProviders: ProviderToken[];
+}
+
+/** What unloading a lazy module did. */
+export interface UnloadResult extends SegmentUnloadResult {
+	/**
+	 * Live child applications closed because the module that declared them
+	 * in `@Module({ children })` was destroyed by this unload.
+	 */
+	closedChildren: number;
 }
 
 export interface ModuleGraphInterface {
@@ -84,7 +94,7 @@ export interface ModuleGraphInterface {
 	unloadSegment(
 		lazyModule: LazyModule,
 		protectedRoots: Set<string>,
-	): UnloadResult;
+	): SegmentUnloadResult;
 	isProviderVisible(
 		moduleContainer: ModuleContainerInterface,
 		token: ProviderToken,

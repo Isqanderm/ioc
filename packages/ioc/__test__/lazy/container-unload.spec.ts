@@ -52,6 +52,7 @@ describe("Container.unload", () => {
 		await expect(container.unload(NeverLoadedLazy)).resolves.toEqual({
 			destroyedModules: [],
 			destroyedProviders: [],
+			closedChildren: 0,
 		});
 	});
 

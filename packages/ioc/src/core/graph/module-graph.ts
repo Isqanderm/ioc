@@ -17,8 +17,8 @@ import {
 	type ProviderToken,
 	SELF_DECLARED_DEPS_METADATA,
 	SELF_DECLARED_OPTIONAL_DEPS_METADATA,
+	type SegmentUnloadResult,
 	type Type,
-	type UnloadResult,
 } from "../../interfaces";
 import type { ForwardRef } from "../../utils/forward-ref";
 import { isForwardRef } from "../../utils/forward-ref";
@@ -224,7 +224,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 	public unloadSegment(
 		lazyModule: LazyModule,
 		protectedRoots: Set<string>,
-	): UnloadResult {
+	): SegmentUnloadResult {
 		const placeholder = this._nodes.get(lazyModule.id) as
 			| AnalyzeLazyModule
 			| undefined;

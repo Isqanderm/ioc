@@ -28,6 +28,15 @@ import { Resolver } from "../resolver/resolver";
 import { ModulesContainer } from "./modules-container";
 
 /**
+ * Called by `Container.unload` with the module tokens about to be destroyed.
+ * Reports how many child applications it closed and, if any of them failed
+ * to close, the error to rethrow once the unload has finished.
+ */
+export type UnloadingHook = (
+	destroyedModules: string[],
+) => Promise<{ closed: number; error?: unknown }>;
+
+/**
  * Container is the core IoC (Inversion of Control) container that manages
  * modules, providers, and dependency injection.
  *
@@ -67,6 +76,8 @@ export class Container implements ContainerInterface {
 	 * but the graph mutation that follows each of them runs one at a time.
 	 */
 	private compileQueue: Promise<unknown> = Promise.resolve();
+	/** See `onUnloading`. */
+	private unloadingHook: UnloadingHook | null = null;
 
 	/**
 	 * Creates a new Container instance.
@@ -271,6 +282,11 @@ export class Container implements ContainerInterface {
 		);
 
 		this.moduleGraphResolver = new Resolver(this._graph, link);
+		if (this.closed) {
+			// close() ran before there was a resolver to close: nothing may be
+			// created from here on (a warm-up would otherwise outlive it).
+			this.moduleGraphResolver.markClosed();
+		}
 
 		await this._graph.compile();
 	}
@@ -386,13 +402,21 @@ export class Container implements ContainerInterface {
 		const inFlight = this.segments.get(lazyModule.id);
 
 		if (!inFlight) {
-			return { destroyedModules: [], destroyedProviders: [] };
+			return {
+				destroyedModules: [],
+				destroyedProviders: [],
+				closedChildren: 0,
+			};
 		}
 
 		await inFlight.catch(() => undefined);
 
 		if (!this.loadedSegments.has(lazyModule.id)) {
-			return { destroyedModules: [], destroyedProviders: [] };
+			return {
+				destroyedModules: [],
+				destroyedProviders: [],
+				closedChildren: 0,
+			};
 		}
 
 		return this.enqueueCompile(async () => {
@@ -406,6 +430,17 @@ export class Container implements ContainerInterface {
 
 			const result = this.graph.unloadSegment(lazyModule, protectedRoots);
 
+			// Children declared by a destroyed module go first, while the
+			// providers they hold through their link are still alive. Their
+			// failures are reported after the unload has finished.
+			let closedChildren = 0;
+			let childFailure: unknown;
+			if (this.unloadingHook && result.destroyedModules.length > 0) {
+				const closing = await this.unloadingHook(result.destroyedModules);
+				closedChildren = closing.closed;
+				childFailure = closing.error;
+			}
+
 			await this.moduleGraphResolver?.destroy(result.destroyedProviders);
 
 			for (const moduleToken of result.destroyedModules) {
@@ -415,8 +450,22 @@ export class Container implements ContainerInterface {
 			this.segments.delete(lazyModule.id);
 			this.loadedSegments.delete(lazyModule.id);
 
-			return result;
+			if (childFailure !== undefined) {
+				throw childFailure;
+			}
+			return { ...result, closedChildren };
 		});
+	}
+
+	/**
+	 * Registers the hook `unload` calls once the graph has dropped a segment
+	 * and before that segment's providers are destroyed, with the tokens of
+	 * the modules being destroyed. The application closes the child
+	 * applications those modules declared there. One hook per container; a
+	 * later call replaces it.
+	 */
+	public onUnloading(hook: UnloadingHook): void {
+		this.unloadingHook = hook;
 	}
 
 	/**

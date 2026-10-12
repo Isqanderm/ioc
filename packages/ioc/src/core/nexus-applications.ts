@@ -30,6 +30,30 @@ import { createInternalModule, LazyModuleLoader } from "./lazy-module-loader";
 import { ModuleRef } from "./module-ref";
 import { Container } from "./modules/container";
 
+/** How a child application is attached to its parent. */
+interface ChildWiring {
+	link: ParentLink;
+	onClosed: () => void;
+	declaredIn: string;
+}
+
+function flattenErrors(error: unknown): unknown[] {
+	return error instanceof AggregateError ? [...error.errors] : [error];
+}
+
+/** Closes `apps` one at a time, in order; returns their flattened errors. */
+async function closeAll(apps: NexusApplication[]): Promise<unknown[]> {
+	const errors: unknown[] = [];
+	for (const app of apps) {
+		try {
+			await app.close();
+		} catch (error) {
+			errors.push(...flattenErrors(error));
+		}
+	}
+	return errors;
+}
+
 /**
  * NexusApplication is the main application class that provides a high-level
  * API for creating and managing IoC containers.
@@ -57,12 +81,25 @@ export class NexusApplication implements NexusApplicationInterface {
 	private readonly link: ParentLink | null;
 	/** Removes this child from its parent's `liveChildren` once closed. */
 	private readonly onClosed: (() => void) | null;
-	/** Children created by `createChild()` and not closed yet. */
+	/**
+	 * Token, in the parent graph, of the module that declares this child in
+	 * `@Module({ children })`; the parent closes the child when an unload
+	 * destroys that module.
+	 */
+	private readonly declaredIn: string | null;
+	/**
+	 * Children created by `createChild()` and not closed yet, in creation
+	 * order. The only reference the parent keeps to a child.
+	 */
 	private readonly liveChildren = new Set<NexusApplication>();
-	/** Lazy child code, per lazy ref id; a failed load is not cached. */
+	/**
+	 * Lazy child code, per lazy ref id, with the token of the declaring
+	 * module; a failed load is not cached, and an unload that destroys the
+	 * declaring module drops the entry.
+	 */
 	private readonly loadedChildren = new Map<
 		symbol,
-		Promise<Type | DynamicModule>
+		{ declaredIn: string; module: Promise<Type | DynamicModule> }
 	>();
 	private readonly pendingLoads = new Set<Promise<unknown>>();
 	private readonly lazyModuleLoader = new LazyModuleLoader(
@@ -80,13 +117,17 @@ export class NexusApplication implements NexusApplicationInterface {
 	private constructor(
 		private readonly rootModule: Type | DynamicModule,
 		private readonly options?: { hashFn: new () => HashUtilInterface },
-		child?: { link: ParentLink; onClosed: () => void },
+		child?: ChildWiring,
 	) {
 		if (options?.hashFn && typeof options?.hashFn === "function") {
 			this.hashUtil = new options.hashFn();
 		}
 		this.link = child?.link ?? null;
 		this.onClosed = child?.onClosed ?? null;
+		this.declaredIn = child?.declaredIn ?? null;
+		this.container.onUnloading((modules) =>
+			this.closeChildrenDeclaredIn(modules),
+		);
 	}
 
 	/**
@@ -118,11 +159,10 @@ export class NexusApplication implements NexusApplicationInterface {
 	 */
 	private static createAsChild(
 		root: Type | DynamicModule,
-		link: ParentLink,
-		onClosed: () => void,
+		wiring: ChildWiring,
 		options?: { hashFn: new () => HashUtilInterface },
 	): NexusApplication {
-		return new NexusApplication(root, options, { link, onClosed });
+		return new NexusApplication(root, options, wiring);
 	}
 
 	/**
@@ -174,7 +214,7 @@ export class NexusApplication implements NexusApplicationInterface {
 		let module: Type | DynamicModule;
 		if (isLazyModule(child)) {
 			try {
-				module = await this.loadChildModule(child);
+				module = await this.loadChildModule(child, declaredIn.token);
 			} catch (error) {
 				// A parent that started closing reports that, not the load failure.
 				this.assertOpen();
@@ -188,8 +228,11 @@ export class NexusApplication implements NexusApplicationInterface {
 
 		const app = NexusApplication.createAsChild(
 			withExtraProviders(module, options?.providers),
-			this.linkFor(declaredIn),
-			() => this.liveChildren.delete(app),
+			{
+				link: this.linkFor(declaredIn),
+				onClosed: () => this.liveChildren.delete(app),
+				declaredIn: declaredIn.token,
+			},
 			this.options,
 		);
 		// Registered before bootstrap so a concurrent close() sees it.
@@ -212,17 +255,26 @@ export class NexusApplication implements NexusApplicationInterface {
 	}
 
 	/** Runs a lazy child's loader once per ref; a failure is not cached. */
-	private loadChildModule(ref: LazyModule): Promise<Type | DynamicModule> {
+	private loadChildModule(
+		ref: LazyModule,
+		declaredIn: string,
+	): Promise<Type | DynamicModule> {
 		const cached = this.loadedChildren.get(ref.id);
 		if (cached) {
-			return cached;
+			return cached.module;
 		}
-		const loading = this.runChildLoader(ref).catch((error) => {
-			this.loadedChildren.delete(ref.id);
-			throw error;
-		});
-		this.loadedChildren.set(ref.id, loading);
-		return loading;
+		const entry = {
+			declaredIn,
+			module: this.runChildLoader(ref).catch((error) => {
+				// Only this load's entry: an unload may have dropped it already.
+				if (this.loadedChildren.get(ref.id) === entry) {
+					this.loadedChildren.delete(ref.id);
+				}
+				throw error;
+			}),
+		};
+		this.loadedChildren.set(ref.id, entry);
+		return entry.module;
 	}
 
 	private async runChildLoader(ref: LazyModule): Promise<Type | DynamicModule> {
@@ -356,11 +408,32 @@ export class NexusApplication implements NexusApplicationInterface {
 			// Mark the container closed before draining, so module refs are
 			// rejected during the drain window too.
 			this.container.markClosed();
-			this.closePromise = this.drainAndClose().finally(() => {
+			this.closePromise = this.closeChildrenThenSelf().finally(() => {
 				this.onClosed?.();
 			});
 		}
 		return this.closePromise;
+	}
+
+	/**
+	 * Closes the live children (newest first, one at a time), then this
+	 * application. Every failure, a child's or its own, ends up in one
+	 * `AggregateError`, flattened so a child's `AggregateError` contributes
+	 * its errors rather than nesting.
+	 */
+	private async closeChildrenThenSelf(): Promise<void> {
+		const errors = await closeAll([...this.liveChildren].reverse());
+		try {
+			await this.drainAndClose();
+		} catch (error) {
+			errors.push(...flattenErrors(error));
+		}
+		if (errors.length > 0) {
+			throw new AggregateError(
+				errors,
+				"One or more onModuleDestroy hooks failed",
+			);
+		}
 	}
 
 	/**
@@ -371,6 +444,36 @@ export class NexusApplication implements NexusApplicationInterface {
 	private async drainAndClose(): Promise<void> {
 		await Promise.allSettled([...this.pendingLoads]);
 		await this.container.close();
+	}
+
+	/**
+	 * Unload hook (see `Container.onUnloading`): closes the live children
+	 * declared by a module the unload destroys, newest first, and forgets
+	 * the lazy child code those modules declared.
+	 */
+	private async closeChildrenDeclaredIn(
+		destroyedModules: string[],
+	): Promise<{ closed: number; error?: unknown }> {
+		const destroyed = new Set(destroyedModules);
+		for (const [id, entry] of this.loadedChildren) {
+			if (destroyed.has(entry.declaredIn)) {
+				this.loadedChildren.delete(id);
+			}
+		}
+		const doomed = [...this.liveChildren]
+			.filter((child) => child.declaredIn && destroyed.has(child.declaredIn))
+			.reverse();
+		const errors = await closeAll(doomed);
+		return {
+			closed: doomed.length,
+			error:
+				errors.length > 0
+					? new AggregateError(
+							errors,
+							"One or more child applications failed to close",
+						)
+					: undefined,
+		};
 	}
 
 	/** True once `close()` has been called (the app may still be closing). */

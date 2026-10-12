@@ -209,6 +209,9 @@ describe("inject() through the parent link", () => {
 	});
 
 	it("throws ContainerClosedError after the parent closes, even when optional", async () => {
+		// The parent's close() also closes the child, so this is the child's
+		// own guard; lifecycle.spec.ts covers inject() reaching a closed
+		// parent through the link while the child is still open.
 		@Injectable({ scope: Scope.Transient })
 		class Host {
 			readonly http = inject(Http);
@@ -224,6 +227,7 @@ describe("inject() through the parent link", () => {
 		const child = await app.createChild(ProfileModule);
 		await app.close();
 
+		expect(child.isClosed).toBe(true);
 		await expect(child.resolve(Host)).rejects.toThrow(ContainerClosedError);
 		await expect(child.resolve(OptionalHost)).rejects.toThrow(
 			ContainerClosedError,

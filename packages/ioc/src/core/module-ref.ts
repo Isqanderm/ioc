@@ -88,7 +88,11 @@ export class ModuleRef {
 	 */
 	public async unload(): Promise<UnloadResult> {
 		if (!this._loaded) {
-			return { destroyedModules: [], destroyedProviders: [] };
+			return {
+				destroyedModules: [],
+				destroyedProviders: [],
+				closedChildren: 0,
+			};
 		}
 
 		const result = await this.container.unload(this.segment.lazyModule);

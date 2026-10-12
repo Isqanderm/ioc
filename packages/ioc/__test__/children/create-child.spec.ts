@@ -280,10 +280,14 @@ describe("createChild: get/resolve fallback through the link", () => {
 		expect(() => b.get("a-only")).toThrow(ProviderNotFoundError);
 	});
 
-	it("after the parent closes, fallback lookups throw ContainerClosedError", async () => {
+	it("after the parent closes, the child is closed too and every lookup throws ContainerClosedError", async () => {
+		// The parent's close() closes its live children first, so these
+		// throw from the child's own guard. The link path to a closed parent
+		// is covered in lifecycle.spec.ts (a sibling still open mid-cascade).
 		const parent = await NexusApplication.create(ParentModule).bootstrap();
 		const child = await parent.createChild(EmptyChild);
 		await parent.close();
+		expect(child.isClosed).toBe(true);
 		expect(() => child.get("shared")).toThrow(ContainerClosedError);
 		expect(() => child.get("shared", { optional: true })).toThrow(
 			ContainerClosedError,
@@ -292,8 +296,9 @@ describe("createChild: get/resolve fallback through the link", () => {
 		await expect(child.resolve("shared", { optional: true })).rejects.toThrow(
 			ContainerClosedError,
 		);
-		// Tokens the declaring module never saw are still simply not found.
-		expect(child.get("nope", { optional: true })).toBeUndefined();
+		expect(() => child.get("nope", { optional: true })).toThrow(
+			ContainerClosedError,
+		);
 	});
 
 	it("a grandchild survives a child root given extra providers or as a dynamic module", async () => {
@@ -383,9 +388,13 @@ describe("createChild: live children and lifecycle", () => {
 	});
 
 	it("closes and rejects a child whose parent started closing during bootstrap", async () => {
+		const created: string[] = [];
 		const destroyed: string[] = [];
 		@Injectable()
 		class Res implements OnModuleDestroy {
+			constructor() {
+				created.push("res");
+			}
 			onModuleDestroy() {
 				destroyed.push("res");
 			}
@@ -401,7 +410,10 @@ describe("createChild: live children and lifecycle", () => {
 		const closing = app.close();
 		await expect(creating).rejects.toThrow(ContainerClosedError);
 		await closing;
-		expect(destroyed).toEqual(["res"]);
+		// The cascade closes the child before its warm-up, so Res is never
+		// created; whatever is created must be destroyed.
+		expect(created).toEqual([]);
+		expect(destroyed).toEqual(created);
 		expect(liveChildren(app).size).toBe(0);
 	});
 
@@ -471,6 +483,10 @@ describe("createChild: live children and lifecycle", () => {
 		class Root {}
 		const app = await NexusApplication.create(Root).bootstrap();
 		const creating = app.createChild(Child);
+		// Let the child's warm-up reach Slow.onModuleInit: the cascade closes
+		// the child, and a close any earlier would stop the warm-up before
+		// First exists.
+		await new Promise((resolve) => setTimeout(resolve, 0));
 		const closing = app.close();
 		fail();
 		await expect(creating).rejects.toThrow(ContainerClosedError);
