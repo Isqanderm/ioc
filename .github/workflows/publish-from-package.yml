@@ -1,0 +1,101 @@
+name: Publish from package.json
+
+# Publishes the versions already written in each package.json (bumped in a
+# release PR). Packages whose exact version is already on npm are skipped,
+# so the workflow is safe to re-run after a partial failure. Run it with
+# dry_run first.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (npm publish --dry-run, no tags)'
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: publish-from-package
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish packages
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Tooling packages depend on each other; build them one by one so a
+      # parallel build never sees a dependency without its dist.
+      - name: Build (dependency order)
+        run: |
+          npm run build:all
+          for p in type-checker graph-analyzer language-service graph-visualizer; do
+            npm run build -w "packages/$p"
+          done
+
+      - name: Test
+        run: npx lerna run test --stream
+
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: true
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          # Dependency order. eslint-plugin is intentionally not published yet.
+          PACKAGES="shared ioc testing cli type-checker graph-analyzer language-service graph-visualizer"
+          : > published-tags.txt
+          for dir in $PACKAGES; do
+            name=$(node -p "require('./packages/$dir/package.json').name")
+            version=$(node -p "require('./packages/$dir/package.json').version")
+            if npm view "$name@$version" version >/dev/null 2>&1; then
+              echo "⏭  $name@$version is already on npm"
+              continue
+            fi
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "🔍 $name@$version (dry run)"
+              npm publish -w "packages/$dir" --access public --dry-run
+            else
+              echo "📦 $name@$version"
+              npm publish -w "packages/$dir" --access public
+              echo "$name@$version" >> published-tags.txt
+            fi
+          done
+          echo "Published:"; cat published-tags.txt
+
+      - name: Tag and create GitHub releases
+        if: inputs.dry_run == false
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          while read -r tag; do
+            [ -z "$tag" ] && continue
+            git tag "$tag"
+            git push origin "refs/tags/$tag"
+            gh release create "$tag" --generate-notes --verify-tag || echo "Release for $tag may already exist"
+          done < published-tags.txt
