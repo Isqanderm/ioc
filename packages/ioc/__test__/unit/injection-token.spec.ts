@@ -1,5 +1,6 @@
 import "reflect-metadata";
 import {
+	BootstrapError,
 	Inject,
 	Injectable,
 	InjectionToken,
@@ -90,5 +91,20 @@ describe("InjectionToken", () => {
 		expect(() => app.get(MISSING)).toThrow(ProviderNotFoundError);
 		expect(() => app.get(MISSING)).toThrow(/InjectionToken MISSING_CFG/);
 		expect(String(MISSING)).toBe("InjectionToken MISSING_CFG");
+	});
+
+	it("an unexported InjectionToken dependency fails bootstrap with its description", async () => {
+		const SECRET = new InjectionToken<Config>("SECRET_CFG");
+		@Module({ providers: [{ provide: SECRET, useValue: { url: "s" } }] })
+		class SecretModule {}
+		@Injectable()
+		class Consumer {
+			constructor(@Inject(SECRET) readonly cfg: Config) {}
+		}
+		@Module({ imports: [SecretModule], providers: [Consumer] })
+		class M {}
+		const bootstrap = NexusApplication.create(M).bootstrap();
+		await expect(bootstrap).rejects.toBeInstanceOf(BootstrapError);
+		await expect(bootstrap).rejects.toThrow(/InjectionToken SECRET_CFG/);
 	});
 });
