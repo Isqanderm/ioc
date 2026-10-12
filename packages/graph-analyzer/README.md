@@ -8,7 +8,7 @@
 [![Tests](https://img.shields.io/badge/tests-443%20passing-brightgreen.svg)](./src)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D14.0.0-brightgreen.svg)](https://nodejs.org/)
 
-Analyze and visualize dependency injection graphs in [Nexus IoC](https://github.com/Isqanderm/ioc) applications. Extract complete metadata about modules, providers, and dependencies **without running your application**. Detect circular dependencies, unused providers, scope mismatches, and visualize your architecture with interactive HTML graphs.
+Analyze and visualize dependency injection graphs in [Nexus IoC](https://github.com/Isqanderm/ioc) applications. Extract complete metadata about modules, providers, and dependencies **without running your application**. Detect circular dependencies, unused providers, provider scopes, and visualize your architecture with interactive HTML graphs.
 
 ## ✨ Features
 
@@ -24,7 +24,7 @@ Analyze and visualize dependency injection graphs in [Nexus IoC](https://github.
 - 🔄 **Circular Dependency Detection** - Detect circular imports and provider dependencies
 - 🗑️ **Unused Provider Detection** - Find providers that are registered but never injected
 - 📊 **Module Depth Analysis** - Analyze module hierarchy depth and complexity metrics
-- 🎯 **Provider Scope Analysis** - Detect scope mismatches (Singleton depending on Scoped)
+- 🎯 **Provider Scope Analysis** - Report each provider's scope (Singleton or Transient)
 - ⚠️ **Missing Decorator Detection** - Identify dependencies without explicit `@Inject` decorators
 
 ### Visualization & Output
@@ -141,7 +141,7 @@ graph-analyzer [options] <entry-file>
 | `--check-circular` | Detect circular dependencies in modules and providers | `false` |
 | `--check-unused` | Detect providers that are registered but never injected | `false` |
 | `--check-depth` | Analyze module hierarchy depth and complexity | `false` |
-| `--check-scope` | Detect provider scope mismatches | `false` |
+| `--check-scope` | Report provider scopes (Singleton or Transient) | `false` |
 | `--check-ci` | Enable all checks (circular, unused, depth, scope) | `false` |
 | `--deep-module-threshold <n>` | Threshold for identifying deep modules | `5` |
 
@@ -177,7 +177,7 @@ npx graph-analyzer --check-unused -f html src/main.ts
 # Analyze module depth and complexity
 npx graph-analyzer --check-depth --deep-module-threshold 3 src/main.ts
 
-# Detect scope mismatches (Singleton depending on Scoped)
+# Report provider scopes (Singleton or Transient)
 npx graph-analyzer --check-scope src/main.ts
 
 # HTML with dark theme and WebStorm links
@@ -302,40 +302,33 @@ npx graph-analyzer --check-depth --deep-module-threshold 5 src/main.ts
 
 ### Provider Scope Analysis
 
-Detects scope mismatches where Singleton providers depend on Scoped providers.
+Reports the scope of every provider. `Scope.Scoped` was removed from `@nexus-ioc/core`, so only `Singleton` and `Transient` exist and there are no scope mismatches to detect.
 
 ```bash
 npx graph-analyzer --check-scope src/main.ts
 ```
-
-**Detects:**
-- Singleton providers depending on Scoped providers (memory leak risk)
-- Scope inconsistencies that can cause unexpected behavior
-- Provides suggestions for fixing scope issues
 
 **Example Output:**
 ```json
 {
   "analysis": {
     "scopeAnalysis": {
-      "scopeMismatches": [
-        {
-          "provider": "UserService",
-          "providerScope": "Singleton",
-          "dependency": "RequestContext",
-          "dependencyScope": "Scoped",
-          "severity": "error",
-          "message": "Singleton provider 'UserService' depends on Scoped provider 'RequestContext'",
-          "suggestions": [
-            "Change 'UserService' to Scoped scope",
-            "Change 'RequestContext' to Singleton scope if it doesn't need scoped state"
-          ]
-        }
+      "totalProviders": 2,
+      "singletonProviders": 1,
+      "transientProviders": 1,
+      "providerScopes": [
+        { "token": "UserService", "module": "AppModule", "scope": "Singleton", "type": "Class", "dependencies": ["RequestContext"] },
+        { "token": "RequestContext", "module": "AppModule", "scope": "Transient", "type": "Class", "dependencies": [] }
       ]
     }
   }
 }
 ```
+
+**Migration from earlier output:**
+- Transient providers were previously labelled `"Singleton"` in `providerScopes`; they are now labelled `"Transient"`.
+- `scopedProviders` is renamed to `transientProviders`.
+- `scopeMismatches` and the `ScopeMismatch` export are removed.
 
 ### Missing Decorator Detection
 
@@ -403,7 +396,7 @@ The JSON output provides a structured representation of your dependency graph wi
     "circularDependencies": [],
     "unusedProviders": [],
     "depthAnalysis": { "maxDepth": 3, "averageDepth": 2.1 },
-    "scopeAnalysis": { "scopeMismatches": [] }
+    "scopeAnalysis": { "totalProviders": 0, "singletonProviders": 0, "transientProviders": 0, "providerScopes": [] }
   },
   "metadata": {
     "entryPoint": "/path/to/main.ts",

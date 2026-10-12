@@ -7,10 +7,13 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ### BREAKING CHANGES
 
-- `useFactory` must return synchronously. A factory that returns a promise throws `AsyncFactoryError`; move async setup into `onModuleInit` of the provided class, or create the value before bootstrap and register it with `useValue`. Singletons are created in declaration order.
-- `NexusApplication.get()` is synchronous and returns bootstrapped singletons. It throws `ProviderNotFoundError`, `ProviderScopeError` (Transient/Scoped), `ProviderNotInstantiatedError` (lazy mode or not yet loaded), `ContainerClosedError` or `ContainerNotCompiledError` (before `bootstrap()`); pass `{ optional: true }` to get `undefined` for unknown tokens.
+- `useFactory` must return synchronously. A factory that returns a promise (any thenable) throws `AsyncFactoryError`, which names the token, at `bootstrap()`, at lazy `resolve()` and from `inject()`; move async setup into `onModuleInit` of the provided class, or create the value before bootstrap and register it with `useValue`. Singletons are created in declaration order.
+- `AsyncProviderInjectionError` is removed, because an async factory can no longer be created.
+- `Scope.Scoped` is removed. Only `Singleton` and `Transient` remain; `Transient` keeps the numeric value 2. Use `Transient`, or a child container (`createChild`, planned) for per-request state.
+- Async `onModuleInit` is still supported: it is awaited at bootstrap, `inject()`ed dependencies finish their init before the requester's `onModuleInit`, a singleton whose init fails is evicted, `get()` throws `ProviderNotInstantiatedError` while an init is in flight, and a wrapped init error has `.cause`.
+- `NexusApplication.get()` is synchronous and returns bootstrapped singletons. It throws `ProviderNotFoundError`, `ProviderScopeError` (Transient), `ProviderNotInstantiatedError` (lazy mode or not yet loaded), `ContainerClosedError` or `ContainerNotCompiledError` (before `bootstrap()`); pass `{ optional: true }` to get `undefined` for unknown tokens.
 - `ModuleRef.get()` is synchronous too. It returns `undefined` for tokens the module cannot see (strict by default) and after `unload()`; for visible tokens it throws the same errors as `NexusApplication.get()`.
-- New async `resolve()` on `NexusApplication` and `ModuleRef` creates Transient, Scoped and lazy-mode providers on demand.
+- New async `resolve()` on `NexusApplication` and `ModuleRef` creates Transient and lazy-mode providers on demand.
 - `@nexus-ioc/testing`: `Test.compile()` instantiates singletons and runs `onModuleInit`; `Test.get` is sync, `Test.resolve` is async.
 - The module container returned by `Test.compile()` has a sync `get()` (same contract as `Test.get`, throws `ProviderNotFoundError` for unknown tokens unless `{ optional: true }`) and a new async `resolve()`.
 - `NexusApplication.get()`/`resolve()` before `bootstrap()` throw `ContainerNotCompiledError` (previously `ProviderNotFoundError` or a parent lookup).

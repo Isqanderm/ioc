@@ -246,20 +246,21 @@ message names the requester (`requested by "Y" via inject()`; the error has a
 
 - Singleton: the cached instance, or a new one created synchronously on the
   first `inject()`.
-- Scoped: shared within one resolution tree, the same as `@Inject`.
 - Transient: a new instance on every `inject()` call.
 
 ### Async providers
 
 A `useFactory` must return its value synchronously. A factory that returns a
-promise throws `AsyncFactoryError` when the provider is created (at
-`bootstrap()`, or on `resolve()` in lazy mode). Move async setup into
+promise (any thenable) throws `AsyncFactoryError`, which names the token,
+when the provider is created: at `bootstrap()`, on `resolve()` in lazy mode, or
+from `inject()`. The returned promise never becomes an unhandled rejection. Move async setup into
 `onModuleInit` of the provided class, or create the value before bootstrap and
 register it with `useValue`.
 
 An `onModuleInit` of an injected dependency may be async: it completes before
 the requester's own `onModuleInit` runs. A singleton whose async init fails is
-not left cached, and neither is a provider that holds it. Another resolution
+not left cached, and neither is a provider that holds it; the wrapped error
+has the original as `.cause`. Another resolution
 (for example a concurrent `resolve()`) that meets the singleton while its init
 is still running waits for it.
 
@@ -303,7 +304,7 @@ in graphs and cycle detection. They do not see namespace calls
 
 - `app.get(token)` is synchronous and returns an already created singleton.
 - `await app.resolve(token)` creates the instance on demand. Use it for
-  `Transient` and `Scoped` providers and for providers in lazy mode.
+  `Transient` providers and for providers in lazy mode.
 
 ```typescript
 const singleton = app.get<AppService>(AppService);
@@ -318,7 +319,7 @@ const maybe = app.get<AppService>(AppService, { optional: true });
 
 - `ProviderNotFoundError` — the token is not a provider in this container
   (or its parent). With `{ optional: true }` it returns `undefined` instead.
-- `ProviderScopeError` — the provider is `Transient` or `Scoped`; use
+- `ProviderScopeError` — the provider is `Transient`; use
   `resolve()`.
 - `ProviderNotInstantiatedError` — the singleton has not been created yet
   (`.lazy()` mode, or a lazy module that is not loaded); use `resolve()` or
@@ -417,7 +418,7 @@ Rules:
 
 `ModuleRef.get()` is synchronous and `ModuleRef.resolve()` is async, with the
 same split as on the application: `get()` for singletons, `resolve()` for
-`Transient`, `Scoped` and lazy-mode providers. Both are strict by default: they see the module's own providers and
+`Transient` and lazy-mode providers. Both are strict by default: they see the module's own providers and
 what its imports (and global modules) export to them, and return `undefined`
 for every other token — including tokens that do exist elsewhere in the
 container. Pass `{ strict: false }` to look the token up in the whole
@@ -546,8 +547,12 @@ pair, so `moduleRef.get<X>(X)` needs no `await`.
   `AsyncFactoryError`. Move the async setup into `onModuleInit` of the provided
   class, or create the value before bootstrap and register it with `useValue`.
   Singletons are now created in plain declaration order.
+- `AsyncProviderInjectionError` is removed; it can no longer happen.
+- `Scope.Scoped` is removed. Only `Singleton` and `Transient` remain (`Transient`
+  keeps the value 2). Use `Transient`, or a child container (`createChild`,
+  planned) for per-request state.
 - `get()` no longer returns a promise: drop the `await` for singletons and use
-  `await resolve()` for `Transient`, `Scoped` and lazy-mode providers.
+  `await resolve()` for `Transient` and lazy-mode providers.
 - `get()` now throws instead of returning `undefined` for unknown tokens. Pass
   `{ optional: true }` to keep the old `undefined` result.
 - `ModuleRef.get()` is synchronous too; the async variant is
@@ -557,8 +562,8 @@ pair, so `moduleRef.get<X>(X)` needs no `await`.
 - The module container returned by `compile()` has a synchronous `get()` and
   a new async `resolve()`. Its `get()` throws `ProviderNotFoundError` for an
   unknown token instead of resolving to `undefined` (pass
-  `{ optional: true }`), and throws `ProviderScopeError` for `Transient` and
-  `Scoped` providers: use `await moduleRef.resolve(X)` for those.
+  `{ optional: true }`), and throws `ProviderScopeError` for `Transient`
+  providers: use `await moduleRef.resolve(X)` for those.
 - `get()` and `resolve()` called before `bootstrap()` throw
   `ContainerNotCompiledError` instead of `ProviderNotFoundError`.
 - `.lazy()` is deprecated: lazy modules (`lazy()` / `load()`) cover the

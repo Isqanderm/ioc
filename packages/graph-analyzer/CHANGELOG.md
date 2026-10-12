@@ -5,6 +5,12 @@ All notable changes to the @nexus-ioc/graph-analyzer package will be documented 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### BREAKING CHANGES
+
+- `scopeAnalysis` JSON shape: Transient providers were previously mislabelled `"Singleton"` in `providerScopes` and are now labelled `"Transient"`. `scopedProviders` is renamed to `transientProviders`. `scopeMismatches` and the `ScopeMismatch` export are removed, because `Scope.Scoped` no longer exists in `@nexus-ioc/core`.
+
 ## [0.1.0] - 2025-01-18
 
 **First public release of @nexus-ioc/graph-analyzer!**
