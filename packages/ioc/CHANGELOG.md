@@ -14,8 +14,14 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 - The module container returned by `Test.compile()` has a sync `get()` (same contract as `Test.get`, throws `ProviderNotFoundError` for unknown tokens unless `{ optional: true }`) and a new async `resolve()`.
 - `NexusApplication.get()`/`resolve()` before `bootstrap()` throw `ContainerNotCompiledError` (previously `ProviderNotFoundError` or a parent lookup).
 
+- The `InjectionToken` type is renamed to `ProviderToken<T>` with no alias; `InjectionToken` is now a class (see Features).
+- `get()`/`resolve()` infer the result type from the token. For string and symbol tokens the result is `unknown` unless you pass `<T>`.
+
 ### Features
 
+- New `InjectionToken<T>` class: `new InjectionToken<Config>("CONFIG")`. Tokens are compared by identity and work with `useValue`/`useFactory`/`useClass`, `@Inject`, `@Optional` and module `exports`. Error messages and graph labels use `toString()` (`InjectionToken CONFIG`).
+- `get()`/`resolve()` on `NexusApplication`, `ModuleRef`, `Test` and the `Test.compile()` result infer `T` from class tokens (including abstract classes) and `InjectionToken<T>`.
+- The type-checker and graph-analyzer treat an `InjectionToken` constant as one token across re-exports.
 - `close()` is idempotent and error-tolerant: it runs `onModuleDestroy` in reverse creation order, throws one `AggregateError` if hooks fail, detaches the parent, and makes `get`/`resolve`/`load`/`unload` throw `ContainerClosedError` from the moment it is called (a `ModuleRef` throws it for visible tokens and still returns `undefined` for tokens it cannot see), while in-flight lazy loads still finish and are destroyed.
 
 ### Deprecations

@@ -20,6 +20,7 @@ Nexus IoC is a powerful and flexible Inversion of Control (IoC) container for Ty
 - [Features](#features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Tokens](#tokens)
 - [get() vs resolve()](#get-vs-resolve)
 - [Lifecycle and close()](#lifecycle-and-close)
 - [Lazy Modules](#lazy-modules)
@@ -101,6 +102,61 @@ bootstrap();
 
 `get()` is synchronous: singletons are already created when `bootstrap()`
 resolves.
+
+## Tokens
+
+A provider is identified by a token: a class, an abstract class, a string, a
+symbol or an `InjectionToken<T>`. The type that describes all of these is
+`ProviderToken<T>`.
+
+`InjectionToken<T>` is a typed token for values that have no class, such as
+configuration:
+
+```typescript
+import { Inject, Injectable, InjectionToken, Module } from '@nexus-ioc/core';
+
+interface Config {
+  apiUrl: string;
+}
+
+export const CONFIG = new InjectionToken<Config>('CONFIG');
+
+@Injectable()
+class ApiClient {
+  constructor(@Inject(CONFIG) private readonly config: Config) {}
+}
+
+@Module({
+  providers: [
+    { provide: CONFIG, useValue: { apiUrl: 'https://example.com' } },
+    ApiClient,
+  ],
+  exports: [CONFIG],
+})
+class ApiModule {}
+```
+
+- Use it as `provide` with `useValue`, `useFactory` or `useClass`, with
+  `@Inject(TOKEN)` on constructor parameters and properties, with
+  `@Optional()`, and in module `exports`.
+- Tokens are compared by identity. `description` is only a label, so two
+  `new InjectionToken('CONFIG')` instances are different tokens. Create the
+  token once and import the constant where it is needed.
+- `token.toString()` returns `InjectionToken CONFIG`, and error messages use it.
+
+`get()` and `resolve()` infer the result type from the token. This works for
+`NexusApplication`, `ModuleRef`, `Test` and the object returned by
+`Test.compile()`:
+
+```typescript
+const config = app.get(CONFIG); // Config
+const api = app.get(ApiClient); // ApiClient
+const raw = app.get('CONFIG'); // unknown
+const typed = app.get<Config>('CONFIG'); // Config
+```
+
+Class tokens, including abstract classes, and `InjectionToken<T>` are
+inferred. String and symbol tokens give `unknown` unless you pass `<T>`.
 
 ## get() vs resolve()
 
@@ -335,6 +391,12 @@ pair, so `moduleRef.get<X>(X)` needs no `await`.
 
 ## Migrating to the synchronous get()
 
+- The `InjectionToken` type is now `ProviderToken<T>`, and `InjectionToken` is
+  a class (see [Tokens](#tokens)). There is no alias for the old type, so
+  replace type-level uses of `InjectionToken` with `ProviderToken`.
+- `get('string')` and `get(symbol)` now return `unknown` unless you pass `<T>`
+  (`get<Config>('CONFIG')`). Class tokens and `InjectionToken<T>` are
+  inferred.
 - `get()` no longer returns a promise: drop the `await` for singletons and use
   `await resolve()` for `Transient`, `Scoped` and lazy-mode providers.
 - `get()` now throws instead of returning `undefined` for unknown tokens. Pass

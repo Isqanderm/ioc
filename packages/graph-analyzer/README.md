@@ -505,11 +505,12 @@ class UserService {
 
 ### Token Types
 
-The analyzer detects three types of injection tokens:
+The analyzer detects four types of injection tokens:
 
 - **Class tokens**: `@Inject(UserService)`
 - **String tokens**: `@Inject('CONFIG')`
 - **Symbol tokens**: `@Inject(Symbol.for('key'))`
+- **InjectionToken constants**: `@Inject(CONFIG)` where `const CONFIG = new InjectionToken<Config>('CONFIG')`. The constant is one token across re-exports, and graph labels show the const name.
 
 ## 🏗️ Architecture
 

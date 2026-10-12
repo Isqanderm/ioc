@@ -300,6 +300,9 @@ describe('Feature Name', () => {
 });
 ```
 
+Spec files that use `expectTypeOf` are type-checked by vitest. List new ones
+in the package's `vitest.config.mts` and `tsconfig.typecheck.jsonc`.
+
 ### Coverage Requirements
 
 - **@nexus-ioc/core**: 80% lines, 80% statements, 70% functions, 80% branches
