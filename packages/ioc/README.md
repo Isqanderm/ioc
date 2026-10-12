@@ -344,8 +344,8 @@ const maybe = app.get<AppService>(AppService, { optional: true });
   not consulted in this case.
 
 A token found in this container is always answered here; only unknown tokens
-are looked up in the parent (set with `setParent()`). Falsy `useValue` values
-(`undefined`, `null`, `0`, `false`) are returned as they are.
+are looked up in the parent (for a child made with `createChild()`). Falsy
+`useValue` values (`undefined`, `null`, `0`, `false`) are returned as they are.
 
 `resolve()` takes the same `{ optional }` option. It throws
 `ProviderNotFoundError`, `ContainerClosedError` and

@@ -1,8 +1,10 @@
 import type { GetOptions, LazyModule } from "@nexus-ioc/shared";
 import type { ModuleRef } from "../core/module-ref";
+import type { DynamicModule } from "./dynamic-module.interface";
 import type { ProviderToken } from "./injection-token.interface";
-import type { GraphError, UnloadResult } from "./modules";
+import type { CreateChildOptions, GraphError, UnloadResult } from "./modules";
 import type { ModulePluginInterface } from "./plugins";
+import type { Type } from "./type.interface";
 
 export interface BootstrapOptions {
 	throwOnError?: boolean;
@@ -45,7 +47,14 @@ export interface NexusApplicationInterface extends ModulePluginInterface {
 	): Promise<T | undefined>;
 	load(lazyModule: LazyModule): Promise<ModuleRef>;
 	unload(ref: ModuleRef): Promise<UnloadResult>;
-	setParent(parentContainer: NexusApplicationInterface): this;
+	/**
+	 * Creates a bootstrapped child application for a module declared in
+	 * `@Module({ children })` of this application's graph.
+	 */
+	createChild(
+		child: Type | DynamicModule | LazyModule,
+		options?: CreateChildOptions,
+	): Promise<NexusApplicationInterface>;
 	lazy(): this;
 	errors: GraphError[];
 }

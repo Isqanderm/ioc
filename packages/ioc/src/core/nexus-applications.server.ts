@@ -1,6 +1,8 @@
 import { ContainerNotCompiledError } from "@nexus-ioc/shared";
 import { ContainerClosedError, ProviderNotFoundError } from "../errors";
 import type {
+	CreateChildOptions,
+	DynamicModule,
 	GetOptions,
 	LazyModule,
 	NexusApplicationInterface,
@@ -22,7 +24,6 @@ export class NexusApplicationServer implements NexusApplicationInterface {
 	private readonly hashUtil = new HashUtilsServer();
 	private readonly container = new Container(this.hashUtil);
 	private readonly scannerPlugins: ScannerPluginInterface[] = [];
-	private _parentContainer: NexusApplicationInterface | null = null;
 	private closePromise: Promise<void> | null = null;
 
 	private constructor(private readonly rootModule: Type) {}
@@ -64,9 +65,6 @@ export class NexusApplicationServer implements NexusApplicationInterface {
 		if (this.container.hasProvider(token)) {
 			return this.container.get<T>(token);
 		}
-		if (this._parentContainer) {
-			return this._parentContainer.get<T>(token, options);
-		}
 		if (options.optional) {
 			return undefined;
 		}
@@ -94,9 +92,6 @@ export class NexusApplicationServer implements NexusApplicationInterface {
 		if (this.container.hasProvider(token)) {
 			return this.container.resolve<T>(token);
 		}
-		if (this._parentContainer) {
-			return this._parentContainer.resolve<T>(token, options);
-		}
 		if (options.optional) {
 			return undefined;
 		}
@@ -122,9 +117,7 @@ export class NexusApplicationServer implements NexusApplicationInterface {
 
 	public close(): Promise<void> {
 		if (!this.closePromise) {
-			this.closePromise = this.container.close().finally(() => {
-				this._parentContainer = null;
-			});
+			this.closePromise = this.container.close();
 		}
 		return this.closePromise;
 	}
@@ -146,8 +139,12 @@ export class NexusApplicationServer implements NexusApplicationInterface {
 		}
 	}
 
-	public setParent(parentContainer: NexusApplicationInterface) {
-		this._parentContainer = parentContainer;
-		return this;
+	public async createChild(
+		_child: Type | DynamicModule | LazyModule,
+		_options?: CreateChildOptions,
+	): Promise<NexusApplicationInterface> {
+		throw new Error(
+			"createChild is not supported by the deprecated NexusApplicationBrowser/Server; use NexusApplication",
+		);
 	}
 }

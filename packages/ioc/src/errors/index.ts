@@ -1,4 +1,5 @@
 export { BootstrapError, formatGraphErrors } from "./bootstrap-error";
+export { ChildModuleNotDeclaredError } from "./child-errors";
 export {
 	CircularInjectionError,
 	InjectionContextError,

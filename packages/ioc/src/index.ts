@@ -14,6 +14,7 @@ export { Optional } from "./decorators/optional";
 export {
 	AsyncFactoryError,
 	BootstrapError,
+	ChildModuleNotDeclaredError,
 	CircularInjectionError,
 	ContainerClosedError,
 	InjectionContextError,

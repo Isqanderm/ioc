@@ -7,6 +7,7 @@ import {
 	INJECTABLE_OPTIONS,
 	INJECTABLE_WATERMARK,
 	MODULE_GLOBAL_WATERMARK,
+	MODULE_METADATA,
 	type Provider,
 	type ProviderToken,
 	Scope,
@@ -63,6 +64,35 @@ export function isDynamicModule(
 	module: Type | DynamicModule,
 ): module is DynamicModule {
 	return "module" in module;
+}
+
+/**
+ * Returns `module` with `providers` appended to its root providers, as a
+ * `DynamicModule`. A `Type` keeps its decorator imports and exports. Returns
+ * `module` itself when there is nothing to add.
+ */
+export function withExtraProviders(
+	module: Type | DynamicModule,
+	providers: Provider[] | undefined,
+): Type | DynamicModule {
+	if (!providers || providers.length === 0) {
+		return module;
+	}
+	if (isDynamicModule(module)) {
+		return {
+			...module,
+			providers: [...(module.providers ?? []), ...providers],
+		};
+	}
+	return {
+		module,
+		imports: Reflect.getMetadata(MODULE_METADATA.IMPORTS, module) ?? [],
+		providers: [
+			...(Reflect.getMetadata(MODULE_METADATA.PROVIDERS, module) ?? []),
+			...providers,
+		],
+		exports: Reflect.getMetadata(MODULE_METADATA.EXPORTS, module) ?? [],
+	};
 }
 
 export function isGlobalModule(target: Type): boolean {

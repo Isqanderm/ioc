@@ -12,6 +12,7 @@ export default defineConfig({
 		typecheck: {
 			enabled: true,
 			include: [
+				"__test__/children/create-child.spec.ts",
 				"__test__/unit/get-resolve.spec.ts",
 				"__test__/unit/token-inference.spec.ts",
 				"__test__/unit/injection-token.spec.ts",

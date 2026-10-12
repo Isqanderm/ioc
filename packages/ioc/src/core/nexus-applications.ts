@@ -1,21 +1,34 @@
 import { ContainerNotCompiledError } from "@nexus-ioc/shared";
 import {
 	BootstrapError,
+	ChildModuleNotDeclaredError,
 	ContainerClosedError,
+	LazyModuleLoadError,
 	ProviderNotFoundError,
 } from "../errors";
-import type {
-	BootstrapOptions,
-	GetOptions,
-	HashUtilInterface,
-	LazyModule,
-	NexusApplicationInterface,
-	ProviderToken,
-	ScannerPluginInterface,
-	Type,
-	UnloadResult,
+import {
+	type BootstrapOptions,
+	type CreateChildOptions,
+	type DynamicModule,
+	type GetOptions,
+	type HashUtilInterface,
+	type LazyModule,
+	MODULE_WATERMARK,
+	type ModuleContainerInterface,
+	type NexusApplicationInterface,
+	type ParentLink,
+	type ProviderToken,
+	type ScannerPluginInterface,
+	type Type,
+	type UnloadResult,
 } from "../interfaces";
 import { HashUtil } from "../utils/hash-utils";
+import {
+	getModuleLabel,
+	isDynamicModule,
+	withExtraProviders,
+} from "../utils/helpers";
+import { isLazyModule } from "../utils/lazy-module";
 import { createInternalModule, LazyModuleLoader } from "./lazy-module-loader";
 import { ModuleRef } from "./module-ref";
 import { Container } from "./modules/container";
@@ -27,7 +40,7 @@ import { Container } from "./modules/container";
  * This class wraps the Container and provides additional features:
  * - Automatic singleton initialization
  * - Scanner plugin support for custom metadata processing
- * - Parent-child container hierarchies
+ * - Child containers for modules declared in `@Module({ children })`
  * - Lazy/eager container modes
  *
  * @example
@@ -42,8 +55,18 @@ export class NexusApplication implements NexusApplicationInterface {
 	private isAsyncContainer = false;
 	private readonly container = new Container(this.hashUtil);
 	private readonly scannerPlugins: ScannerPluginInterface[] = [];
-	private _parentContainer: NexusApplicationInterface | null = null;
 	private closePromise: Promise<void> | null = null;
+	/** The parent chain; set only for children made by `createChild()`. */
+	private readonly link: ParentLink | null;
+	/** Removes this child from its parent's `liveChildren` once closed. */
+	private readonly onClosed: (() => void) | null;
+	/** Children created by `createChild()` and not closed yet. */
+	private readonly liveChildren = new Set<NexusApplication>();
+	/** Lazy child code, per lazy ref id; a failed load is not cached. */
+	private readonly loadedChildren = new Map<
+		symbol,
+		Promise<Type | DynamicModule>
+	>();
 	private readonly pendingLoads = new Set<Promise<unknown>>();
 	private readonly lazyModuleLoader = new LazyModuleLoader(
 		(lazyModule) => this.load(lazyModule),
@@ -58,12 +81,15 @@ export class NexusApplication implements NexusApplicationInterface {
 	 * @param options.hashFn - Custom hash function for module identification
 	 */
 	private constructor(
-		private readonly rootModule: Type,
-		options?: { hashFn: new () => HashUtilInterface },
+		private readonly rootModule: Type | DynamicModule,
+		private readonly options?: { hashFn: new () => HashUtilInterface },
+		child?: { link: ParentLink; onClosed: () => void },
 	) {
 		if (options?.hashFn && typeof options?.hashFn === "function") {
 			this.hashUtil = new options.hashFn();
 		}
+		this.link = child?.link ?? null;
+		this.onClosed = child?.onClosed ?? null;
 	}
 
 	/**
@@ -87,6 +113,165 @@ export class NexusApplication implements NexusApplicationInterface {
 		options?: { hashFn: new () => HashUtilInterface },
 	) {
 		return new NexusApplication(rootModule, options);
+	}
+
+	/**
+	 * Creates a not-yet-bootstrapped child application. Private: the only
+	 * public way to get a child is `createChild()`.
+	 */
+	private static createAsChild(
+		root: Type | DynamicModule,
+		link: ParentLink,
+		onClosed: () => void,
+		options?: { hashFn: new () => HashUtilInterface },
+	): NexusApplication {
+		return new NexusApplication(root, options, { link, onClosed });
+	}
+
+	/**
+	 * Creates a child application for a module declared in
+	 * `@Module({ children })` somewhere in this application's graph. The
+	 * child is returned bootstrapped, with its singletons created.
+	 *
+	 * - `Type` matches a declared class; `DynamicModule` matches by its
+	 *   `.module`; a `LazyModule` matches a declared ref by identity, and its
+	 *   loader runs once per ref (a failed load is retried next time).
+	 * - `options.providers` are appended to the child root module's providers.
+	 * - The child's `get()`/`resolve()` look in the child first, then at what
+	 *   the declaring module sees in this application, then up this
+	 *   application's own parent chain.
+	 *
+	 * @throws {ContainerNotCompiledError} If this application is not bootstrapped
+	 * @throws {ContainerClosedError} If this application is closed or closing
+	 * @throws {ChildModuleNotDeclaredError} If no module declares `child`
+	 * @throws {LazyModuleLoadError} If a lazy child's loader fails or returns a non-module
+	 *
+	 * @example
+	 * ```typescript
+	 * @Module({ children: [ProfileModule] })
+	 * class AppModule {}
+	 *
+	 * const app = await NexusApplication.create(AppModule).bootstrap();
+	 * const profile = await app.createChild(ProfileModule, {
+	 *   providers: [{ provide: PROFILE_ID, useValue: "p1" }],
+	 * });
+	 * ```
+	 */
+	public async createChild(
+		child: Type | DynamicModule | LazyModule,
+		options?: CreateChildOptions,
+	): Promise<NexusApplication> {
+		this.assertUsable();
+		const key = isLazyModule(child)
+			? child
+			: isDynamicModule(child)
+				? child.module
+				: child;
+		const declaredIn = this.container.graph.findChildDeclaration(key);
+		if (!declaredIn) {
+			throw new ChildModuleNotDeclaredError(
+				isLazyModule(child) ? child.name : getModuleLabel(child),
+			);
+		}
+
+		let module: Type | DynamicModule;
+		if (isLazyModule(child)) {
+			module = await this.loadChildModule(child);
+			// The parent may have started closing while the code loaded.
+			this.assertOpen();
+		} else {
+			module = child;
+		}
+
+		const app = NexusApplication.createAsChild(
+			withExtraProviders(module, options?.providers),
+			this.linkFor(declaredIn),
+			() => this.liveChildren.delete(app),
+			this.options,
+		);
+		// Registered before bootstrap so a concurrent close() sees it.
+		this.liveChildren.add(app);
+		try {
+			await app.bootstrap();
+		} catch (error) {
+			this.liveChildren.delete(app);
+			await app.close().catch(() => undefined);
+			throw error;
+		}
+
+		if (this.isClosed) {
+			await app.close();
+			throw new ContainerClosedError();
+		}
+		return app;
+	}
+
+	/** Runs a lazy child's loader once per ref; a failure is not cached. */
+	private loadChildModule(ref: LazyModule): Promise<Type | DynamicModule> {
+		const cached = this.loadedChildren.get(ref.id);
+		if (cached) {
+			return cached;
+		}
+		const loading = this.runChildLoader(ref).catch((error) => {
+			this.loadedChildren.delete(ref.id);
+			throw error;
+		});
+		this.loadedChildren.set(ref.id, loading);
+		return loading;
+	}
+
+	private async runChildLoader(ref: LazyModule): Promise<Type | DynamicModule> {
+		let loaded: Type | DynamicModule;
+		try {
+			loaded = await ref.load();
+		} catch (error) {
+			throw new LazyModuleLoadError(
+				ref.name,
+				error instanceof Error ? error.message : String(error),
+			);
+		}
+		const metatype = loaded && isDynamicModule(loaded) ? loaded.module : loaded;
+		if (
+			typeof metatype !== "function" ||
+			!Reflect.hasMetadata(MODULE_WATERMARK, metatype)
+		) {
+			throw new LazyModuleLoadError(
+				ref.name,
+				"loader did not return a class decorated with @Module()",
+			);
+		}
+		return loaded;
+	}
+
+	/**
+	 * The link a child declared in `declaredIn` uses: what that module sees
+	 * in this application, then this application's own parent chain. It
+	 * never caches anything; once this application closes, `canProvide` is
+	 * false and `get`/`resolve` throw `ContainerClosedError`.
+	 */
+	private linkFor(declaredIn: ModuleContainerInterface): ParentLink {
+		const graph = () => this.container.graph;
+		const seesLocally = (token: ProviderToken) =>
+			this.container.hasProvider(token) &&
+			graph().isProviderVisible(declaredIn, token);
+		return {
+			canProvide: (token) =>
+				!this.isClosed &&
+				(seesLocally(token) || (this.link?.canProvide(token) ?? false)),
+			get: (token) =>
+				seesLocally(token)
+					? this.container.get(token)
+					: this.requireLink(token).get(token),
+			resolve: (token) =>
+				seesLocally(token)
+					? this.container.resolve(token)
+					: this.requireLink(token).resolve(token),
+		};
+	}
+
+	private requireLink(token: ProviderToken): ParentLink {
+		if (!this.link) throw new ProviderNotFoundError(token);
+		return this.link;
 	}
 
 	/**
@@ -146,8 +331,8 @@ export class NexusApplication implements NexusApplicationInterface {
 	 * - Calls every `onModuleDestroy` in reverse creation order, even if some
 	 *   throw; failures are collected into a single `AggregateError`.
 	 * - Idempotent: later calls return the same promise.
-	 * - Detaches the parent. Child applications are NOT closed; services that
-	 *   subscribed to parent services must unsubscribe in `onModuleDestroy`.
+	 * - A child application removes itself from its parent's live children
+	 *   once closed.
 	 *
 	 * @returns A promise that resolves when the application is closed
 	 * @throws {AggregateError} If one or more `onModuleDestroy` hooks failed
@@ -164,7 +349,7 @@ export class NexusApplication implements NexusApplicationInterface {
 			// rejected during the drain window too.
 			this.container.markClosed();
 			this.closePromise = this.drainAndClose().finally(() => {
-				this._parentContainer = null;
+				this.onClosed?.();
 			});
 		}
 		return this.closePromise;
@@ -227,9 +412,9 @@ export class NexusApplication implements NexusApplicationInterface {
 	/**
 	 * Synchronously returns an already-created singleton provider.
 	 *
-	 * If the token is not a provider of this application, the parent
-	 * application (if set) is asked. A token found locally is always answered
-	 * locally, never by the parent.
+	 * If the token is not a provider of this application and this is a child
+	 * (see `createChild()`), the parent chain is asked. A token found locally
+	 * is always answered locally, never by the parent.
 	 *
 	 * @template T - The type of the provider
 	 * @param token - The provider token: class, InjectionToken, string or symbol
@@ -261,8 +446,8 @@ export class NexusApplication implements NexusApplicationInterface {
 		if (this.container.hasProvider(token)) {
 			return this.container.get<T>(token);
 		}
-		if (this._parentContainer) {
-			return this._parentContainer.get<T>(token, options);
+		if (this.link?.canProvide(token)) {
+			return this.link.get<T>(token);
 		}
 		if (options.optional) {
 			return undefined;
@@ -272,8 +457,8 @@ export class NexusApplication implements NexusApplicationInterface {
 
 	/**
 	 * Resolves a provider asynchronously, creating it according to its scope
-	 * (Transient providers are created per call). Falls back to the
-	 * parent application when the token is not a provider of this one.
+	 * (Transient providers are created per call). A child application falls
+	 * back to its parent chain when the token is not a provider of its own.
 	 *
 	 * @param token - The provider token: class, InjectionToken, string or symbol
 	 * @param options - `optional: true` returns undefined instead of rejecting when no provider exists
@@ -306,8 +491,8 @@ export class NexusApplication implements NexusApplicationInterface {
 		if (this.container.hasProvider(token)) {
 			return this.container.resolve<T>(token);
 		}
-		if (this._parentContainer) {
-			return this._parentContainer.resolve<T>(token, options);
+		if (this.link?.canProvide(token)) {
+			return this.link.resolve<T>(token);
 		}
 		if (options.optional) {
 			return undefined;
@@ -387,29 +572,6 @@ export class NexusApplication implements NexusApplicationInterface {
 	 */
 	public lazy(): this {
 		this.isAsyncContainer = true;
-		return this;
-	}
-
-	/**
-	 * Sets a parent container for this application.
-	 *
-	 * When a provider is not found in this container, it will be looked up
-	 * in the parent container. This enables hierarchical container structures.
-	 *
-	 * @param parentContainer - The parent container
-	 * @returns This instance for method chaining
-	 *
-	 * @example
-	 * ```typescript
-	 * const parentApp = await NexusApplication.create(ParentModule).bootstrap();
-	 * const childApp = await NexusApplication.create(ChildModule)
-	 *   .setParent(parentApp)
-	 *   .bootstrap();
-	 * // childApp can access providers from parentApp
-	 * ```
-	 */
-	public setParent(parentContainer: NexusApplicationInterface) {
-		this._parentContainer = parentContainer;
 		return this;
 	}
 }

@@ -248,7 +248,7 @@ export class Container implements ContainerInterface {
 	 * ```
 	 */
 	public async run(
-		rootModule: Type,
+		rootModule: Type | DynamicModule,
 		internalModules: DynamicModule[] = [],
 	): Promise<void> {
 		const root = await this.modulesContainer.addModule(rootModule);

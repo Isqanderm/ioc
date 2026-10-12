@@ -84,19 +84,22 @@ describe("NexusApplication.close", () => {
 	});
 
 	it("detaches from the parent", async () => {
-		@Module({ providers: [{ provide: "p", useValue: 1 }] })
-		class ParentModule {}
 		@Module({ providers: [] })
 		class ChildModule {}
+		@Module({
+			providers: [{ provide: "p", useValue: 1 }],
+			children: [ChildModule],
+		})
+		class ParentModule {}
 		const parent = await NexusApplication.create(ParentModule).bootstrap();
-		const child = await NexusApplication.create(ChildModule)
-			.setParent(parent)
-			.bootstrap();
+		const child = await parent.createChild(ChildModule);
+		const liveChildren = (
+			parent as unknown as { liveChildren: Set<NexusApplication> }
+		).liveChildren;
+		expect(liveChildren.has(child)).toBe(true);
 		await child.close();
 		expect(parent.get("p")).toBe(1);
-		expect(
-			(child as unknown as { _parentContainer: unknown })._parentContainer,
-		).toBeNull();
+		expect(liveChildren.has(child)).toBe(false);
 	});
 
 	it("waits for an in-flight lazy load before destroying", async () => {
