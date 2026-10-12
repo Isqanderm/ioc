@@ -132,12 +132,7 @@ export class Resolver {
 
 		// For Transient scope, always create a new instance (no caching at all)
 		if (scope === Scope.Transient) {
-			const [instance] = await this.createInstance(
-				node,
-				ctx,
-				isCircularDependency,
-			);
-			return instance as T;
+			return (await this.createInstance(node, ctx, isCircularDependency)) as T;
 		}
 
 		// For Singleton scope, check global cache first
@@ -150,32 +145,62 @@ export class Resolver {
 			return ctx.cache.get(token);
 		}
 
-		const [instance, saveInCache] = await this.createInstance(
-			node,
-			ctx,
-			isCircularDependency,
-		);
-
-		// Add to resolve cache for current resolution context (for Request and Singleton)
-		// This ensures same instance is used within a single dependency resolution tree
-		if (scope === Scope.Singleton || scope === Scope.Scoped) {
-			ctx.cache.set(token, instance);
-		}
-
-		// Only save to global cache for Singleton scope
-		if (saveInCache) {
-			this.providersContainer.set(token, instance);
-			this.initializationOrder.push(token);
-		}
-
+		const instance = await this.createInstance(node, ctx, isCircularDependency);
+		this.commitInstance(node, instance, ctx);
 		return instance as T;
+	}
+
+	/**
+	 * Caching rules shared by the async and sync paths: Singleton and Scoped
+	 * go into the resolution-tree cache; Singletons (and value providers) go
+	 * into the global cache and the destroy order. Transient is never cached.
+	 */
+	private commitInstance(
+		node: AnalyzeProvider,
+		instance: unknown,
+		ctx: ResolutionContext,
+	): void {
+		const scope = node.scope;
+		if (scope === Scope.Transient) {
+			return;
+		}
+		ctx.cache.set(node.id, instance);
+		if (
+			(scope === Scope.Singleton || isValueProvider(node.metatype)) &&
+			!this.providersContainer.has(node.id)
+		) {
+			this.providersContainer.set(node.id, instance);
+			this.initializationOrder.push(node.id);
+		}
+	}
+
+	/** Undoes commitInstance for `instance`, if it is still the cached one. */
+	private evictInstance(
+		node: AnalyzeProvider,
+		instance: unknown,
+		ctx: ResolutionContext,
+	): void {
+		const token = node.id;
+		if (ctx.cache.has(token) && ctx.cache.get(token) === instance) {
+			ctx.cache.delete(token);
+		}
+		if (
+			this.providersContainer.has(token) &&
+			this.providersContainer.get(token) === instance
+		) {
+			this.providersContainer.delete(token);
+			const index = this.initializationOrder.lastIndexOf(token);
+			if (index !== -1) {
+				this.initializationOrder.splice(index, 1);
+			}
+		}
 	}
 
 	private async createInstance(
 		node: AnalyzeProvider,
 		ctx: ResolutionContext,
 		isCircularDependency = false,
-	): Promise<[Type, boolean]> {
+	): Promise<unknown> {
 		ctx.enter(node.id);
 		try {
 			return await this.createInstanceInContext(
@@ -192,7 +217,7 @@ export class Resolver {
 		node: AnalyzeProvider,
 		ctx: ResolutionContext,
 		isCircularDependency: boolean,
-	): Promise<[Type, boolean]> {
+	): Promise<unknown> {
 		const provider = node.metatype;
 		const dependencyEdges = this.constructorEdges(node).filter(
 			(edge) => edge.metadata.unreached === false,
@@ -236,8 +261,6 @@ export class Resolver {
 
 		// biome-ignore lint/suspicious/noExplicitAny: instance creation
 		let instance: any;
-		let saveInCache = true;
-		const scope = node.scope;
 		const injectionContext = this.contextFor(node, ctx);
 
 		if (isClassProvider(provider)) {
@@ -246,22 +269,18 @@ export class Resolver {
 				() => new provider.useClass(...deps),
 			);
 			await this.injectPropertyDependencies(instance, node, ctx);
-			saveInCache = scope === Scope.Singleton;
 		} else if (isValueProvider(provider)) {
 			instance = provider.useValue;
-			saveInCache = true;
 		} else if (isFactoryProvider(provider)) {
 			instance = await withInjectionContext(injectionContext, () =>
 				provider.useFactory(...deps),
 			);
-			saveInCache = scope === Scope.Singleton;
 		} else {
 			instance = withInjectionContext(
 				injectionContext,
 				() => new (provider as Type)(...deps),
 			);
 			await this.injectPropertyDependencies(instance, node, ctx);
-			saveInCache = scope === Scope.Singleton;
 		}
 
 		// onModuleInit of providers created via inject() must finish before
@@ -276,7 +295,7 @@ export class Resolver {
 			}
 		}
 
-		return [instance, saveInCache];
+		return instance;
 	}
 
 	/**
@@ -353,8 +372,6 @@ export class Resolver {
 		ctx.enter(node.id);
 		try {
 			const provider = node.metatype;
-			const scope = node.scope;
-			const pendingBefore = ctx.pendingInits.length;
 			const deps = this.constructorEdges(node).map((edge) =>
 				this.resolveEdgeSync(edge, ctx),
 			);
@@ -385,32 +402,30 @@ export class Resolver {
 				this.injectPropertyDependenciesSync(instance, node, ctx);
 			}
 
+			// onModuleInit is not part of creation: it runs with no injection
+			// context, so inject() there throws InjectionContextError.
+			const runInit = () =>
+				withInjectionContext(null, () => this.callInitSync(provider, instance));
+			let pendingInit: Promise<unknown> | undefined;
 			if (instance?.onModuleInit) {
-				const depInits = ctx.pendingInits.slice(pendingBefore);
-				if (depInits.length > 0) {
-					// Injected deps still initializing: run this onModuleInit after them.
-					ctx.addPendingInit(
-						Promise.all(depInits).then(() =>
-							this.callInitSync(provider, instance),
-						),
-					);
-				} else {
-					const pending = this.callInitSync(provider, instance);
-					if (pending) {
-						ctx.addPendingInit(pending);
-					}
-				}
+				// Every init queued so far belongs to an instance this one may
+				// have received (created here or a cache hit on one still
+				// initializing), so wait for all of them. This cannot deadlock:
+				// each deferred init only waits on inits queued before it.
+				const earlier = [...ctx.pendingInits];
+				pendingInit =
+					earlier.length > 0 ? Promise.all(earlier).then(runInit) : runInit();
 			}
 
-			if (scope === Scope.Singleton || scope === Scope.Scoped) {
-				ctx.cache.set(node.id, instance);
-			}
-			if (
-				(scope === Scope.Singleton || isValueProvider(provider)) &&
-				!this.providersContainer.has(node.id)
-			) {
-				this.providersContainer.set(node.id, instance);
-				this.initializationOrder.push(node.id);
+			this.commitInstance(node, instance, ctx);
+			if (pendingInit) {
+				// A failed async init must not leave a broken cached instance.
+				ctx.addPendingInit(
+					pendingInit.catch((error) => {
+						this.evictInstance(node, instance, ctx);
+						throw error;
+					}),
+				);
 			}
 			return instance;
 		} finally {

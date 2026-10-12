@@ -246,4 +246,96 @@ describe("inject() in class providers", () => {
 		expect(app.get(Mixed).dep).toBe(app.get(Dep));
 		expect(app.get(Mixed).other).toBe(app.get(Other));
 	});
+
+	it("runs onModuleInit of a provider created by inject() outside any injection context", async () => {
+		@Injectable()
+		class X {}
+		@Injectable()
+		class S implements OnModuleInit {
+			onModuleInit() {
+				inject(X);
+			}
+		}
+		@Injectable()
+		class Parent {
+			readonly s = inject(S);
+		}
+		@Module({ providers: [Parent, S, X] })
+		class M {}
+		// onModuleInit failures are wrapped (existing lifecycle behaviour).
+		await expect(NexusApplication.create(M).bootstrap()).rejects.toThrow(
+			/Failed to initialize provider "S": inject\(X\) was called outside of an injection context/,
+		);
+	});
+
+	it("waits for a cached dep's pending async init before a later requester's onModuleInit", async () => {
+		const order: string[] = [];
+		@Injectable()
+		class Db implements OnModuleInit {
+			ready = false;
+			async onModuleInit() {
+				await new Promise((r) => setTimeout(r, 5));
+				this.ready = true;
+			}
+		}
+		@Injectable()
+		class A {
+			readonly db = inject(Db);
+		}
+		@Injectable()
+		class B implements OnModuleInit {
+			readonly db = inject(Db); // cache hit: Db was created by A
+			onModuleInit() {
+				order.push(`B sees ready=${this.db.ready}`);
+			}
+		}
+		@Injectable()
+		class Root {
+			readonly a = inject(A);
+			readonly b = inject(B);
+		}
+		@Module({ providers: [Root, A, B, Db] })
+		class M {}
+		await NexusApplication.create(M).bootstrap();
+		expect(order).toEqual(["B sees ready=true"]);
+	});
+
+	it("evicts a singleton created by inject() whose async onModuleInit failed", async () => {
+		const created: object[] = [];
+		const destroyed: object[] = [];
+		let failNext = true;
+		@Injectable()
+		class S implements OnModuleInit {
+			constructor() {
+				created.push(this);
+			}
+			async onModuleInit() {
+				if (failNext) {
+					failNext = false;
+					throw new Error("init failed");
+				}
+			}
+			onModuleDestroy() {
+				destroyed.push(this);
+			}
+		}
+		@Injectable()
+		class Parent {
+			readonly s = inject(S);
+		}
+		@Module({ providers: [Parent, S] })
+		class M {}
+		const app = NexusApplication.create(M).lazy();
+		await app.bootstrap();
+		await expect(app.resolve(Parent)).rejects.toThrow(/init failed/);
+		const broken = created[0];
+
+		const fresh = await app.resolve(S);
+		expect(fresh).not.toBe(broken);
+		expect(created).toHaveLength(2);
+
+		await app.close();
+		expect(destroyed).not.toContain(broken);
+		expect(destroyed).toContain(fresh);
+	});
 });

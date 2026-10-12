@@ -13,12 +13,15 @@ export interface InjectionContext {
 let current: InjectionContext | null = null;
 
 /**
- * Runs `fn` with `ctx` as the current injection context and restores the
- * previous one afterwards, even if `fn` throws.
+ * Runs `fn` with `ctx` as the current injection context (`null` = none)
+ * and restores the previous one afterwards, even if `fn` throws.
  *
  * @internal Not exported from the package entry point.
  */
-export function withInjectionContext<R>(ctx: InjectionContext, fn: () => R): R {
+export function withInjectionContext<R>(
+	ctx: InjectionContext | null,
+	fn: () => R,
+): R {
 	const previous = current;
 	current = ctx;
 	try {
