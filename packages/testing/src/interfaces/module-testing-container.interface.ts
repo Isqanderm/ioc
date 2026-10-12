@@ -1,5 +1,6 @@
 import type {
 	ContainerBaseInterface,
+	GetOptions,
 	InjectionToken,
 	LazyModule,
 	ModuleContainerInterface,
@@ -18,8 +19,14 @@ export interface ModuleTestingContainerInterface<_T extends ModuleMetadata>
 		) => ClassDecorator,
 	): this;
 
-	// TEMPORARY (Task 3 replaces this): old async get() contract.
-	get<T>(token: InjectionToken): Promise<T | undefined>;
+	get<T>(token: InjectionToken): T;
+	get<T>(token: InjectionToken, options: GetOptions): T | undefined;
+
+	resolve<T>(token: InjectionToken): Promise<T>;
+	resolve<T>(
+		token: InjectionToken,
+		options: GetOptions,
+	): Promise<T | undefined>;
 
 	compile(): Promise<ModuleContainerInterface>;
 

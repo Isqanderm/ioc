@@ -52,7 +52,9 @@ describe("LazyModuleLoader under Test", () => {
 		const testingContainer = Test.createModule({ imports: [FraudLazy] });
 		await testingContainer.compile();
 
-		expect(await testingContainer.get(FraudService)).toBeUndefined();
+		expect(
+			testingContainer.get(FraudService, { optional: true }),
+		).toBeUndefined();
 
 		const ref = await testingContainer.load(FraudLazy);
 

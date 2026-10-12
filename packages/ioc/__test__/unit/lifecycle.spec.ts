@@ -241,18 +241,17 @@ describe("Lifecycle Hooks", () => {
 				}
 			}
 
-			const container = await Test.createModule({
+			const testing = Test.createModule({
 				providers: [ServiceWithError],
-			}).compile();
+			});
 
-			// Errors in onModuleInit should be wrapped with provider context
-			await expect(async () => {
-				await container.get<ServiceWithError>(ServiceWithError);
-			}).rejects.toThrow('Failed to initialize provider "ServiceWithError"');
-
-			await expect(async () => {
-				await container.get<ServiceWithError>(ServiceWithError);
-			}).rejects.toThrow("Init error");
+			// compile() warms singletons, so the failure surfaces there
+			// (wrapped with provider context).
+			const failure = testing.compile();
+			await expect(failure).rejects.toThrow(
+				'Failed to initialize provider "ServiceWithError"',
+			);
+			await expect(failure).rejects.toThrow("Init error");
 		});
 
 		it("should handle async errors in onModuleInit", async () => {
@@ -264,19 +263,15 @@ describe("Lifecycle Hooks", () => {
 				}
 			}
 
-			const container = await Test.createModule({
+			const testing = Test.createModule({
 				providers: [ServiceWithAsyncError],
-			}).compile();
+			});
 
-			await expect(async () => {
-				await container.get<ServiceWithAsyncError>(ServiceWithAsyncError);
-			}).rejects.toThrow(
+			const failure = testing.compile();
+			await expect(failure).rejects.toThrow(
 				'Failed to initialize provider "ServiceWithAsyncError"',
 			);
-
-			await expect(async () => {
-				await container.get<ServiceWithAsyncError>(ServiceWithAsyncError);
-			}).rejects.toThrow("Async init error");
+			await expect(failure).rejects.toThrow("Async init error");
 		});
 
 		it("should work in complex dependency trees", async () => {
