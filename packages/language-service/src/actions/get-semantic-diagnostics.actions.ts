@@ -213,6 +213,17 @@ export const getSemanticDiagnosticsActions = (
 						}
 					}
 
+					// A child module falls back to its declaring module's visibility
+					if (!found) {
+						found =
+							findInDeclaringModules(
+								module,
+								injectToken,
+								tsNsLs,
+								typeChecker,
+							) !== undefined;
+					}
+
 					if (!found) {
 						diagnostic.push({
 							file: sourceFile,
@@ -376,6 +387,16 @@ export const getSemanticDiagnosticsActions = (
 					}
 				}
 
+				// A child module falls back to its declaring module's visibility
+				if (!dependencyDeclare) {
+					dependencyDeclare = findInDeclaringModules(
+						referenceModule,
+						param.name,
+						tsNsLs,
+						typeChecker,
+					);
+				}
+
 				// Skip error reporting for optional dependencies
 				if (!dependencyDeclare && !param.isOptional) {
 					diagnostic.push({
@@ -529,6 +550,155 @@ export const getSemanticDiagnosticsActions = (
  * @param typeChecker - TypeScript type checker for type analysis
  * @returns Array of global module declarations
  */
+/** Every `@Module` declared in the program's own (non-declaration,
+ * non-`node_modules`) source files. */
+function findProjectModules(
+	tsNsLs: NsLanguageService,
+	typeChecker: ts.TypeChecker,
+): ModuleDeclaration[] {
+	const program = tsNsLs.tsLS.getProgram();
+	if (!program) {
+		return [];
+	}
+
+	const result: ModuleDeclaration[] = [];
+	for (const sourceFile of program.getSourceFiles()) {
+		if (
+			sourceFile.isDeclarationFile ||
+			sourceFile.fileName.includes("node_modules")
+		) {
+			continue;
+		}
+
+		const modules = ModulesParser.execute(sourceFile);
+		result.push(...ModuleParser.execute(modules, typeChecker, tsNsLs));
+	}
+
+	return result;
+}
+
+/** Whether `identifier` names the class `module` was parsed from. */
+function refersToModule(
+	identifier: ts.Identifier,
+	module: ModuleDeclaration,
+	typeChecker: ts.TypeChecker,
+): boolean {
+	let symbol = typeChecker.getSymbolAtLocation(identifier);
+	if (symbol && (symbol.flags & ts.SymbolFlags.Alias) !== 0) {
+		symbol = typeChecker.getAliasedSymbol(symbol);
+	}
+	return (
+		symbol?.declarations?.some(
+			(declaration) =>
+				declaration.getSourceFile().fileName === module.sourceFile.fileName &&
+				declaration.getStart() === module.start,
+		) ?? false
+	);
+}
+
+function matchesToken(
+	token: ts.Expression,
+	candidate: ProviderType | ExportType,
+	typeChecker: ts.TypeChecker,
+	tsNsLs: NsLanguageService,
+): boolean {
+	if (ts.isStringLiteral(token)) {
+		const text = token.text;
+		if ("provide" in candidate) {
+			return (
+				candidate.provideType !== "class" &&
+				candidate.provide.getText().replaceAll('"', "").replaceAll("'", "") ===
+					text
+			);
+		}
+		return candidate.name?.replaceAll('"', "").replaceAll("'", "") === text;
+	}
+
+	return (
+		ts.isIdentifier(token) &&
+		checkTypesHelper(candidate.declaration, token, typeChecker, tsNsLs)
+	);
+}
+
+/** `token` among `module`'s own providers or its imports' exports. */
+function findInModuleVisibility(
+	module: ModuleDeclaration,
+	token: ts.Expression,
+	projectModules: readonly ModuleDeclaration[],
+	tsNsLs: NsLanguageService,
+	typeChecker: ts.TypeChecker,
+): ProviderType | ExportType | undefined {
+	const own = module.providers.find((provider) =>
+		matchesToken(token, provider, typeChecker, tsNsLs),
+	);
+	if (own) return own;
+
+	for (const importEntry of module.imports) {
+		if (!ts.isIdentifier(importEntry.declaration)) continue;
+		const declaration = importEntry.declaration;
+
+		for (const importedModule of projectModules) {
+			if (!refersToModule(declaration, importedModule, typeChecker)) continue;
+			const exported = importedModule.exports.find((entry) =>
+				matchesToken(token, entry, typeChecker, tsNsLs),
+			);
+			if (exported) return exported;
+		}
+	}
+
+	return undefined;
+}
+
+/**
+ * A module listed in another module's `@Module({ children })` is the root
+ * of a child container, which falls back to what the declaring module sees
+ * in the parent: its own providers and its imports' exports (global modules
+ * are already searched by the caller). The search recurses up the chain of
+ * declaring modules. Returns `undefined` for a module nobody declares as a
+ * child, so diagnostics for ordinary modules are unchanged.
+ */
+function findInDeclaringModules(
+	childModule: ModuleDeclaration,
+	token: ts.Expression,
+	tsNsLs: NsLanguageService,
+	typeChecker: ts.TypeChecker,
+	projectModules?: readonly ModuleDeclaration[],
+	visited: Set<string> = new Set(),
+): ProviderType | ExportType | undefined {
+	const key = `${childModule.sourceFile.fileName}:${childModule.start}`;
+	if (visited.has(key)) return undefined;
+	visited.add(key);
+
+	const modules = projectModules ?? findProjectModules(tsNsLs, typeChecker);
+	const declaringModules = modules.filter((module) =>
+		module.children.some((child) =>
+			refersToModule(child.declaration, childModule, typeChecker),
+		),
+	);
+
+	for (const declaringModule of declaringModules) {
+		const found =
+			findInModuleVisibility(
+				declaringModule,
+				token,
+				modules,
+				tsNsLs,
+				typeChecker,
+			) ??
+			findInDeclaringModules(
+				declaringModule,
+				token,
+				tsNsLs,
+				typeChecker,
+				modules,
+				visited,
+			);
+		if (found) return found;
+	}
+
+	return undefined;
+}
+
 function findGlobalModules(
 	tsNsLs: NsLanguageService,
 	typeChecker: ts.TypeChecker,

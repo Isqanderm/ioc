@@ -5,7 +5,7 @@ import type {
 	NexusResolvedDependency,
 	NexusUnresolvedDependency,
 } from "./nexus-application-graph-model";
-import type { NexusApplication } from "./nexus-application-model";
+import type { NexusApplication, NexusScope } from "./nexus-application-model";
 import type {
 	NexusClass,
 	NexusProvider,
@@ -35,6 +35,24 @@ function getTokenIdentity(
 	}
 }
 
+type VisibleProvider = { provider: NexusProvider; owner: NexusClass };
+type VisibleProviders = Map<TokenIdentity, VisibleProvider>;
+
+/** Per-scope lookup tables: a module's visibility depends on the scope's
+ * `@Global()` modules, and class ownership on the scope's modules. */
+type ScopeContext = {
+	classes: readonly NexusClass[];
+	globalModules: readonly NexusClass[];
+	providingModulesByClassSymbol: Map<ts.Symbol, NexusClass[]>;
+	visibleProvidersByModule: Map<ts.Symbol, VisibleProviders>;
+};
+
+function isModuleClass(
+	item: NexusClass,
+): item is NexusClass & { module: NonNullable<NexusClass["module"]> } {
+	return item.module !== undefined;
+}
+
 function isSymbolIdentity(identity: TokenIdentity): identity is ts.Symbol {
 	return typeof identity !== "string";
 }
@@ -43,69 +61,115 @@ function isSymbolIdentity(identity: TokenIdentity): identity is ts.Symbol {
 export class NexusApplicationGraphBuilder {
 	public constructor(private readonly analyzer: NexusAnalyzer) {}
 
+	/**
+	 * Resolves every dependency scope by scope, in `application.scopes`
+	 * order. Within a scope, a class's dependency resolves against what its
+	 * module (or the modules providing it) can see: own providers, imports'
+	 * exports and that scope's `@Global()` modules. If that fails and the
+	 * scope is a child scope, it resolves against what the declaring module
+	 * sees in the parent scope, recursively up the chain; a match found that
+	 * way is `fromParentScope: true`. A local provider therefore always wins
+	 * over a parent one, and encapsulated (unexported) providers stay hidden.
+	 *
+	 * For an application without `children` there is one scope holding every
+	 * class, so the output is the same as a single-scope resolution.
+	 */
 	public build(application: NexusApplication): NexusApplicationGraph {
-		const moduleClasses = application.classes.filter(
-			(
-				item,
-			): item is NexusClass & { module: NonNullable<NexusClass["module"]> } =>
-				item.module !== undefined,
-		);
+		const moduleClasses = application.classes.filter(isModuleClass);
 		const moduleBySymbol = this.indexModulesBySymbol(moduleClasses);
-		const globalModules = moduleClasses.filter((item) => item.isGlobal);
-
-		const visibleProvidersByModule = new Map<
-			ts.Symbol,
-			Map<TokenIdentity, { provider: NexusProvider; owner: NexusClass }>
-		>();
-		for (const moduleClass of moduleClasses) {
+		const classesById = new Map(
+			application.classes.map((item) => [item.id, item]),
+		);
+		const scopesByRootId = new Map(
+			application.scopes.map((scope) => [scope.rootId, scope]),
+		);
+		const contexts = new Map<string, ScopeContext>();
+		const contextFor = (scope: NexusScope): ScopeContext => {
+			let context = contexts.get(scope.rootId);
+			if (!context) {
+				context = this.createScopeContext(scope, classesById);
+				contexts.set(scope.rootId, context);
+			}
+			return context;
+		};
+		const visibleIn = (
+			context: ScopeContext,
+			moduleClass: NexusClass,
+		): VisibleProviders => {
 			const symbol = this.classSymbol(moduleClass);
-			if (!symbol) continue;
-			visibleProvidersByModule.set(
-				symbol,
-				this.resolveVisibleProviders(
-					moduleClass,
-					moduleBySymbol,
-					globalModules,
-				),
+			const cached = symbol && context.visibleProvidersByModule.get(symbol);
+			if (cached) return cached;
+			const visible = this.resolveVisibleProviders(
+				moduleClass,
+				moduleBySymbol,
+				context.globalModules,
 			);
-		}
-
-		const providingModulesByClassSymbol =
-			this.indexProvidersByClassSymbol(moduleClasses);
+			if (symbol) context.visibleProvidersByModule.set(symbol, visible);
+			return visible;
+		};
 
 		const resolved: NexusResolvedDependency[] = [];
 		const unresolved: NexusUnresolvedDependency[] = [];
 
-		for (const nexusClass of application.classes) {
-			const scopes = this.resolveScopesFor(
-				nexusClass,
-				providingModulesByClassSymbol,
-				visibleProvidersByModule,
-				moduleBySymbol,
-				globalModules,
-			);
+		for (const scope of application.scopes) {
+			const context = contextFor(scope);
 
-			for (const dependency of nexusClass.dependencies) {
-				const identity = getTokenIdentity(dependency.token);
-				const match =
-					identity !== undefined
-						? scopes.map((scope) => scope.get(identity)).find(Boolean)
-						: undefined;
+			for (const nexusClass of context.classes) {
+				const lookups = this.resolveScopesFor(
+					nexusClass,
+					context.providingModulesByClassSymbol,
+					(moduleClass) => visibleIn(context, moduleClass),
+				);
 
-				if (match) {
-					resolved.push({
-						class: nexusClass,
-						dependencyName: dependency.name,
-						provider: match.provider,
-						providingModule: match.owner,
-					});
-				} else if (!dependency.optional) {
-					unresolved.push({
-						class: nexusClass,
-						dependencyName: dependency.name,
-						token: dependency.token,
-						source: dependency.source,
-					});
+				// In a child scope, a non-module class nothing in the scope
+				// provides was only reached through a dependency token: it is
+				// created by whichever scope provides it, and its own
+				// dependencies are resolved there.
+				if (
+					scope.declaredInId !== undefined &&
+					!nexusClass.module &&
+					lookups.length === 0 &&
+					this.appearsInOtherScope(nexusClass, scope, application.scopes)
+				) {
+					continue;
+				}
+
+				for (const dependency of nexusClass.dependencies) {
+					const identity = getTokenIdentity(dependency.token);
+					let match =
+						identity !== undefined
+							? lookups.map((lookup) => lookup.get(identity)).find(Boolean)
+							: undefined;
+					let fromParentScope = false;
+
+					if (!match && identity !== undefined) {
+						match = this.resolveFromParentScopes(
+							scope,
+							identity,
+							scopesByRootId,
+							classesById,
+							contextFor,
+							visibleIn,
+						);
+						fromParentScope = match !== undefined;
+					}
+
+					if (match) {
+						resolved.push({
+							class: nexusClass,
+							dependencyName: dependency.name,
+							provider: match.provider,
+							providingModule: match.owner,
+							fromParentScope,
+						});
+					} else if (!dependency.optional) {
+						unresolved.push({
+							class: nexusClass,
+							dependencyName: dependency.name,
+							token: dependency.token,
+							source: dependency.source,
+						});
+					}
 				}
 			}
 		}
@@ -116,27 +180,77 @@ export class NexusApplicationGraphBuilder {
 		};
 	}
 
+	/** Walks from `scope` to its ancestors, looking `identity` up in what
+	 * each scope's declaring module sees in its parent scope. */
+	private resolveFromParentScopes(
+		scope: NexusScope,
+		identity: TokenIdentity,
+		scopesByRootId: Map<string, NexusScope>,
+		classesById: Map<string, NexusClass>,
+		contextFor: (scope: NexusScope) => ScopeContext,
+		visibleIn: (
+			context: ScopeContext,
+			moduleClass: NexusClass,
+		) => VisibleProviders,
+	): VisibleProvider | undefined {
+		const seen = new Set<string>();
+		let current: NexusScope | undefined = scope;
+
+		while (
+			current?.declaredInId !== undefined &&
+			current.parentRootId !== undefined &&
+			!seen.has(current.rootId)
+		) {
+			seen.add(current.rootId);
+			const parent = scopesByRootId.get(current.parentRootId);
+			const declaringModule = classesById.get(current.declaredInId);
+			if (!parent || !declaringModule?.module) return undefined;
+
+			const match = visibleIn(contextFor(parent), declaringModule).get(
+				identity,
+			);
+			if (match) return match;
+			current = parent;
+		}
+
+		return undefined;
+	}
+
+	private createScopeContext(
+		scope: NexusScope,
+		classesById: Map<string, NexusClass>,
+	): ScopeContext {
+		const classes = scope.classIds.flatMap((id) => {
+			const nexusClass = classesById.get(id);
+			return nexusClass ? [nexusClass] : [];
+		});
+		const moduleClasses = classes.filter(isModuleClass);
+		return {
+			classes,
+			globalModules: moduleClasses.filter((item) => item.isGlobal),
+			providingModulesByClassSymbol:
+				this.indexProvidersByClassSymbol(moduleClasses),
+			visibleProvidersByModule: new Map(),
+		};
+	}
+
+	private appearsInOtherScope(
+		nexusClass: NexusClass,
+		scope: NexusScope,
+		scopes: readonly NexusScope[],
+	): boolean {
+		return scopes.some(
+			(other) => other !== scope && other.classIds.includes(nexusClass.id),
+		);
+	}
+
 	private resolveScopesFor(
 		nexusClass: NexusClass,
 		providingModulesByClassSymbol: Map<ts.Symbol, NexusClass[]>,
-		visibleProvidersByModule: Map<
-			ts.Symbol,
-			Map<TokenIdentity, { provider: NexusProvider; owner: NexusClass }>
-		>,
-		moduleBySymbol: Map<ts.Symbol, NexusClass>,
-		globalModules: readonly NexusClass[],
-	): Map<TokenIdentity, { provider: NexusProvider; owner: NexusClass }>[] {
+		visibleIn: (moduleClass: NexusClass) => VisibleProviders,
+	): VisibleProviders[] {
 		if (nexusClass.module) {
-			const symbol = this.classSymbol(nexusClass);
-			const cached = symbol && visibleProvidersByModule.get(symbol);
-			return [
-				cached ??
-					this.resolveVisibleProviders(
-						nexusClass,
-						moduleBySymbol,
-						globalModules,
-					),
-			];
+			return [visibleIn(nexusClass)];
 		}
 
 		const symbol = this.classSymbol(nexusClass);
@@ -144,14 +258,7 @@ export class NexusApplicationGraphBuilder {
 			? (providingModulesByClassSymbol.get(symbol) ?? [])
 			: [];
 
-		return owningModules.map((owner) => {
-			const ownerSymbol = this.classSymbol(owner);
-			const cached = ownerSymbol && visibleProvidersByModule.get(ownerSymbol);
-			return (
-				cached ??
-				this.resolveVisibleProviders(owner, moduleBySymbol, globalModules)
-			);
-		});
+		return owningModules.map((owner) => visibleIn(owner));
 	}
 
 	private indexModulesBySymbol(

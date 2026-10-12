@@ -7,6 +7,7 @@ import {
 import * as ts from "typescript/lib/tsserverlibrary";
 import { describe, expect, it } from "vitest";
 import { CircularDependencyDetector } from "../../analyzer/circular-dependency-detector";
+import { JsonFormatter } from "../../visualize/json-formatter";
 import { buildNexusGraphModel } from "../build-nexus-graph-model";
 
 function createProgram(files: Map<string, string>): {
@@ -369,5 +370,244 @@ NexusApplicationServer.create(AppModule).bootstrap();
 		expect(client?.dependencies.map((dependency) => dependency.token)).toEqual([
 			"Http",
 		]);
+	});
+
+	describe("child scopes declared via children", () => {
+		const SERVER_FILE: [string, string] = ["/app/server.ts", SERVER];
+
+		function buildFiles(entries: [string, string][]) {
+			const { program, entryFileName } = createProgram(
+				new Map([...entries, SERVER_FILE]),
+			);
+			const entryPoint = findApplicationEntryPoint(program, entryFileName);
+			if (!entryPoint) throw new Error("Entry point not found");
+			const analyzer = createNexusAnalyzer(program);
+			return buildNexusGraphModel(
+				createNexusApplicationAnalyzer(analyzer).analyze(entryPoint),
+			);
+		}
+
+		const CHILD_APP: [string, string][] = [
+			[
+				"/app/main.ts",
+				`import { Module } from "@nexus-ioc/core";
+import { NexusApplicationServer } from "./server";
+import { HttpModule } from "./http.module";
+import { ProfileModule } from "./profile.module";
+
+@Module({ imports: [HttpModule], children: [ProfileModule] })
+export class AppModule {}
+
+NexusApplicationServer.create(AppModule).bootstrap();
+`,
+			],
+			[
+				"/app/http.module.ts",
+				`import { Injectable, Module } from "@nexus-ioc/core";
+
+@Injectable()
+export class Http {}
+
+@Module({ providers: [Http], exports: [Http] })
+export class HttpModule {}
+`,
+			],
+			[
+				"/app/profile.module.ts",
+				`import { inject, Inject, Injectable, Module } from "@nexus-ioc/core";
+import { Http } from "./http.module";
+
+@Injectable()
+export class Local {}
+
+@Injectable()
+export class ProfileStore {
+  readonly local = inject(Local);
+  constructor(@Inject(Http) readonly http: Http) {}
+}
+
+@Module({ providers: [ProfileStore, Local] })
+export class ProfileModule {}
+`,
+			],
+		];
+
+		const moduleNamed = (
+			graphModel: ReturnType<typeof buildNexusGraphModel>,
+			name: string,
+		) => {
+			const found = [...graphModel.modules.values()].find(
+				(module) => module.name === name,
+			);
+			if (!found) throw new Error(`${name} not in graph`);
+			return found;
+		};
+
+		it("contains the child scope's nodes, tagged with their scope", () => {
+			const graphModel = buildFiles(CHILD_APP);
+			const app = moduleNamed(graphModel, "AppModule");
+			const http = moduleNamed(graphModel, "HttpModule");
+			const profile = moduleNamed(graphModel, "ProfileModule");
+
+			expect(graphModel.scopes).toEqual([
+				{ rootId: app.id, moduleIds: [app.id, http.id] },
+				{
+					rootId: profile.id,
+					declaredInId: app.id,
+					parentRootId: app.id,
+					moduleIds: [profile.id],
+				},
+			]);
+			expect(app.scope).toBe(app.id);
+			expect(http.scope).toBe(app.id);
+			expect(profile.scope).toBe(profile.id);
+			expect(app.children).toEqual([
+				{
+					id: profile.id,
+					name: "ProfileModule",
+					path: "/app/profile.module.ts",
+				},
+			]);
+		});
+
+		it("marks the ProfileStore -> Http edge as cross-scope", () => {
+			const graphModel = buildFiles(CHILD_APP);
+			const http = moduleNamed(graphModel, "HttpModule").providers[0];
+			const store = moduleNamed(graphModel, "ProfileModule").providers.find(
+				(provider) => provider.token === "ProfileStore",
+			);
+			const local = moduleNamed(graphModel, "ProfileModule").providers.find(
+				(provider) => provider.token === "Local",
+			);
+
+			expect(store?.dependencies).toEqual([
+				{ token: "Http", tokenId: http.id, optional: false, crossScope: true },
+				{ token: "Local", tokenId: local?.id, optional: false },
+			]);
+		});
+
+		it("shows the child scope in the JSON output", () => {
+			const output = new JsonFormatter(
+				buildFiles(CHILD_APP),
+				"/app/main.ts",
+			).format();
+
+			expect(
+				output.modules.map((module) => [module.name, module.scope]),
+			).toEqual([
+				["AppModule", "AppModule"],
+				["HttpModule", "AppModule"],
+				["ProfileModule", "ProfileModule"],
+			]);
+			expect(output.modules[0].children).toEqual([
+				{ name: "ProfileModule", path: "/app/profile.module.ts" },
+			]);
+			const store = output.providers.find(
+				(provider) => provider.token === "ProfileStore",
+			);
+			expect(store?.dependencies).toEqual([
+				{ token: "Http", optional: false, crossScope: true },
+				{ token: "Local", optional: false },
+			]);
+		});
+
+		it("adds no scope fields for an app without children", () => {
+			const graphModel =
+				buildFrom(`import { Injectable, Module } from "@nexus-ioc/core";
+import { NexusApplicationServer } from "./server";
+
+@Injectable()
+export class Http {}
+
+@Module({ providers: [Http] })
+export class AppModule {}
+
+NexusApplicationServer.create(AppModule).bootstrap();
+`);
+			const app = graphModel.modules.get(graphModel.entryModuleId);
+			expect(graphModel.scopes).toBeUndefined();
+			expect(app && "scope" in app).toBe(false);
+			expect(app && "children" in app).toBe(false);
+
+			const output = new JsonFormatter(graphModel, "/app/main.ts").format();
+			expect("scope" in output.modules[0]).toBe(false);
+			expect("children" in output.modules[0]).toBe(false);
+		});
+
+		it("does not report a false cycle across scopes", () => {
+			const graphModel = buildFiles([
+				[
+					"/app/main.ts",
+					`import { Inject, Injectable, Module } from "@nexus-ioc/core";
+import { NexusApplicationServer } from "./server";
+import { ChildModule } from "./child.module";
+
+@Injectable()
+export class B {}
+
+@Injectable()
+export class A {
+  constructor(@Inject(B) readonly b: B) {}
+}
+
+@Module({ providers: [A, B], children: [ChildModule] })
+export class AppModule {}
+
+NexusApplicationServer.create(AppModule).bootstrap();
+`,
+				],
+				[
+					"/app/child.module.ts",
+					`import { inject, Module } from "@nexus-ioc/core";
+import { A, B } from "./main";
+
+@Module({ providers: [{ provide: B, useFactory: () => ({ a: inject(A) }) }] })
+export class ChildModule {}
+`,
+				],
+			]);
+
+			const analysis = new CircularDependencyDetector(graphModel).analyze();
+			expect(analysis.circularDependencies).toEqual([]);
+		});
+
+		it("still reports a real cycle inside a child scope", () => {
+			const graphModel = buildFiles([
+				[
+					"/app/main.ts",
+					`import { Module } from "@nexus-ioc/core";
+import { NexusApplicationServer } from "./server";
+import { ChildModule } from "./child.module";
+
+@Module({ children: [ChildModule] })
+export class AppModule {}
+
+NexusApplicationServer.create(AppModule).bootstrap();
+`,
+				],
+				[
+					"/app/child.module.ts",
+					`import { inject, Injectable, Module } from "@nexus-ioc/core";
+
+@Injectable()
+export class C {
+  readonly d = inject(D);
+}
+
+@Injectable()
+export class D {
+  readonly c = inject(C);
+}
+
+@Module({ providers: [C, D] })
+export class ChildModule {}
+`,
+				],
+			]);
+
+			const analysis = new CircularDependencyDetector(graphModel).analyze();
+			expect(analysis.providerCircularCount).toBe(1);
+			expect(analysis.circularDependencies[0].cycle).toEqual(["C", "D", "C"]);
+		});
 	});
 });

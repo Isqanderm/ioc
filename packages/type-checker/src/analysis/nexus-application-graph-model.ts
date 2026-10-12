@@ -10,6 +10,9 @@ export type NexusResolvedDependency = {
 	dependencyName: string;
 	provider: NexusProvider;
 	providingModule: NexusClass;
+	/** `true` when the class lives in a child scope and the provider was
+	 * found through the declaring module's visibility in an ancestor scope. */
+	fromParentScope: boolean;
 };
 
 export type NexusUnresolvedDependency = {

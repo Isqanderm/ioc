@@ -1,4 +1,5 @@
 import type { NexusGraphModel } from "../graph/nexus-graph-model";
+import { GraphScopeIndex } from "../graph/scope-resolution";
 
 /**
  * Represents a circular dependency cycle
@@ -210,8 +211,13 @@ export class CircularDependencyDetector {
 	 * classes named alike must not collapse into one map entry.
 	 */
 	private buildProviderDependencyMap(): Map<string, string[]> {
-		const providerDeps = new Map<string, string[]>();
 		this.providerLabels.clear();
+
+		if (this.graphModel.scopes) {
+			return this.buildScopedProviderDependencyMap();
+		}
+
+		const providerDeps = new Map<string, string[]>();
 
 		for (const module of this.graphModel.modules.values()) {
 			for (const provider of module.providers) {
@@ -221,6 +227,43 @@ export class CircularDependencyDetector {
 
 				providerDeps.set(provider.id, dependencies);
 				this.providerLabels.set(provider.id, provider.token);
+			}
+		}
+
+		return providerDeps;
+	}
+
+	/**
+	 * With child scopes, every scope has its own provider instances: a node
+	 * is `(scope, provider id)`, and an edge goes to the nearest scope (own
+	 * first, then ancestors) that registers the dependency. This keeps a
+	 * child provider that overrides a parent token from being merged with
+	 * the parent's provider into a false cycle.
+	 */
+	private buildScopedProviderDependencyMap(): Map<string, string[]> {
+		const providerDeps = new Map<string, string[]>();
+		const scopeIndex = new GraphScopeIndex(this.graphModel);
+		const key = (scopeRootId: string, providerId: string) =>
+			`${scopeRootId}\u0000${providerId}`;
+
+		for (const scope of this.graphModel.scopes ?? []) {
+			for (const moduleId of scope.moduleIds) {
+				const module = this.graphModel.modules.get(moduleId);
+				for (const provider of module?.providers ?? []) {
+					const dependencies = provider.dependencies
+						.filter((dependency) => !dependency.optional && dependency.tokenId)
+						.map((dependency) => {
+							const tokenId = dependency.tokenId as string;
+							const providingScope =
+								scopeIndex.providingScope(scope.rootId, tokenId) ??
+								scope.rootId;
+							return key(providingScope, tokenId);
+						});
+
+					const providerKey = key(scope.rootId, provider.id);
+					providerDeps.set(providerKey, dependencies);
+					this.providerLabels.set(providerKey, provider.token);
+				}
 			}
 		}
 

@@ -107,6 +107,9 @@ export interface ModuleReferenceInfo {
 export interface DependencyInfo {
 	token: string;
 	optional: boolean;
+	/** `true` when the provider lives in a child scope and this dependency
+	 * comes from an ancestor scope. Present only when `true`. */
+	crossScope?: boolean;
 }
 
 /**
@@ -127,6 +130,12 @@ export interface ModuleInfo {
 	providers: string[];
 	/** Whether this module is marked as global */
 	isGlobal: boolean;
+	/** Name of the root module of the container scope this module belongs
+	 * to. Present only when the application declares child scopes via
+	 * `@Module({ children })`. */
+	scope?: string;
+	/** Modules declared in `@Module({ children })`, present only when non-empty. */
+	children?: ModuleReferenceInfo[];
 }
 
 /**

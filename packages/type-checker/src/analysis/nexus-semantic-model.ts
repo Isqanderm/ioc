@@ -131,8 +131,23 @@ export type NexusModuleExport = {
 	source: NexusSourceSpan;
 };
 
+/** One entry of `@Module({ children })`: a module that may be created as a
+ * child container of the declaring module's application. */
+export type NexusModuleChild = {
+	/** The child module class, or undefined if the lazy loader shape is not statically resolvable. */
+	module: NexusToken | undefined;
+	isLazy: boolean;
+	source: NexusSourceSpan;
+	/** Set when the entry could not be resolved statically (`module` is then
+	 * `undefined`), e.g. `"Child module of lazy() could not be resolved statically"`. */
+	diagnostic?: string;
+};
+
 export type NexusModule = {
 	providers: readonly NexusProvider[];
 	imports: readonly NexusModuleImport[];
 	exports: readonly NexusModuleExport[];
+	/** Entries of `@Module({ children })`, in declaration order; empty when
+	 * the module declares no children. */
+	children: readonly NexusModuleChild[];
 };

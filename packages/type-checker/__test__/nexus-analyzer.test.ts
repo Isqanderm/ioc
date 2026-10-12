@@ -1131,3 +1131,122 @@ async function load(value: unknown) { return value; }
 		expect(ids(1)).toEqual([idOf("X"), idOf("CONFIG"), idOf("Http")]);
 	});
 });
+
+describe("module children", () => {
+	const PROFILE = `import { Injectable, Module } from "@nexus-ioc/core";
+
+@Injectable()
+export class ProfileStore {}
+
+@Module({ providers: [ProfileStore] })
+export class ProfileModule {}
+`;
+
+	function analyzeModule(source: string) {
+		const program = createMultiFileProgram(
+			new Map([
+				["/app/profile.module.ts", PROFILE],
+				["/app/app.module.ts", source],
+			]),
+		);
+		const analyzer = createNexusAnalyzer(program);
+		const file = program.getSourceFile("/app/app.module.ts");
+		const profileFile = program.getSourceFile("/app/profile.module.ts");
+		if (!file || !profileFile) throw new Error("Source files not created");
+		const profileModule = profileFile.statements.find(
+			(item): item is ts.ClassDeclaration =>
+				ts.isClassDeclaration(item) && item.name?.text === "ProfileModule",
+		);
+		if (!profileModule) throw new Error("ProfileModule not found");
+		const profileModuleId = analyzer.getClass(profileModule).id;
+		const module = analyzer.getClass(getClass(file, "AppModule")).module;
+		return { module, profileModuleId };
+	}
+
+	const childId = (child: { module?: unknown }) =>
+		(child.module as { id?: string } | undefined)?.id;
+
+	it("gives a module without children an empty children list", () => {
+		const { module } = analyzeModule(`import { Module } from "@nexus-ioc/core";
+
+@Module({})
+export class AppModule {}
+`);
+		expect(module?.children).toEqual([]);
+	});
+
+	it("parses a direct child class reference", () => {
+		const { module, profileModuleId } =
+			analyzeModule(`import { Module } from "@nexus-ioc/core";
+import { ProfileModule } from "./profile.module";
+
+@Module({ children: [ProfileModule] })
+export class AppModule {}
+`);
+		expect(module?.children).toHaveLength(1);
+		expect(module?.children[0].isLazy).toBe(false);
+		expect(module?.children[0].module?.kind).toBe("reference");
+		expect(childId(module?.children[0] ?? {})).toBe(profileModuleId);
+		expect(module?.children[0].diagnostic).toBeUndefined();
+	});
+
+	it("resolves lazy(() => import(...).then((m) => m.X)) to the module class", () => {
+		const { module, profileModuleId } =
+			analyzeModule(`import { lazy, Module } from "@nexus-ioc/core";
+
+@Module({
+  children: [lazy(() => import("./profile.module").then((m) => m.ProfileModule))],
+})
+export class AppModule {}
+`);
+		expect(module?.children).toHaveLength(1);
+		expect(module?.children[0].isLazy).toBe(true);
+		expect(childId(module?.children[0] ?? {})).toBe(profileModuleId);
+		expect(module?.children[0].diagnostic).toBeUndefined();
+	});
+
+	it("resolves lazy(async () => (await import(...)).X) to the module class", () => {
+		const { module, profileModuleId } =
+			analyzeModule(`import { lazy, Module } from "@nexus-ioc/core";
+
+@Module({
+  children: [lazy(async () => (await import("./profile.module")).ProfileModule)],
+})
+export class AppModule {}
+`);
+		expect(module?.children[0].isLazy).toBe(true);
+		expect(childId(module?.children[0] ?? {})).toBe(profileModuleId);
+	});
+
+	it("follows a const that holds a lazy() ref", () => {
+		const { module, profileModuleId } =
+			analyzeModule(`import { lazy, Module } from "@nexus-ioc/core";
+
+export const ProfileLazy = lazy(() =>
+  import("./profile.module").then((m) => m.ProfileModule),
+);
+
+@Module({ children: [ProfileLazy] })
+export class AppModule {}
+`);
+		expect(module?.children[0].isLazy).toBe(true);
+		expect(childId(module?.children[0] ?? {})).toBe(profileModuleId);
+	});
+
+	it("gives an unknown lazy shape module: undefined and a diagnostic, without throwing", () => {
+		const { module } =
+			analyzeModule(`import { lazy, Module } from "@nexus-ioc/core";
+
+declare function load(): Promise<any>;
+
+@Module({ children: [lazy(() => load())] })
+export class AppModule {}
+`);
+		expect(module?.children).toHaveLength(1);
+		expect(module?.children[0].isLazy).toBe(true);
+		expect(module?.children[0].module).toBeUndefined();
+		expect(module?.children[0].diagnostic).toBe(
+			"Child module of lazy() could not be resolved statically",
+		);
+	});
+});

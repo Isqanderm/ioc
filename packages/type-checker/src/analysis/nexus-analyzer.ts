@@ -5,6 +5,7 @@ import type {
 	NexusDecoratorKind,
 	NexusDependency,
 	NexusModule,
+	NexusModuleChild,
 	NexusModuleExport,
 	NexusModuleImport,
 	NexusProvider,
@@ -19,6 +20,7 @@ export type {
 	NexusDecoratorKind,
 	NexusDependency,
 	NexusModule,
+	NexusModuleChild,
 	NexusModuleExport,
 	NexusModuleImport,
 	NexusProvider,
@@ -50,6 +52,11 @@ export interface NexusAnalyzerOptions {
 	 */
 	corePackageNames?: readonly string[];
 }
+
+/** Diagnostic set on a `NexusModuleChild` whose `lazy()` loader is not one
+ * of the statically recognised shapes. */
+export const LAZY_CHILD_UNRESOLVED_DIAGNOSTIC =
+	"Child module of lazy() could not be resolved statically";
 
 const SHORT_CIRCUIT_OPERATORS: ReadonlySet<ts.SyntaxKind> = new Set([
 	ts.SyntaxKind.AmpersandAmpersandToken,
@@ -472,7 +479,181 @@ export class NexusAnalyzer {
 			providers: this.getModuleProviders(node),
 			imports: this.getModuleImports(metadata),
 			exports: this.getModuleExports(metadata),
+			children: this.getModuleChildren(metadata),
 		};
+	}
+
+	/**
+	 * Parses `@Module({ children })`. A class reference resolves like an
+	 * `imports` entry. A `lazy()` ref (written inline, or a `const` holding
+	 * one) resolves through its loader when the loader has one of the two
+	 * recognised shapes:
+	 *
+	 * - `lazy(() => import("./x").then((m) => m.X))`
+	 * - `lazy(async () => (await import("./x")).X)`
+	 *
+	 * Any other loader yields `module: undefined` plus
+	 * {@link LAZY_CHILD_UNRESOLVED_DIAGNOSTIC}; it never throws.
+	 */
+	private getModuleChildren(
+		metadata: ts.ObjectLiteralExpression,
+	): NexusModuleChild[] {
+		const array = this.getObjectLiteralArrayProperty(metadata, "children");
+		if (!array) return [];
+
+		return array.elements.map((element) => {
+			const source = this.getSourceSpan(element);
+			const lazyCall = this.findLazyCall(element);
+			if (!lazyCall) {
+				return {
+					module: this.resolveToken(element),
+					isLazy: false,
+					source,
+				};
+			}
+
+			const module = this.resolveLazyChildModule(lazyCall);
+			return module
+				? { module, isLazy: true, source }
+				: {
+						module: undefined,
+						isLazy: true,
+						source,
+						diagnostic: LAZY_CHILD_UNRESOLVED_DIAGNOSTIC,
+					};
+		});
+	}
+
+	/** The `lazy(...)` call a `children` entry stands for: the entry itself,
+	 * or the initializer of the `const` it names. */
+	private findLazyCall(
+		expression: ts.Expression,
+	): ts.CallExpression | undefined {
+		const node = this.skipParentheses(expression);
+		if (ts.isCallExpression(node)) {
+			return this.isLazyCall(node) ? node : undefined;
+		}
+		if (!ts.isIdentifier(node)) return undefined;
+
+		const symbol = this.resolveAlias(this.checker.getSymbolAtLocation(node));
+		const declaration = symbol?.valueDeclaration;
+		if (
+			!declaration ||
+			!ts.isVariableDeclaration(declaration) ||
+			!declaration.initializer
+		) {
+			return undefined;
+		}
+
+		const initializer = this.skipParentheses(declaration.initializer);
+		return ts.isCallExpression(initializer) && this.isLazyCall(initializer)
+			? initializer
+			: undefined;
+	}
+
+	private isLazyCall(call: ts.CallExpression): boolean {
+		if (!ts.isIdentifier(call.expression)) return false;
+		const symbol = this.checker.getSymbolAtLocation(call.expression);
+		if (!symbol || !this.isImportedFromNexusCore(symbol)) return false;
+		return this.resolveAlias(symbol)?.getName() === "lazy";
+	}
+
+	private resolveLazyChildModule(
+		call: ts.CallExpression,
+	): NexusToken | undefined {
+		const loader = call.arguments[0];
+		if (
+			!loader ||
+			!(ts.isArrowFunction(loader) || ts.isFunctionExpression(loader))
+		) {
+			return undefined;
+		}
+
+		const result = this.getReturnedExpression(loader);
+		const propertyName = result && this.getLazyExportName(result);
+		if (!propertyName) return undefined;
+
+		const symbol = this.resolveAlias(
+			this.checker.getSymbolAtLocation(propertyName),
+		);
+		const isClass = symbol?.declarations?.some((declaration) =>
+			ts.isClassDeclaration(declaration),
+		);
+		return symbol && isClass
+			? this.buildReferenceToken(symbol, this.getSourceSpan(propertyName))
+			: undefined;
+	}
+
+	/**
+	 * The property name `X` of a recognised loader result:
+	 * `import("…").then((m) => m.X)` or `(await import("…")).X`.
+	 */
+	private getLazyExportName(
+		expression: ts.Expression,
+	): ts.Identifier | undefined {
+		const node = this.skipParentheses(expression);
+
+		if (ts.isPropertyAccessExpression(node)) {
+			const target = this.skipParentheses(node.expression);
+			return ts.isAwaitExpression(target) &&
+				this.isDynamicImport(this.skipParentheses(target.expression)) &&
+				ts.isIdentifier(node.name)
+				? node.name
+				: undefined;
+		}
+
+		if (
+			!ts.isCallExpression(node) ||
+			!ts.isPropertyAccessExpression(node.expression) ||
+			node.expression.name.text !== "then" ||
+			!this.isDynamicImport(this.skipParentheses(node.expression.expression))
+		) {
+			return undefined;
+		}
+
+		const callback = node.arguments[0];
+		if (
+			!callback ||
+			!(ts.isArrowFunction(callback) || ts.isFunctionExpression(callback))
+		) {
+			return undefined;
+		}
+		const parameter = callback.parameters[0];
+		if (!parameter || !ts.isIdentifier(parameter.name)) return undefined;
+
+		const returned = this.getReturnedExpression(callback);
+		if (!returned) return undefined;
+		const access = this.skipParentheses(returned);
+		return ts.isPropertyAccessExpression(access) &&
+			ts.isIdentifier(access.expression) &&
+			access.expression.text === parameter.name.text &&
+			ts.isIdentifier(access.name)
+			? access.name
+			: undefined;
+	}
+
+	private isDynamicImport(node: ts.Expression): boolean {
+		return (
+			ts.isCallExpression(node) &&
+			node.expression.kind === ts.SyntaxKind.ImportKeyword
+		);
+	}
+
+	/** An arrow's expression body, or the expression of a body that is a
+	 * single `return` statement. */
+	private getReturnedExpression(
+		fn: ts.ArrowFunction | ts.FunctionExpression,
+	): ts.Expression | undefined {
+		if (!ts.isBlock(fn.body)) return fn.body;
+		if (fn.body.statements.length !== 1) return undefined;
+		const [statement] = fn.body.statements;
+		return ts.isReturnStatement(statement) ? statement.expression : undefined;
+	}
+
+	private skipParentheses(expression: ts.Expression): ts.Expression {
+		let current = expression;
+		while (ts.isParenthesizedExpression(current)) current = current.expression;
+		return current;
 	}
 
 	private getModuleImports(
@@ -623,7 +804,7 @@ export class NexusAnalyzer {
 
 	private getObjectLiteralArrayProperty(
 		metadata: ts.ObjectLiteralExpression,
-		name: "providers" | "imports" | "exports",
+		name: "providers" | "imports" | "exports" | "children",
 	): ts.ArrayLiteralExpression | undefined {
 		const property = this.findProperty(metadata, name);
 		return property && ts.isArrayLiteralExpression(property.initializer)

@@ -1,11 +1,17 @@
 import * as ts from "typescript";
 import type { NexusAnalyzer } from "./nexus-analyzer";
-import type { NexusApplication } from "./nexus-application-model";
+import type { NexusApplication, NexusScope } from "./nexus-application-model";
 import type {
 	NexusClass,
 	NexusSourceSpan,
 	NexusToken,
 } from "./nexus-semantic-model";
+
+type PendingScope = {
+	root: ts.ClassDeclaration;
+	declaredInId?: string;
+	parentRootId?: string;
+};
 
 /** Performs whole-application semantic analysis from a Nexus root class. */
 export class NexusApplicationAnalyzer {
@@ -21,22 +27,98 @@ export class NexusApplicationAnalyzer {
 	 * Only `NexusToken.reference` tokens resolving to a class declaration are
 	 * traversable. String, symbol, expression, and non-class reference tokens
 	 * remain dependency metadata but do not become application nodes.
+	 *
+	 * The root scope is traversed first, exactly as before `children`
+	 * existed. Each statically resolvable `@Module({ children })` entry of a
+	 * module in a scope then opens a child scope, traversed the same way with
+	 * its own visited set (a child container builds its own module graph).
+	 * Classes first reached in a child scope are appended to `classes`. A
+	 * child module already opened as a scope (declared twice, or declaring an
+	 * ancestor) is not opened again.
 	 */
 	public analyze(entryPoint: ts.ClassDeclaration): NexusApplication {
 		const classes: NexusClass[] = [];
-		const visited = new Set<ts.Symbol>();
-		const pending: ts.ClassDeclaration[] = [entryPoint];
-		const entryPointSymbol = this.getClassSymbol(entryPoint);
+		const classByNode = new Map<ts.ClassDeclaration, NexusClass>();
+		const scopes: NexusScope[] = [];
+		const openedRoots = new Set<ts.Symbol>();
+		const pendingScopes: PendingScope[] = [{ root: entryPoint }];
 
-		if (entryPointSymbol) {
-			visited.add(entryPointSymbol);
+		const entryPointSymbol = this.getClassSymbol(entryPoint);
+		if (entryPointSymbol) openedRoots.add(entryPointSymbol);
+
+		let scopeIndex = 0;
+		while (scopeIndex < pendingScopes.length) {
+			const pendingScope = pendingScopes[scopeIndex++];
+			const scopeClasses = this.traverseScope(
+				pendingScope.root,
+				classByNode,
+				classes,
+			);
+			const rootId = scopeClasses[0].id;
+
+			scopes.push({
+				rootId,
+				...(pendingScope.declaredInId !== undefined && {
+					declaredInId: pendingScope.declaredInId,
+				}),
+				...(pendingScope.parentRootId !== undefined && {
+					parentRootId: pendingScope.parentRootId,
+				}),
+				classIds: scopeClasses.map((item) => item.id),
+			});
+
+			for (const nexusClass of scopeClasses) {
+				for (const child of nexusClass.module?.children ?? []) {
+					const childRoot = this.resolveClassFromToken(child.module);
+					const childSymbol = childRoot && this.getClassSymbol(childRoot);
+					if (!childRoot || !childSymbol || openedRoots.has(childSymbol)) {
+						continue;
+					}
+
+					openedRoots.add(childSymbol);
+					pendingScopes.push({
+						root: childRoot,
+						declaredInId: nexusClass.id,
+						parentRootId: rootId,
+					});
+				}
+			}
+		}
+
+		return {
+			entryPoint: this.getSourceSpan(entryPoint),
+			classes,
+			scopes,
+		};
+	}
+
+	/** Breadth-first traversal of one scope from its root class. Appends
+	 * newly seen classes to `classes` and returns the scope's own classes in
+	 * discovery order. */
+	private traverseScope(
+		root: ts.ClassDeclaration,
+		classByNode: Map<ts.ClassDeclaration, NexusClass>,
+		classes: NexusClass[],
+	): NexusClass[] {
+		const scopeClasses: NexusClass[] = [];
+		const visited = new Set<ts.Symbol>();
+		const pending: ts.ClassDeclaration[] = [root];
+		const rootSymbol = this.getClassSymbol(root);
+
+		if (rootSymbol) {
+			visited.add(rootSymbol);
 		}
 
 		let index = 0;
 		while (index < pending.length) {
 			const node = pending[index++];
-			const nexusClass = this.analyzer.getClass(node);
-			classes.push(nexusClass);
+			let nexusClass = classByNode.get(node);
+			if (!nexusClass) {
+				nexusClass = this.analyzer.getClass(node);
+				classByNode.set(node, nexusClass);
+				classes.push(nexusClass);
+			}
+			scopeClasses.push(nexusClass);
 
 			for (const dependency of nexusClass.dependencies) {
 				this.enqueue(dependency.token, pending, visited);
@@ -52,10 +134,7 @@ export class NexusApplicationAnalyzer {
 			}
 		}
 
-		return {
-			entryPoint: this.getSourceSpan(entryPoint),
-			classes,
-		};
+		return scopeClasses;
 	}
 
 	private enqueue(
