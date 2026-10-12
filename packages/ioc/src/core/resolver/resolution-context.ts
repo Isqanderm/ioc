@@ -7,7 +7,7 @@ export class ResolutionContext {
 	/** Tokens currently being constructed in this tree, outermost first. */
 	readonly path: ProviderToken[] = [];
 	/** onModuleInit promises started during synchronous creation. */
-	readonly pendingInits: Promise<void>[] = [];
+	readonly pendingInits: Promise<unknown>[] = [];
 
 	enter(token: ProviderToken): void {
 		this.path.push(token);
@@ -27,10 +27,40 @@ export class ResolutionContext {
 		return this.path.includes(token);
 	}
 
-	/** Awaits and clears pendingInits in order, including ones added while draining. */
+	/**
+	 * Queues an init promise. A no-op rejection handler is attached right
+	 * away so a failure is never reported as an unhandled rejection before
+	 * drainPendingInits() collects it; the original promise still rejects.
+	 */
+	addPendingInit(promise: Promise<unknown>): void {
+		promise.catch(() => {});
+		this.pendingInits.push(promise);
+	}
+
+	/**
+	 * Waits for every pending init (allSettled semantics), including ones
+	 * added while draining, clears the list, then rethrows the first failure
+	 * in queue order.
+	 */
 	async drainPendingInits(): Promise<void> {
-		while (this.pendingInits.length) {
-			await this.pendingInits.shift();
+		let failed = false;
+		let firstError: unknown;
+		try {
+			while (this.pendingInits.length) {
+				const batch = this.pendingInits.splice(0);
+				const results = await Promise.allSettled(batch);
+				for (const result of results) {
+					if (result.status === "rejected" && !failed) {
+						failed = true;
+						firstError = result.reason;
+					}
+				}
+			}
+		} finally {
+			this.pendingInits.length = 0;
+		}
+		if (failed) {
+			throw firstError;
 		}
 	}
 }

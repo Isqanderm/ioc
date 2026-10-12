@@ -10,8 +10,17 @@ export function formatToken(token: ProviderToken): string {
 
 /** No provider with this token exists in the container or any parent. */
 export class ProviderNotFoundError extends Error {
-	constructor(public readonly token: ProviderToken) {
-		super(`No provider found for token "${formatToken(token)}".`);
+	constructor(
+		public readonly token: ProviderToken,
+		public readonly requestedBy?: ProviderToken,
+	) {
+		super(
+			`No provider found for token "${formatToken(token)}".${
+				requestedBy === undefined
+					? ""
+					: ` (requested by "${formatToken(requestedBy)}" via inject())`
+			}`,
+		);
 		this.name = "ProviderNotFoundError";
 		Object.setPrototypeOf(this, ProviderNotFoundError.prototype);
 	}

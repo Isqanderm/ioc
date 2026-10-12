@@ -1,5 +1,7 @@
 // Re-export shared types and errors
 export { ContainerNotCompiledError, InjectionToken } from "@nexus-ioc/shared";
+export type { InjectOptions } from "./core/injection/injection-context";
+export { inject } from "./core/injection/injection-context";
 export { LazyModuleLoader } from "./core/lazy-module-loader";
 export type { ModuleRefGetOptions } from "./core/module-ref";
 export { ModuleRef } from "./core/module-ref";
@@ -10,8 +12,11 @@ export { Injectable } from "./decorators/injectable";
 export { Module } from "./decorators/module";
 export { Optional } from "./decorators/optional";
 export {
+	AsyncProviderInjectionError,
 	BootstrapError,
+	CircularInjectionError,
 	ContainerClosedError,
+	InjectionContextError,
 	LazyModuleGraphError,
 	LazyModuleLoadError,
 	ProviderNotFoundError,

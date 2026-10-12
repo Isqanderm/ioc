@@ -72,4 +72,31 @@ describe("ResolutionContext", () => {
 		expect(late).toBe(true);
 		expect(ctx.pendingInits).toHaveLength(0);
 	});
+
+	it("drainPendingInits waits for every init, clears the list and throws the first error without unhandled rejections", async () => {
+		const ctx = new ResolutionContext();
+		let laterSettled = false;
+		ctx.pendingInits.push(
+			Promise.reject(new Error("first")),
+			new Promise<void>((_, reject) =>
+				setTimeout(() => {
+					laterSettled = true;
+					reject(new Error("second"));
+				}, 10),
+			),
+		);
+		await expect(ctx.drainPendingInits()).rejects.toThrow("first");
+		// allSettled semantics: the drain only finished after the later init settled
+		expect(laterSettled).toBe(true);
+		expect(ctx.pendingInits).toHaveLength(0);
+	});
+
+	it("addPendingInit marks the promise handled until it is drained", async () => {
+		const ctx = new ResolutionContext();
+		ctx.addPendingInit(Promise.reject(new Error("early")));
+		// let the rejection sit for a macrotask before draining
+		await new Promise((r) => setTimeout(r, 5));
+		await expect(ctx.drainPendingInits()).rejects.toThrow("early");
+		expect(ctx.pendingInits).toHaveLength(0);
+	});
 });

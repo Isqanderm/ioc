@@ -2,6 +2,7 @@ import "reflect-metadata";
 import {
 	Injectable,
 	InjectionToken,
+	inject,
 	Module,
 	type ModuleRef,
 	NexusApplication,
@@ -111,6 +112,18 @@ describe("token type inference", () => {
 				Promise<Config | undefined>
 			>();
 			expectTypeOf(ref.get(Svc)).toEqualTypeOf<Svc | undefined>();
+		};
+		expect(typeof check).toBe("function");
+	});
+
+	it("infers types for inject()", () => {
+		// Type-level only: inject() throws outside an injection context.
+		const check = () => {
+			expectTypeOf(inject(CONFIG)).toEqualTypeOf<Config>();
+			expectTypeOf(inject(CONFIG, { optional: true })).toEqualTypeOf<
+				Config | undefined
+			>();
+			expectTypeOf(inject(Svc)).toEqualTypeOf<Svc>();
 		};
 		expect(typeof check).toBe("function");
 	});
