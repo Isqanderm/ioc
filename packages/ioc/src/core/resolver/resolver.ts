@@ -160,31 +160,19 @@ export class Resolver {
 			return cached;
 		}
 
-		// Check the resolve cache for singletons created earlier in this tree (within current resolution tree)
-		if (ctx.cache.has(token)) {
-			return ctx.cache.get(token);
-		}
-
 		const instance = await this.createInstance(node, ctx, isCircularDependency);
-		this.commitInstance(node, instance, ctx);
+		this.commitInstance(node, instance);
 		return instance as T;
 	}
 
 	/**
 	 * Caching rules shared by the async and sync paths: Singletons go into the
-	 * resolution-tree cache (cycle and identity handling within the tree), the
-	 * global cache and the destroy order. Transient is never cached.
+	 * global cache and the destroy order. Nothing else is cached.
 	 */
-	private commitInstance(
-		node: AnalyzeProvider,
-		instance: unknown,
-		ctx: ResolutionContext,
-	): void {
-		const scope = node.scope;
-		if (scope === Scope.Transient) {
+	private commitInstance(node: AnalyzeProvider, instance: unknown): void {
+		if (node.scope === Scope.Transient) {
 			return;
 		}
-		ctx.cache.set(node.id, instance);
 		// First writer wins if concurrent creations race for the same token.
 		if (!this.providersContainer.has(node.id)) {
 			this.providersContainer.set(node.id, instance);
@@ -193,15 +181,8 @@ export class Resolver {
 	}
 
 	/** Undoes commitInstance for `instance`, if it is still the cached one. */
-	private evictInstance(
-		node: AnalyzeProvider,
-		instance: unknown,
-		ctx: ResolutionContext,
-	): void {
+	private evictInstance(node: AnalyzeProvider, instance: unknown): void {
 		const token = node.id;
-		if (ctx.cache.has(token) && ctx.cache.get(token) === instance) {
-			ctx.cache.delete(token);
-		}
 		if (
 			this.providersContainer.has(token) &&
 			this.providersContainer.get(token) === instance
@@ -250,7 +231,7 @@ export class Resolver {
 							{},
 							{
 								get: (_, prop) => {
-									const instance = ctx.cache.get(edge.target);
+									const instance = this.providersContainer.get(edge.target);
 									return instance?.[prop];
 								},
 							},
@@ -361,9 +342,6 @@ export class Resolver {
 			}
 			return this.providersContainer.get(token);
 		}
-		if (ctx.cache.has(token)) {
-			return ctx.cache.get(token);
-		}
 		return this.createInstanceSync(node, ctx);
 	}
 
@@ -437,13 +415,13 @@ export class Resolver {
 				pendingInit = runInit();
 			}
 
-			this.commitInstance(node, instance, ctx);
+			this.commitInstance(node, instance);
 			if (pendingInit) {
 				// A failed init (own or earlier) must not leave a broken cached
 				// instance. The eviction is chained here, not in a drain, so it
 				// also happens when the requester's constructor throws later.
 				const settled = pendingInit.catch((error) => {
-					this.evictInstance(node, instance, ctx);
+					this.evictInstance(node, instance);
 					throw error;
 				});
 				ctx.addPendingInit(settled);

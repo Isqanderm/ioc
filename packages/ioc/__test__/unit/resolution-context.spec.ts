@@ -5,6 +5,10 @@ describe("ResolutionContext", () => {
 	class A {}
 	class B {}
 
+	it("keeps no instance cache of its own (the resolver's global cache is the only one)", () => {
+		expect("cache" in new ResolutionContext()).toBe(false);
+	});
+
 	it("tracks entered tokens via isConstructing", () => {
 		const ctx = new ResolutionContext();
 		expect(ctx.isConstructing(A)).toBe(false);
