@@ -320,7 +320,10 @@ export class Resolver {
 			}
 			throw new ProviderNotFoundError(token, requester.id);
 		}
-		return this.resolveProviderSync(node as AnalyzeProvider, ctx);
+		const instance = this.resolveProviderSync(node as AnalyzeProvider, ctx);
+		// Idempotent; covers cached and freshly created instances alike.
+		this.graph.addRuntimeDependency(requester.id, (node as AnalyzeProvider).id);
+		return instance;
 	}
 
 	/**

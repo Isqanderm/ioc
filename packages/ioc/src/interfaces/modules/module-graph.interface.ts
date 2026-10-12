@@ -34,7 +34,7 @@ export type Edge = {
 	metadata: {
 		index?: number;
 		key?: string;
-		inject?: "constructor" | "property";
+		inject?: "constructor" | "property" | "runtime";
 		lazy?: boolean;
 		isCircular?: boolean;
 		unreached?: boolean;
@@ -79,6 +79,11 @@ export interface ModuleGraphInterface {
 		moduleContainer: ModuleContainerInterface,
 		token: ProviderToken,
 	): Promise<boolean>;
+	/**
+	 * Records a dependency discovered at runtime by `inject()`. Idempotent;
+	 * keeps the target's module alive while the source's module is loaded.
+	 */
+	addRuntimeDependency(source: ProviderToken, target: ProviderToken): void;
 	getNode(token: ProviderToken): Node | undefined;
 	getEdge(token: ProviderToken): Edge[];
 	getAllNodes(): Node[];

@@ -365,6 +365,32 @@ export class ModuleGraph implements ModuleGraphInterface {
 		// edge references.
 		this.purgeModuleIndexes(moduleTokens);
 
+		// Runtime (inject()) edges are re-discovered on the next creation, so
+		// drop the ones a surviving provider holds to a destroyed provider.
+		const destroyedProviders = new Set<ProviderToken>(providerTokens);
+		for (const [source, edges] of this._edges) {
+			if (destroyedProviders.has(source)) {
+				continue;
+			}
+			if (
+				edges.some(
+					(e) =>
+						e.metadata.inject === "runtime" && destroyedProviders.has(e.target),
+				)
+			) {
+				this._edges.set(
+					source,
+					edges.filter(
+						(e) =>
+							!(
+								e.metadata.inject === "runtime" &&
+								destroyedProviders.has(e.target)
+							),
+					),
+				);
+			}
+		}
+
 		for (const providerToken of providerTokens) {
 			this._nodes.delete(providerToken);
 			this._edges.delete(providerToken);
@@ -402,6 +428,25 @@ export class ModuleGraph implements ModuleGraphInterface {
 			this._moduleProviders.delete(token as string);
 			this._moduleReferrers.delete(token as string);
 		}
+	}
+
+	public addRuntimeDependency(
+		source: ProviderToken,
+		target: ProviderToken,
+	): void {
+		const exists = this.getEdge(source).some(
+			(edge) => edge.type === EdgeTypeEnum.DEPENDENCY && edge.target === target,
+		);
+		if (exists) {
+			return;
+		}
+		this.addEdge(source, {
+			type: EdgeTypeEnum.DEPENDENCY,
+			source,
+			target,
+			metadata: { inject: "runtime", unreached: false, isCircular: false },
+		});
+		this.recordCrossModuleReferrer(source, target, true);
 	}
 
 	public getNode(token: ProviderToken): Node | undefined {
