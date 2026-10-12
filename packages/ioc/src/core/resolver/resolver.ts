@@ -45,17 +45,6 @@ function isThenable(value: unknown): value is PromiseLike<unknown> {
 	);
 }
 
-/**
- * An async singleton factory result that inject() had to abandon, with what
- * the abandoned resolution tree knew about the factory call: the inits its
- * dependencies queued, and the Scoped instances it was given.
- */
-interface PendingFactoryResult {
-	promise: Promise<unknown>;
-	pendingInits: Promise<unknown>[];
-	scopedDeps: Map<ProviderToken, unknown>;
-}
-
 export class Resolver {
 	private readonly providersContainer = new ProvidersContainer();
 	private readonly initializationOrder: ProviderToken[] = [];
@@ -66,17 +55,6 @@ export class Resolver {
 	 * see it half-initialised or keep it after a failed init evicted it.
 	 */
 	private readonly inFlightInits = new Map<ProviderToken, Promise<unknown>>();
-	/**
-	 * Results of async singleton factories that inject() called and then had
-	 * to abandon (AsyncProviderInjectionError). The next asynchronous
-	 * creation adopts the result instead of calling the factory again, so a
-	 * pool or socket it opened is the one the container keeps and destroys.
-	 * An entry is dropped when its promise rejects.
-	 */
-	private readonly pendingFactoryResults = new Map<
-		ProviderToken,
-		PendingFactoryResult
-	>();
 
 	constructor(private readonly graph: ModuleGraphInterface) {}
 
@@ -107,7 +85,6 @@ export class Resolver {
 		this.providersContainer.clear();
 		this.initializationOrder.length = 0;
 		this.inFlightInits.clear();
-		this.pendingFactoryResults.clear();
 		if (errors.length > 0) {
 			throw new AggregateError(
 				errors,
@@ -137,7 +114,6 @@ export class Resolver {
 		}
 		for (const token of dead) {
 			this.inFlightInits.delete(token);
-			this.pendingFactoryResults.delete(token);
 		}
 
 		const survivors = this.initializationOrder.filter(
@@ -264,10 +240,6 @@ export class Resolver {
 		isCircularDependency: boolean,
 	): Promise<unknown> {
 		const provider = node.metatype;
-		const adopted = this.takePendingFactoryResult(node);
-		if (adopted) {
-			return this.adoptFactoryResult(provider, adopted, ctx);
-		}
 		const dependencyEdges = this.constructorEdges(node).filter(
 			(edge) => edge.metadata.unreached === false,
 		);
@@ -335,16 +307,7 @@ export class Resolver {
 		// onModuleInit of providers created via inject() must finish before
 		// this instance's own onModuleInit runs.
 		await ctx.drainPendingInits();
-		await this.callInit(provider, instance);
 
-		return instance;
-	}
-
-	private async callInit(
-		provider: Provider,
-		// biome-ignore lint/suspicious/noExplicitAny: provider instance
-		instance: any,
-	): Promise<void> {
 		if (instance?.onModuleInit) {
 			try {
 				await instance.onModuleInit();
@@ -352,57 +315,7 @@ export class Resolver {
 				throw this.wrapInitError(provider, error);
 			}
 		}
-	}
 
-	/** Removes and returns the abandoned async factory result for a singleton. */
-	private takePendingFactoryResult(
-		node: AnalyzeProvider,
-	): PendingFactoryResult | undefined {
-		const pending = this.pendingFactoryResults.get(node.id);
-		if (pending) {
-			this.pendingFactoryResults.delete(node.id);
-		}
-		return pending;
-	}
-
-	/**
-	 * Finishes creating a singleton whose factory already ran inside a
-	 * failed inject(), in place of calling the factory again (and resolving
-	 * its dependencies again). The caller commits the result as usual.
-	 */
-	private async adoptFactoryResult(
-		provider: Provider,
-		adopted: PendingFactoryResult,
-		ctx: ResolutionContext,
-	): Promise<unknown> {
-		// The factory holds the Scoped instances of the abandoned tree; this
-		// tree must share them, as it would had it called the factory itself.
-		for (const [token, instance] of adopted.scopedDeps) {
-			if (!ctx.cache.has(token)) {
-				ctx.cache.set(token, instance);
-			}
-		}
-		// The inits the factory's dependencies queued in the abandoned tree
-		// must finish before this instance's own onModuleInit.
-		const results = await Promise.allSettled(adopted.pendingInits);
-		const failed = results.find(
-			(result): result is PromiseRejectedResult => result.status === "rejected",
-		);
-		if (failed) {
-			// A dependency failed to initialise (and was evicted), so the
-			// result is discarded: not committed, and the next attempt calls
-			// the factory afresh. Its settlement is awaited only so that
-			// nothing is left running unobserved. onModuleDestroy is not
-			// called on it, because it never received onModuleInit.
-			await adopted.promise.then(
-				() => undefined,
-				() => undefined,
-			);
-			throw failed.reason;
-		}
-		const instance = await adopted.promise;
-		await ctx.drainPendingInits();
-		await this.callInit(provider, instance);
 		return instance;
 	}
 
@@ -453,14 +366,10 @@ export class Resolver {
 			}
 			return this.providersContainer.get(token);
 		}
-		const instance =
-			node.scope !== Scope.Transient && ctx.cache.has(token)
-				? ctx.cache.get(token)
-				: this.createInstanceSync(node, ctx);
-		if (node.scope === Scope.Scoped) {
-			ctx.recordScoped(token, instance);
+		if (node.scope !== Scope.Transient && ctx.cache.has(token)) {
+			return ctx.cache.get(token);
 		}
-		return instance;
+		return this.createInstanceSync(node, ctx);
 	}
 
 	/** Resolves a static @Inject edge on the synchronous path. */
@@ -490,14 +399,8 @@ export class Resolver {
 		ctx: ResolutionContext,
 	): unknown {
 		ctx.enter(node.id);
-		const provider = node.metatype;
-		// Scoped instances this factory call receives, kept in case its
-		// result has to be adopted by another resolution tree.
-		const scopedDeps =
-			isFactoryProvider(provider) && node.scope === Scope.Singleton
-				? ctx.startScopedRecording()
-				: undefined;
 		try {
+			const provider = node.metatype;
 			const deps = this.constructorEdges(node).map((edge) =>
 				this.resolveEdgeSync(edge, ctx),
 			);
@@ -508,20 +411,13 @@ export class Resolver {
 			if (isValueProvider(provider)) {
 				instance = provider.useValue;
 			} else if (isFactoryProvider(provider)) {
-				if (this.pendingFactoryResults.has(node.id)) {
-					// Already called by an earlier inject(); its result is still
-					// waiting to be adopted by an asynchronous creation.
-					throw new AsyncProviderInjectionError(node.id, [...ctx.path]);
-				}
 				const result = withInjectionContext(injectionContext, () =>
 					provider.useFactory(...deps),
 				);
 				if (isThenable(result)) {
-					this.keepFactoryResult(node, result, {
-						pendingInits: [...ctx.pendingInits],
-						scopedDeps: new Map(scopedDeps),
-					});
-					throw new AsyncProviderInjectionError(node.id, [...ctx.path]);
+					// Never leave the abandoned promise rejecting unhandled.
+					result.then(undefined, () => {});
+					throw new AsyncProviderInjectionError(node.id);
 				}
 				instance = result;
 			} else {
@@ -568,34 +464,8 @@ export class Resolver {
 			}
 			return instance;
 		} finally {
-			if (scopedDeps) {
-				ctx.stopScopedRecording(scopedDeps);
-			}
 			ctx.leave(node.id);
 		}
-	}
-
-	/**
-	 * Keeps an async singleton factory's result for adoption by the next
-	 * asynchronous creation. Scoped and Transient results are not reused.
-	 * The rejection handler also prevents an unhandled rejection.
-	 */
-	private keepFactoryResult(
-		node: AnalyzeProvider,
-		result: PromiseLike<unknown>,
-		context: Omit<PendingFactoryResult, "promise">,
-	): void {
-		const promise = Promise.resolve(result);
-		const entry: PendingFactoryResult = { promise, ...context };
-		const adoptable = node.scope === Scope.Singleton;
-		if (adoptable) {
-			this.pendingFactoryResults.set(node.id, entry);
-		}
-		promise.catch(() => {
-			if (adoptable && this.pendingFactoryResults.get(node.id) === entry) {
-				this.pendingFactoryResults.delete(node.id);
-			}
-		});
 	}
 
 	/** Registers `init` as the in-flight init of a just-committed singleton. */

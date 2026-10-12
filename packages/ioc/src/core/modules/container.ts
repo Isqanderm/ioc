@@ -1,7 +1,6 @@
 import "reflect-metadata";
 import { ContainerNotCompiledError } from "@nexus-ioc/shared";
 import {
-	AsyncProviderInjectionError,
 	ContainerClosedError,
 	LazyModuleGraphError,
 	LazyModuleLoadError,
@@ -237,43 +236,10 @@ export class Container implements ContainerInterface {
 				passes[pass].push(token);
 			}
 		}
-		const [values, factories, classes] = passes;
-		for (const token of values) {
-			await this.moduleGraphResolver.resolveProvider(token);
-		}
-		await this.instantiateFactories(factories);
-		for (const token of classes) {
-			await this.moduleGraphResolver.resolveProvider(token);
-		}
-	}
-
-	/**
-	 * A factory can inject() a class that needs an async factory declared
-	 * after it. Such a factory fails with AsyncProviderInjectionError; it is
-	 * moved to the end of the queue and retried while each round creates at
-	 * least one factory. A round without progress rethrows the last error.
-	 */
-	private async instantiateFactories(tokens: ProviderToken[]): Promise<void> {
-		const resolver = this.moduleGraphResolver as Resolver;
-		let queue = tokens;
-		while (queue.length > 0) {
-			const retry: ProviderToken[] = [];
-			let lastError: AsyncProviderInjectionError | undefined;
-			for (const token of queue) {
-				try {
-					await resolver.resolveProvider(token);
-				} catch (error) {
-					if (!(error instanceof AsyncProviderInjectionError)) {
-						throw error;
-					}
-					retry.push(token);
-					lastError = error;
-				}
+		for (const pass of passes) {
+			for (const token of pass) {
+				await this.moduleGraphResolver.resolveProvider(token);
 			}
-			if (lastError && retry.length === queue.length) {
-				throw lastError;
-			}
-			queue = retry;
 		}
 	}
 

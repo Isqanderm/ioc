@@ -255,10 +255,8 @@ A provider whose factory returns a promise can be injected only if it already
 exists; otherwise `inject()` throws `AsyncProviderInjectionError`. To make that
 rare, `bootstrap()` creates singletons in this order: value providers, then
 factory providers, then class providers. A class provider can therefore
-`inject()` an async-factory provider. A factory that `inject()`s a class which
-needs an async factory declared after it is retried once the other factories
-are created; the async factory is not called again, its first result is
-reused. This ordering only applies to `bootstrap()`: with `.lazy()` nothing
+`inject()` an async-factory provider. This ordering only applies to
+`bootstrap()`: with `.lazy()` nothing
 is created up front, so `inject()` of an async-factory provider (directly or
 through a class that `@Inject`s it) throws `AsyncProviderInjectionError` unless
 that provider was already resolved. The error message shows the chain, for
