@@ -20,7 +20,6 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 - `get()`/`resolve()` infer the result type from the token. For string and symbol tokens the result is `unknown` unless you pass `<T>` or the expected type supplies it.
 - `ProviderToken<T>` no longer includes `Function`, and `Abstract<T>` is now an abstract construct signature (`abstract new (...args) => T`). A plain function, or a class unrelated to `T` (`get<Foo>(Bar)`), is a compile error instead of inferring `any`.
 - Classes with a `private` or `protected` constructor can no longer be used as tokens, because the container cannot construct them. Use an `InjectionToken` instead.
-
 - `NexusApplication.setParent()`, `getParent()` and the parent fallback they enabled are removed. The only way to get a child container is `parent.createChild(...)`. Migrate `NexusApplication.create(X).setParent(app).bootstrap()` by declaring `X` in `children` of the module that owns it and calling `await app.createChild(X)`. A child now sees what its declaring module sees in the parent, not the whole parent.
 - `close()` now closes the live child containers first (newest first, their errors join the `AggregateError`); it no longer leaves them running. Unloading a lazy module closes the children declared by the modules it destroys, and `UnloadResult` has a new `closedChildren` count.
 
@@ -36,6 +35,9 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ### Notes
 
+- New `ProviderUnloadedError`: a `resolve()` that is still creating a singleton when an unload destroys its module rejects with it; the new instance is destroyed (its `onModuleDestroy` is called on a best-effort basis) instead of cached. After `close()` the same case rejects with `ContainerClosedError`.
+- Unloading a lazy module runs every `onModuleDestroy` even if some throw and rejects with one `AggregateError`, like `close()`. The module is unloaded anyway (`ref.loaded` is `false`) and can be loaded again; previously a throwing hook left it impossible to reload.
+- `NexusApplication.create(root, { hashFn })` now uses the given hash class (it was ignored) and passes it on to child containers.
 - Concurrent `resolve()` of the same singleton creates it once. Under `.lazy()`, or while a `load()` warm-up is still creating a singleton, `inject()` of it throws `ProviderNotInstantiatedError`.
 - Async `onModuleInit` is still supported: it is awaited at bootstrap, `inject()`ed dependencies finish their init before the requester's `onModuleInit`, a singleton whose init fails is evicted, `get()` throws `ProviderNotInstantiatedError` while an init is in flight, and a wrapped init error has `.cause`.
 

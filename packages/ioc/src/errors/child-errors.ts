@@ -10,7 +10,7 @@ export class ChildModuleNotDeclaredError extends Error {
 	) {
 		super(
 			reason === "unloaded"
-				? `The module declaring child "${moduleName}" was unloaded while the child was being created; the child was closed. Load the declaring module again and call createChild() anew.`
+				? `The module declaring child "${moduleName}" was unloaded while the child was being created, so no child was returned (one already started was closed). Load the declaring module again and call createChild() anew.`
 				: `Module "${moduleName}" is not declared as a child of any module in this application. Add it to @Module({ children: [...] }) of the module whose providers it should see.`,
 		);
 		this.name = "ChildModuleNotDeclaredError";

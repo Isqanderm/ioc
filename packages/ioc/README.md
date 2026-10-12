@@ -396,6 +396,11 @@ await app.close();
   unsubscribe in `onModuleDestroy`.
 - A `resolve()` that is still in flight when `close()` is called is not
   awaited, so await your `resolve()` calls before closing.
+- A singleton that such a `resolve()` is still creating when `close()` runs,
+  or when an unload destroys its module, is not cached. Its `onModuleDestroy`
+  is called on a best-effort basis, and the `resolve()` rejects with
+  `ContainerClosedError` (after `close()`) or `ProviderUnloadedError` (after
+  an unload).
 
 ## Lazy Modules
 
@@ -505,7 +510,9 @@ const { destroyedModules, destroyedProviders, closedChildren } =
   a nested lazy module loaded from inside the one being unloaded, are all left
   running.
 - `onModuleDestroy` runs on affected singletons in reverse initialization
-  order. `ref.loaded` becomes `false`, and `ref.get()` and `ref.resolve()` return
+  order. A hook that throws does not stop the others, and the module is
+  unloaded anyway (it can be loaded again); the unload then rejects with one
+  `AggregateError` holding every failure, as `close()` does. `ref.loaded` becomes `false`, and `ref.get()` and `ref.resolve()` return
   `undefined` for every token afterward — the ref does not come back to life; loading the
   same `lazy()` ref again returns a new `ModuleRef`.
 - Unloading a ref that was never loaded, or unloading it twice, is a no-op:
@@ -587,6 +594,11 @@ await profile.close();
 profile = await app.createChild(ProfileModule.forProfile('b'));
 ```
 
+`createChild()` is a method of the application, not something a provider can
+inject: there is no DI handle for it yet. Keep the `app` at the composition
+root and pass it (or a function that calls `app.createChild()`) to whatever
+switches profiles.
+
 `createChild()` returns a `NexusApplication` that is already bootstrapped, with
 its singletons created. As with any dynamic module, the `providers` of the
 `DynamicModule` object are used instead of the ones in the class's `@Module`
@@ -650,7 +662,7 @@ createChild(
 
 - `ChildModuleNotDeclaredError` — no module declares the child. Its `reason`
   is `"unloaded"` when the lazy module that declares it was unloaded while the
-  child was being created (the child is closed then).
+  child was being created (a child that had already been started is closed).
 - `ContainerNotCompiledError` — the parent is not bootstrapped.
 - `ContainerClosedError` — the parent is closed or closing. It wins when the
   parent closes during creation.
@@ -671,6 +683,14 @@ the parent's.
   `{ optional: true }`).
 - After the parent closes, lookups through the link throw
   `ContainerClosedError`, even with `{ optional: true }`.
+- A child that imports a module itself gets its own instances of that
+  module's providers. If `ProfileModule` imports `HttpModule`, every profile
+  has a second `HttpClient` singleton, separate from the parent's. To share the
+  parent's instance, do not import the module in the child; let the token come
+  through the declaring module's visibility (here, `AppModule` imports
+  `HttpModule`).
+- Scanner plugins added with `addScannerPlugin()` are not inherited: they run
+  on the parent's graph only, never on a child's.
 
 ### Scopes across the boundary
 
@@ -701,9 +721,9 @@ the parent's.
   `closedChildren` count of the closes that unload itself started (a child that
   was already closing is not counted). A child-close error and a
   provider-destroy error during one unload are joined into one `AggregateError`.
-- A child creation that completes after `close()` or an unload is not cached.
-  Its `onModuleDestroy` is called on a best-effort basis, and the caller gets
-  `ContainerClosedError` or `ProviderUnloadedError`.
+- A singleton creation that completes after `close()` or an unload is not
+  cached, in a child as in any application; see
+  [Lifecycle and close()](#lifecycle-and-close).
 - A child's `onModuleDestroy` that awaits `parent.load()` or `parent.unload()`
   while that parent is unloading hangs, because the parent's compile queue is
   busy. After an unload that is not followed by a reload, a stalled async tree
@@ -739,6 +759,12 @@ each child scope's dependencies with the declaring module's visibility as the
 fallback, and the graph-analyzer reports child scopes. The language service
 suppresses missing-dependency errors in a child scope when the declaring module
 can see the token. See [graph-analyzer](../graph-analyzer/README.md).
+
+Known limitation: static tooling only sees what the source declares. Tokens a
+child gets per instance (the `providers` of `forProfile()` or another dynamic
+module, or `createChild(..., { providers })`) are invisible to it, so the
+language service and the type-checker may report them as missing even though
+the application runs.
 
 ## Testing
 

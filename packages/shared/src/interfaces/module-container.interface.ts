@@ -13,7 +13,11 @@ export interface ModuleContainerInterface {
 	resolvedImports: ModuleContainerInterface[] | undefined;
 	/** Lazy imports declared by this module; never registered until loaded. */
 	lazyImports: LazyModule[];
-	/** Child modules declared via `@Module({ children })`; `[]` for dynamic modules. */
+	/**
+	 * Child modules declared via `@Module({ children })`. Always read from the
+	 * module class's decorator metadata, so a dynamic module reports its
+	 * class's children (a `DynamicModule` object cannot declare its own).
+	 */
 	children: readonly (Module | LazyModule)[];
 	providers: Provider[];
 	exports: (ProviderToken | Module)[];

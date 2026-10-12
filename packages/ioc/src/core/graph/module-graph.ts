@@ -581,8 +581,8 @@ export class ModuleGraph implements ModuleGraphInterface {
 			if (existing === undefined) {
 				this._childDeclarations.set(key, analyzeModule.id);
 			} else if (existing !== analyzeModule.id) {
-				// defensive: a module is only added once, but never report itself
-
+				// A second declarer; a module meeting its own entry is only
+				// listing the child twice, which is not an error.
 				this.pushError({
 					type: "CHILD_DECLARED_TWICE",
 					child: child.name,
@@ -711,13 +711,17 @@ export class ModuleGraph implements ModuleGraphInterface {
 	 * regardless of how the dependency was resolved (own module, import, or
 	 * `@Global()` fallback) — the edge already reflects that, so this needs
 	 * no help from `isProviderExported`.
+	 *
+	 * @param countsAsReferrer - False for an edge that keeps nothing in this
+	 *   graph alive: an unreached dependency, or an external one (resolved
+	 *   through the parent link, so its target lives in another container).
 	 */
 	private recordCrossModuleReferrer(
 		consumerToken: ProviderToken,
 		dependencyToken: ProviderToken,
-		isExported: boolean,
+		countsAsReferrer: boolean,
 	) {
-		if (!isExported) {
+		if (!countsAsReferrer) {
 			return;
 		}
 

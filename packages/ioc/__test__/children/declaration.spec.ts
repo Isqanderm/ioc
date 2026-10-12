@@ -92,6 +92,9 @@ describe("@Module children", () => {
 		}
 		@Module({ imports: [Variant.forX("a"), Variant.forX("b")] })
 		class Root {}
+		await expect(NexusApplication.create(Root).bootstrap()).rejects.toThrow(
+			/declared as a child by two module instances of Variant \(e\.g\. different forX\(\) variants of it\)/,
+		);
 		const container = new Container(new HashUtil());
 		await container.run(Root);
 		expect(container.graph.errors).toEqual([

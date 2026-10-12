@@ -38,7 +38,7 @@ export class ProviderNotInstantiatedError extends Error {
 		super(
 			reason === "creation-in-flight"
 				? `Provider "${formatToken(token)}" is still being created by another resolve(), and inject() cannot wait for it. Await that resolve() before creating a provider that inject()s it.`
-				: `Provider "${formatToken(token)}" is not instantiated yet. Use resolve() to create it, or bootstrap without lazy().`,
+				: `Provider "${formatToken(token)}" is not instantiated yet. Use resolve() to create it, or bootstrap the application that provides it (for a child application, possibly its parent) without lazy().`,
 		);
 		this.name = "ProviderNotInstantiatedError";
 		Object.setPrototypeOf(this, ProviderNotInstantiatedError.prototype);
