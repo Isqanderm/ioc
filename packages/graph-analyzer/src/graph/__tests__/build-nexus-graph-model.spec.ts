@@ -216,4 +216,50 @@ NexusApplicationServer.create(AppModule).bootstrap();
 			"ServiceA",
 		]);
 	});
+
+	it("labels an InjectionToken provider by its variable name", () => {
+		const files = new Map<string, string>([
+			[
+				"/app/main.ts",
+				`import { InjectionToken, Module } from "@nexus-ioc/core";
+import { NexusApplicationServer } from "./server";
+
+export const CONFIG = new InjectionToken<{ url: string }>("CONFIG");
+
+@Module({
+  providers: [{ provide: CONFIG, useValue: { url: "x" } }],
+  exports: [CONFIG],
+})
+export class AppModule {}
+
+NexusApplicationServer.create(AppModule).bootstrap();
+`,
+			],
+			[
+				"/app/server.ts",
+				`export class NexusApplicationServer {
+  static create(_module: unknown): NexusApplicationServer {
+    return new NexusApplicationServer();
+  }
+  bootstrap(): void {}
+}
+`,
+			],
+		]);
+		const { program, entryFileName } = createProgram(files);
+		const entryPoint = findApplicationEntryPoint(program, entryFileName);
+		if (!entryPoint) throw new Error("Entry point not found");
+
+		const analyzer = createNexusAnalyzer(program);
+		const application =
+			createNexusApplicationAnalyzer(analyzer).analyze(entryPoint);
+
+		const graphModel = buildNexusGraphModel(application);
+
+		const appModule = graphModel.modules.get(graphModel.entryModuleId);
+		expect(appModule?.providers).toHaveLength(1);
+		expect(appModule?.providers[0].token).toBe("CONFIG");
+		expect(appModule?.providers[0].id).toContain("/app/main.ts:");
+		expect(appModule?.exports.map((entry) => entry.name)).toEqual(["CONFIG"]);
+	});
 });

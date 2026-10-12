@@ -721,3 +721,151 @@ describe("NexusAnalyzer", () => {
 		expect(service.undeclaredDependencies).toHaveLength(3);
 	});
 });
+
+function createMultiFileProgram(files: Map<string, string>): ts.Program {
+	const options: ts.CompilerOptions = {
+		target: ts.ScriptTarget.ES2022,
+		module: ts.ModuleKind.CommonJS,
+		moduleResolution: ts.ModuleResolutionKind.NodeJs,
+		experimentalDecorators: true,
+		strict: true,
+		skipLibCheck: true,
+	};
+	const nexusCoreTypes = path.resolve(
+		process.cwd(),
+		"../ioc/dist/types/index.d.ts",
+	);
+	const defaultHost = ts.createCompilerHost(options, true);
+	const host: ts.CompilerHost = {
+		...defaultHost,
+		fileExists: (fileName) =>
+			files.has(fileName) || defaultHost.fileExists(fileName),
+		readFile: (fileName) =>
+			files.get(fileName) ?? defaultHost.readFile(fileName),
+		getSourceFile: (fileName, languageVersion) => {
+			const text = files.get(fileName);
+			if (text !== undefined) {
+				return ts.createSourceFile(fileName, text, languageVersion, true);
+			}
+			return defaultHost.getSourceFile(fileName, languageVersion);
+		},
+		resolveModuleNames: (moduleNames, containingFile) =>
+			moduleNames.map((moduleName) => {
+				if (moduleName === "@nexus-ioc/core") {
+					return {
+						resolvedFileName: nexusCoreTypes,
+						extension: ts.Extension.Dts,
+						isExternalLibraryImport: true,
+					};
+				}
+				if (moduleName.startsWith(".")) {
+					const resolvedFileName = `${path.posix.join(
+						path.posix.dirname(containingFile),
+						moduleName,
+					)}.ts`;
+					if (files.has(resolvedFileName)) {
+						return {
+							resolvedFileName,
+							extension: ts.Extension.Ts,
+							isExternalLibraryImport: false,
+						};
+					}
+				}
+				return ts.resolveModuleName(moduleName, containingFile, options, host)
+					.resolvedModule;
+			}),
+	};
+	return ts.createProgram([...files.keys()], options, host);
+}
+
+describe("InjectionToken identity", () => {
+	it("gives the same id to @Inject(CONFIG) and { provide: CONFIG } across a re-export", () => {
+		const program = createMultiFileProgram(
+			new Map([
+				[
+					"/app/tokens.ts",
+					`import { InjectionToken } from "@nexus-ioc/core";
+export const CONFIG = new InjectionToken<{ url: string }>("CONFIG");
+`,
+				],
+				["/app/index.ts", `export { CONFIG } from "./tokens";\n`],
+				[
+					"/app/app.module.ts",
+					`import { Module } from "@nexus-ioc/core";
+import { CONFIG } from "./index";
+
+@Module({ providers: [{ provide: CONFIG, useValue: { url: "x" } }] })
+export class AppModule {}
+`,
+				],
+				[
+					"/app/svc.ts",
+					`import { Inject, Injectable } from "@nexus-ioc/core";
+import { CONFIG } from "./tokens";
+
+@Injectable()
+export class Svc {
+  constructor(@Inject(CONFIG) cfg: { url: string }) {}
+}
+`,
+				],
+			]),
+		);
+		const analyzer = createNexusAnalyzer(program);
+		const moduleFile = program.getSourceFile("/app/app.module.ts");
+		const svcFile = program.getSourceFile("/app/svc.ts");
+		if (!moduleFile || !svcFile) throw new Error("Source files not created");
+
+		const appModule = analyzer.getClass(getClass(moduleFile, "AppModule"));
+		const svc = analyzer.getClass(getClass(svcFile, "Svc"));
+
+		const providerToken = appModule.module?.providers[0].provide;
+		const dependencyToken = svc.dependencies[0].token;
+		expect(providerToken?.kind).toBe("reference");
+		expect(dependencyToken?.kind).toBe("reference");
+		if (
+			providerToken?.kind !== "reference" ||
+			dependencyToken?.kind !== "reference"
+		) {
+			throw new Error("InjectionToken was not resolved to a reference");
+		}
+		expect(providerToken.symbol.getName()).toBe("CONFIG");
+		expect(dependencyToken.id).toBe(providerToken.id);
+		expect(dependencyToken.id).toContain("/app/tokens.ts:");
+	});
+
+	it("gives different ids to two InjectionTokens with the same description", () => {
+		const program = createMultiFileProgram(
+			new Map([
+				[
+					"/app/tokens.ts",
+					`import { InjectionToken } from "@nexus-ioc/core";
+export const A = new InjectionToken<string>("SAME");
+export const B = new InjectionToken<string>("SAME");
+`,
+				],
+				[
+					"/app/svc.ts",
+					`import { Inject, Injectable } from "@nexus-ioc/core";
+import { A, B } from "./tokens";
+
+@Injectable()
+export class Svc {
+  constructor(@Inject(A) a: string, @Inject(B) b: string) {}
+}
+`,
+				],
+			]),
+		);
+		const analyzer = createNexusAnalyzer(program);
+		const svcFile = program.getSourceFile("/app/svc.ts");
+		if (!svcFile) throw new Error("Source file not created");
+
+		const svc = analyzer.getClass(getClass(svcFile, "Svc"));
+		const [a, b] = svc.dependencies.map((dependency) => dependency.token);
+		if (a?.kind !== "reference" || b?.kind !== "reference") {
+			throw new Error("InjectionToken was not resolved to a reference");
+		}
+		expect(a.id).not.toBe(b.id);
+	});
+});
