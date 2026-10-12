@@ -1,6 +1,6 @@
 {
   "name": "nexus-ioc-graph-visualizer",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Graph visualizer for Nexus-IoC Container",
   "author": "Isqanderm <aleksandr.melnik.personal@gmail.com> (https://www.linkedin.com/in/isqander-melnik)",
   "homepage": "https://github.com/Isqanderm/ioc#readme",
@@ -39,8 +39,8 @@
   "type": "commonjs",
   "license": "MIT",
   "dependencies": {
-    "@nexus-ioc/graph-analyzer": "*",
-    "@nexus-ioc/type-checker": "*",
+    "@nexus-ioc/graph-analyzer": "^0.2.0",
+    "@nexus-ioc/type-checker": "^0.2.0",
     "typescript": "^5.9.3"
   },
   "devDependencies": {

@@ -1,6 +1,6 @@
 {
 	"name": "@nexus-ioc/type-checker",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Framework-agnostic type-checking logic for Nexus IoC dependency injection - shared by language service plugins, ESLint plugins, and CLI tools",
 	"author": "Isqanderm <aleksandr.melnik.personal@gmail.com> (https://www.linkedin.com/in/isqander-melnik)",
 	"homepage": "https://github.com/Isqanderm/ioc#readme",
@@ -57,5 +57,8 @@
 	},
 	"peerDependencies": {
 		"typescript": ">=4.0.0"
+	},
+	"publishConfig": {
+		"access": "public"
 	}
 }
