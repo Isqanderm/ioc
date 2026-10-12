@@ -434,41 +434,46 @@ export class Container implements ContainerInterface {
 
 			const result = this.graph.unloadSegment(lazyModule, protectedRoots);
 
-			// Children declared by a destroyed module go first, while the
-			// providers they hold through their link are still alive. Their
-			// failures are reported after the unload has finished.
-			let closedChildren = 0;
-			let childFailure: unknown;
-			if (this.unloadingHook && result.destroyedModules.length > 0) {
-				const closing = await this.unloadingHook(result.destroyedModules);
-				closedChildren = closing.closed;
-				childFailure = closing.error;
-			}
-
+			// The graph has dropped the segment, so whatever fails below, the
+			// container forgets it too (see the finally); otherwise the ref
+			// could never be loaded again.
 			try {
-				await this.moduleGraphResolver?.destroy(result.destroyedProviders);
-			} catch (error) {
-				if (childFailure === undefined) {
-					throw error;
+				// Children declared by a destroyed module go first, while the
+				// providers they hold through their link are still alive. Their
+				// failures are reported after the unload has finished.
+				let closedChildren = 0;
+				let childFailure: unknown;
+				if (this.unloadingHook && result.destroyedModules.length > 0) {
+					const closing = await this.unloadingHook(result.destroyedModules);
+					closedChildren = closing.closed;
+					childFailure = closing.error;
 				}
-				// Neither failure is dropped.
-				throw new AggregateError(
-					[...errorList(childFailure), ...errorList(error)],
-					"Unloading failed: child applications and onModuleDestroy hooks",
-				);
-			}
 
-			for (const moduleToken of result.destroyedModules) {
-				this.modulesContainer.removeModule(moduleToken);
-			}
+				try {
+					// Runs every hook and empties the cache even if some throw.
+					await this.moduleGraphResolver?.destroy(result.destroyedProviders);
+				} catch (error) {
+					if (childFailure === undefined) {
+						throw error;
+					}
+					// Neither failure is dropped.
+					throw new AggregateError(
+						[...errorList(childFailure), ...errorList(error)],
+						"Unloading failed: child applications and onModuleDestroy hooks",
+					);
+				}
 
-			this.segments.delete(lazyModule.id);
-			this.loadedSegments.delete(lazyModule.id);
-
-			if (childFailure !== undefined) {
-				throw childFailure;
+				if (childFailure !== undefined) {
+					throw childFailure;
+				}
+				return { ...result, closedChildren };
+			} finally {
+				for (const moduleToken of result.destroyedModules) {
+					this.modulesContainer.removeModule(moduleToken);
+				}
+				this.segments.delete(lazyModule.id);
+				this.loadedSegments.delete(lazyModule.id);
 			}
-			return { ...result, closedChildren };
 		});
 	}
 

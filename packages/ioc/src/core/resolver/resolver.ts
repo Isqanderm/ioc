@@ -153,6 +153,9 @@ export class Resolver {
 	 * initialization order, then removed from the cache and from
 	 * `initializationOrder`. A token that was never instantiated (never
 	 * resolved, or `Transient`/non-singleton scope) is silently skipped.
+	 * Like `close()`, every hook runs even if some throw, the cleanup always
+	 * completes, and the failures are thrown afterwards as one
+	 * `AggregateError`.
 	 */
 	public async destroy(tokens: ProviderToken[]): Promise<void> {
 		const dead = new Set(tokens);
@@ -166,10 +169,15 @@ export class Resolver {
 			dead.has(token),
 		);
 
+		const errors: unknown[] = [];
 		for (const token of [...orderedDead].reverse()) {
 			const instance = this.providersContainer.get(token);
 			if (instance?.onModuleDestroy) {
-				await instance.onModuleDestroy();
+				try {
+					await instance.onModuleDestroy();
+				} catch (error) {
+					errors.push(error);
+				}
 			}
 			this.providersContainer.delete(token);
 		}
@@ -179,6 +187,12 @@ export class Resolver {
 		);
 		this.initializationOrder.length = 0;
 		this.initializationOrder.push(...survivors);
+		if (errors.length > 0) {
+			throw new AggregateError(
+				errors,
+				"One or more onModuleDestroy hooks failed",
+			);
+		}
 	}
 
 	public async resolveProvider<T>(

@@ -1,3 +1,5 @@
+import { ContainerNotCompiledError } from "@nexus-ioc/shared";
+import { ContainerClosedError } from "../errors";
 import type {
 	ContainerInterface,
 	GraphSegment,
@@ -95,8 +97,21 @@ export class ModuleRef {
 			};
 		}
 
-		const result = await this.container.unload(this.segment.lazyModule);
-		this._loaded = false;
-		return result;
+		try {
+			const result = await this.container.unload(this.segment.lazyModule);
+			this._loaded = false;
+			return result;
+		} catch (error) {
+			// A closed or not-compiled container refuses before unloading
+			// anything. Any other failure (an onModuleDestroy hook, a child's
+			// close) comes after the segment was dropped, so it is unloaded.
+			if (
+				!(error instanceof ContainerClosedError) &&
+				!(error instanceof ContainerNotCompiledError)
+			) {
+				this._loaded = false;
+			}
+			throw error;
+		}
 	}
 }

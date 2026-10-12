@@ -34,7 +34,6 @@ describe("Resolver.destroy", () => {
 		await container.resolve(B);
 		await container.resolve(Kept);
 
-		// biome-ignore lint/complexity/useLiteralKeys: private field, test-only
 		const resolver = (
 			container as unknown as {
 				moduleGraphResolver: {
@@ -61,7 +60,6 @@ describe("Resolver.destroy", () => {
 		const container = new Container(new HashUtil());
 		await container.run(AppModule);
 
-		// biome-ignore lint/complexity/useLiteralKeys: private field, test-only
 		const resolver = (
 			container as unknown as {
 				moduleGraphResolver: {
@@ -71,5 +69,58 @@ describe("Resolver.destroy", () => {
 		).moduleGraphResolver;
 
 		await expect(resolver.destroy([Untouched])).resolves.toBeUndefined();
+	});
+
+	it("runs every hook even if some throw, clears the cache, then throws one AggregateError", async () => {
+		const calls: string[] = [];
+		const boomA = new Error("A");
+		const boomC = new Error("C");
+		@Injectable()
+		class A {
+			onModuleDestroy() {
+				calls.push("A");
+				throw boomA;
+			}
+		}
+		@Injectable()
+		class B {
+			onModuleDestroy() {
+				calls.push("B");
+			}
+		}
+		@Injectable()
+		class C {
+			onModuleDestroy() {
+				calls.push("C");
+				throw boomC;
+			}
+		}
+		@Module({ providers: [A, B, C] })
+		class AppModule {}
+
+		const container = new Container(new HashUtil());
+		await container.run(AppModule);
+		await container.resolve(A);
+		await container.resolve(B);
+		await container.resolve(C);
+
+		const resolver = (
+			container as unknown as {
+				moduleGraphResolver: {
+					destroy(tokens: unknown[]): Promise<void>;
+					initializationOrder: unknown[];
+					providersContainer: { has(token: unknown): boolean };
+				};
+			}
+		).moduleGraphResolver;
+
+		const error = await resolver.destroy([A, B, C]).catch((e) => e);
+
+		expect(calls).toEqual(["C", "B", "A"]);
+		expect(error).toBeInstanceOf(AggregateError);
+		expect((error as AggregateError).errors).toEqual([boomC, boomA]);
+		expect(resolver.initializationOrder).toEqual([]);
+		expect(resolver.providersContainer.has(A)).toBe(false);
+		expect(resolver.providersContainer.has(C)).toBe(false);
 	});
 });
