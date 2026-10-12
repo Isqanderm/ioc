@@ -26,11 +26,19 @@ export class ProviderNotFoundError extends Error {
 	}
 }
 
-/** The singleton exists but has not been created yet (lazy mode or not loaded). */
+/**
+ * The singleton exists but has not been created yet (lazy mode or not
+ * loaded), or inject() met it while another resolution is still creating it.
+ */
 export class ProviderNotInstantiatedError extends Error {
-	constructor(public readonly token: ProviderToken) {
+	constructor(
+		public readonly token: ProviderToken,
+		reason: "not-created" | "creation-in-flight" = "not-created",
+	) {
 		super(
-			`Provider "${formatToken(token)}" is not instantiated yet. Use resolve() to create it, or bootstrap without lazy().`,
+			reason === "creation-in-flight"
+				? `Provider "${formatToken(token)}" is still being created by another resolve(), and inject() cannot wait for it. Await that resolve() before creating a provider that inject()s it.`
+				: `Provider "${formatToken(token)}" is not instantiated yet. Use resolve() to create it, or bootstrap without lazy().`,
 		);
 		this.name = "ProviderNotInstantiatedError";
 		Object.setPrototypeOf(this, ProviderNotInstantiatedError.prototype);

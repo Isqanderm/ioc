@@ -2,6 +2,7 @@ import { CircularInjectionError } from "../../errors/injection-errors";
 import {
 	AsyncFactoryError,
 	ProviderNotFoundError,
+	ProviderNotInstantiatedError,
 } from "../../errors/provider-errors";
 import {
 	type Edge,
@@ -55,6 +56,17 @@ export class Resolver {
 	 * see it half-initialised or keep it after a failed init evicted it.
 	 */
 	private readonly inFlightInits = new Map<ProviderToken, Promise<unknown>>();
+	/**
+	 * Singletons that resolveProvider is creating (construction through
+	 * onModuleInit), not yet in the cache. Concurrent callers await the same
+	 * promise, so each singleton is created once. An entry is removed when
+	 * its creation settles: after the commit on success, so a token is always
+	 * in the cache or here; on failure, so the next resolve retries.
+	 */
+	private readonly inFlightCreations = new Map<
+		ProviderToken,
+		Promise<unknown>
+	>();
 
 	constructor(private readonly graph: ModuleGraphInterface) {}
 
@@ -85,6 +97,7 @@ export class Resolver {
 		this.providersContainer.clear();
 		this.initializationOrder.length = 0;
 		this.inFlightInits.clear();
+		this.inFlightCreations.clear();
 		if (errors.length > 0) {
 			throw new AggregateError(
 				errors,
@@ -114,6 +127,7 @@ export class Resolver {
 		}
 		for (const token of dead) {
 			this.inFlightInits.delete(token);
+			this.inFlightCreations.delete(token);
 		}
 
 		const survivors = this.initializationOrder.filter(
@@ -160,9 +174,32 @@ export class Resolver {
 			return cached;
 		}
 
-		const instance = await this.createInstance(node, ctx, isCircularDependency);
-		this.commitInstance(node, instance);
-		return instance as T;
+		const inFlight = this.inFlightCreations.get(token);
+		if (inFlight) {
+			// Defensive: this tree is creating the token itself, so awaiting its
+			// own creation would never settle. Static cycles are marked circular
+			// by the graph and never get here.
+			if (ctx.isConstructing(token)) {
+				throw new CircularInjectionError([...ctx.path, token]);
+			}
+			return (await inFlight) as T;
+		}
+
+		const creation = this.createInstance(node, ctx, isCircularDependency).then(
+			(instance) => {
+				this.commitInstance(node, instance);
+				return instance;
+			},
+		);
+		this.inFlightCreations.set(token, creation);
+		const clear = () => {
+			// close()/destroy() may have dropped it, or a retry replaced it.
+			if (this.inFlightCreations.get(token) === creation) {
+				this.inFlightCreations.delete(token);
+			}
+		};
+		creation.then(clear, clear);
+		return (await creation) as T;
 	}
 
 	/**
@@ -225,7 +262,14 @@ export class Resolver {
 		const resolvedDependencies: (CircularDependencyFn | unknown)[] = [];
 		for (const edge of dependencyEdges) {
 			if (edge.metadata.isCircular) {
-				if (isCircularDependency) {
+				// A circular target that another tree is creating gets the proxy
+				// too: awaiting it could deadlock, since that tree may be waiting
+				// on this one through the same cycle.
+				if (
+					isCircularDependency ||
+					(this.inFlightCreations.has(edge.target) &&
+						!this.providersContainer.has(edge.target))
+				) {
 					const circularResolver = () =>
 						new Proxy(
 							{},
@@ -341,6 +385,12 @@ export class Resolver {
 				ctx.addPendingInit(inFlight);
 			}
 			return this.providersContainer.get(token);
+		}
+		if (node.scope === Scope.Singleton && this.inFlightCreations.has(token)) {
+			// resolveProvider is creating it in another tree. This path is
+			// synchronous and cannot wait, and creating it here would make a
+			// second instance.
+			throw new ProviderNotInstantiatedError(token, "creation-in-flight");
 		}
 		return this.createInstanceSync(node, ctx);
 	}

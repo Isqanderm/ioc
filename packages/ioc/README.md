@@ -265,9 +265,13 @@ the original as `.cause`. When a singleton was created by `inject()`, another
 resolution (for example a concurrent `resolve()`) that meets it while its init
 is still running waits for that init.
 
-Known limitation: in `.lazy()` mode, concurrent `resolve()` calls that reach
-the same singleton before it exists (directly or through `@Inject`) can each
-construct it, so it may be created twice. This is being fixed.
+Concurrent `resolve()` calls that reach the same singleton before it exists
+(directly or through `@Inject`, for example in `.lazy()` mode) create it once:
+the later calls wait for the first creation, including its `onModuleInit`. If
+that creation fails, every waiting call rejects with the same error and a later
+`resolve()` tries again. `inject()` is synchronous and cannot wait, so an
+`inject()` that meets a singleton another `resolve()` is still creating throws
+`ProviderNotInstantiatedError`; await that `resolve()` first.
 
 A dependency obtained with `inject()` may still be completing its async
 `onModuleInit` while your constructor or factory body runs; it is guaranteed to
@@ -280,8 +284,10 @@ guarantee as `inject()` ones: done only before its own `onModuleInit`. Until
 that init settles, `app.get()` of such a singleton throws
 `ProviderNotInstantiatedError`, just as for a singleton still being created by
 `resolve()`. Don't resolve providers that depend on a provider from that
-provider's own `onModuleInit`: the resolution waits for the init that is
-waiting for it, and never settles.
+provider's own `onModuleInit` (for example `await app.resolve(A)` in the
+`onModuleInit` of `S`, where `A` injects `S`): the resolution waits for the
+init that is waiting for it, and never settles. This is not detected, because
+the inner `resolve()` cannot be told apart from an unrelated concurrent one.
 
 ### Cycles
 
