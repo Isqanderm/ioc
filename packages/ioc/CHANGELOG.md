@@ -10,10 +10,12 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 - `NexusApplication.get()` and `ModuleRef.get()` are synchronous and return bootstrapped singletons. They throw `ProviderNotFoundError`, `ProviderScopeError` (Transient/Scoped), `ProviderNotInstantiatedError` (lazy mode or not yet loaded) or `ContainerClosedError`; pass `{ optional: true }` to get `undefined` for unknown tokens.
 - New async `resolve()` on `NexusApplication` and `ModuleRef` creates Transient, Scoped and lazy-mode providers on demand.
 - `@nexus-ioc/testing`: `Test.compile()` instantiates singletons and runs `onModuleInit`; `Test.get` is sync, `Test.resolve` is async.
+- The module container returned by `Test.compile()` has a sync `get()` (same contract as `Test.get`, throws `ProviderNotFoundError` for unknown tokens unless `{ optional: true }`) and a new async `resolve()`.
+- `NexusApplication.get()`/`resolve()` before `bootstrap()` throw `ContainerNotCompiledError` (previously `ProviderNotFoundError` or a parent lookup).
 
 ### Features
 
-- `close()` is idempotent and error-tolerant: it runs `onModuleDestroy` in reverse creation order, throws one `AggregateError` if hooks fail, detaches the parent, and makes later `get`/`resolve`/`load`/`unload` throw `ContainerClosedError`.
+- `close()` is idempotent and error-tolerant: it runs `onModuleDestroy` in reverse creation order, throws one `AggregateError` if hooks fail, detaches the parent, and makes `get`/`resolve`/`load`/`unload` (including through a `ModuleRef`) throw `ContainerClosedError` from the moment it is called, while in-flight lazy loads still finish and are destroyed.
 
 ### Deprecations
 

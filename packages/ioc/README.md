@@ -127,13 +127,16 @@ const maybe = app.get<AppService>(AppService, { optional: true });
   (`.lazy()` mode, or a lazy module that is not loaded); use `resolve()` or
   `load()` first.
 - `ContainerClosedError` — the container is closed or closing.
+- `ContainerNotCompiledError` — `bootstrap()` has not run yet. The parent is
+  not consulted in this case.
 
 A token found in this container is always answered here; only unknown tokens
 are looked up in the parent (set with `setParent()`). Falsy `useValue` values
 (`undefined`, `null`, `0`, `false`) are returned as they are.
 
 `resolve()` takes the same `{ optional }` option. It throws
-`ProviderNotFoundError` and `ContainerClosedError` the same way.
+`ProviderNotFoundError`, `ContainerClosedError` and
+`ContainerNotCompiledError` the same way.
 
 ## Lifecycle and close()
 
@@ -157,8 +160,10 @@ await app.close();
   failed close keeps returning the same rejected promise.
 - It first waits for in-flight lazy module loads. A lazy loader that never
   settles makes `close()` hang.
-- Afterwards `get`, `resolve`, `load` and `unload` (including through a
-  `ModuleRef`) throw `ContainerClosedError`.
+- From the moment `close()` is called (before the in-flight loads have
+  drained), `get`, `resolve`, `load` and `unload` (including through a
+  `ModuleRef`) throw `ContainerClosedError`. A load that was already in
+  flight still finishes, and its singletons are destroyed with the rest.
 - `close()` detaches the parent and does not close child containers. A service
   that subscribed to a parent service must unsubscribe in `onModuleDestroy`.
 - A `resolve()` that is still in flight when `close()` is called is not
@@ -318,7 +323,9 @@ describe('AppModule', () => {
 
 `Test.compile()` instantiates all singletons and runs `onModuleInit`, so an
 error in `onModuleInit` or in a factory surfaces from `compile()`. `Test.get`
-is synchronous and `Test.resolve` is async, both with `{ optional }`.
+is synchronous and `Test.resolve` is async, both with `{ optional }`. The
+module container that `compile()` returns has the same `get()` / `resolve()`
+pair, so `moduleRef.get<X>(X)` needs no `await`.
 `Test.load()` warms the loaded module.
 
 ## Migrating to the synchronous get()
@@ -331,6 +338,13 @@ is synchronous and `Test.resolve` is async, both with `{ optional }`.
   `ModuleRef.resolve()`.
 - `Test.compile()` now instantiates singletons and runs `onModuleInit`, so
   errors from them surface from `compile()`.
+- The module container returned by `compile()` has a synchronous `get()` and
+  a new async `resolve()`. Its `get()` throws `ProviderNotFoundError` for an
+  unknown token instead of resolving to `undefined` (pass
+  `{ optional: true }`), and throws `ProviderScopeError` for `Transient` and
+  `Scoped` providers: use `await moduleRef.resolve(X)` for those.
+- `get()` and `resolve()` called before `bootstrap()` throw
+  `ContainerNotCompiledError` instead of `ProviderNotFoundError`.
 - `.lazy()` is deprecated: lazy modules (`lazy()` / `load()`) cover the
   startup-time use case, and in `.lazy()` mode `get()` throws
   `ProviderNotInstantiatedError`.
