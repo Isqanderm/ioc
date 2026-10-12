@@ -45,6 +45,21 @@ export class ProviderNotInstantiatedError extends Error {
 	}
 }
 
+/**
+ * The provider's module was unloaded while `resolve()` was still creating
+ * it. The half-finished instance was destroyed instead of cached; load the
+ * module again and resolve the provider anew.
+ */
+export class ProviderUnloadedError extends Error {
+	constructor(public readonly token: ProviderToken) {
+		super(
+			`Provider "${formatToken(token)}" was unloaded while it was being created; the new instance was destroyed instead of cached. Load its module again and resolve it anew.`,
+		);
+		this.name = "ProviderUnloadedError";
+		Object.setPrototypeOf(this, ProviderUnloadedError.prototype);
+	}
+}
+
 /** get() only serves singletons; Transient providers are created per call. */
 export class ProviderScopeError extends Error {
 	constructor(

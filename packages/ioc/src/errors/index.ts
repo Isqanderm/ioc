@@ -16,4 +16,5 @@ export {
 	ProviderNotFoundError,
 	ProviderNotInstantiatedError,
 	ProviderScopeError,
+	ProviderUnloadedError,
 } from "./provider-errors";

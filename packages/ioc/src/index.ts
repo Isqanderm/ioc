@@ -24,6 +24,7 @@ export {
 	ProviderNotFoundError,
 	ProviderNotInstantiatedError,
 	ProviderScopeError,
+	ProviderUnloadedError,
 } from "./errors";
 export * from "./interfaces";
 export type { ForwardRef } from "./utils/forward-ref";

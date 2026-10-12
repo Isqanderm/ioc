@@ -1,8 +1,10 @@
 import { CircularInjectionError } from "../../errors/injection-errors";
 import {
 	AsyncFactoryError,
+	ContainerClosedError,
 	ProviderNotFoundError,
 	ProviderNotInstantiatedError,
+	ProviderUnloadedError,
 } from "../../errors/provider-errors";
 import {
 	type Edge,
@@ -68,6 +70,13 @@ export class Resolver {
 		ProviderToken,
 		Promise<unknown>
 	>();
+	/**
+	 * Set once close() starts. From then on nothing new is created or
+	 * cached: creations still in flight are destroyed when they finish
+	 * (close() does not wait for them, see commitCreation), and inject()
+	 * in a resolution tree that outlived close() throws instead of creating.
+	 */
+	private closed = false;
 
 	/**
 	 * @param link - The parent chain of a child container. Edges marked
@@ -102,7 +111,20 @@ export class Resolver {
 		return { found: true, instance: this.providersContainer.get(token) };
 	}
 
+	/**
+	 * Marks the resolver closed without destroying anything; used when the
+	 * container was closed before this resolver existed.
+	 */
+	public markClosed(): void {
+		this.closed = true;
+		// Every creation still in flight is now stale (see commitCreation).
+		this.inFlightCreations.clear();
+	}
+
 	public async close(): Promise<void> {
+		// Before the first await: a creation that finishes while the hooks
+		// below run must not be cached behind the destroy pass.
+		this.markClosed();
 		const errors: unknown[] = [];
 		for (const token of [...this.initializationOrder].reverse()) {
 			const instance = this.providersContainer.get(token);
@@ -134,6 +156,12 @@ export class Resolver {
 	 */
 	public async destroy(tokens: ProviderToken[]): Promise<void> {
 		const dead = new Set(tokens);
+		// Before the first await: a creation of a dead token still in flight
+		// is stale from now on and is destroyed, not cached, when it finishes.
+		for (const token of dead) {
+			this.inFlightInits.delete(token);
+			this.inFlightCreations.delete(token);
+		}
 		const orderedDead = this.initializationOrder.filter((token) =>
 			dead.has(token),
 		);
@@ -144,10 +172,6 @@ export class Resolver {
 				await instance.onModuleDestroy();
 			}
 			this.providersContainer.delete(token);
-		}
-		for (const token of dead) {
-			this.inFlightInits.delete(token);
-			this.inFlightCreations.delete(token);
 		}
 
 		const survivors = this.initializationOrder.filter(
@@ -162,6 +186,10 @@ export class Resolver {
 		ctx: ResolutionContext = new ResolutionContext(),
 		isCircularDependency = false,
 	): Promise<T | undefined> {
+		if (this.closed) {
+			throw new ContainerClosedError();
+		}
+
 		const node = this.graph.getNode(token);
 
 		if (!node) {
@@ -205,12 +233,11 @@ export class Resolver {
 			return (await inFlight) as T;
 		}
 
-		const creation = this.createInstance(node, ctx, isCircularDependency).then(
-			(instance) => {
-				this.commitInstance(node, instance);
-				return instance;
-			},
-		);
+		const creation: Promise<unknown> = this.createInstance(
+			node,
+			ctx,
+			isCircularDependency,
+		).then((instance) => this.commitCreation(node, creation, instance));
 		this.inFlightCreations.set(token, creation);
 		const clear = () => {
 			// close()/destroy() may have dropped it, or a retry replaced it.
@@ -220,6 +247,35 @@ export class Resolver {
 		};
 		creation.then(clear, clear);
 		return (await creation) as T;
+	}
+
+	/**
+	 * Caches what `creation` produced, unless the creation went stale while
+	 * it ran: close() or destroy() (an unload) dropped its in-flight entry.
+	 * A stale instance is never cached. Its onModuleDestroy is called (best
+	 * effort: a failure there is ignored, since the caller already gets the
+	 * rejection below and nothing else holds the instance), and the caller
+	 * gets ContainerClosedError after a close, ProviderUnloadedError after
+	 * an unload.
+	 */
+	private async commitCreation(
+		node: AnalyzeProvider,
+		creation: Promise<unknown>,
+		instance: unknown,
+	): Promise<unknown> {
+		if (this.inFlightCreations.get(node.id) === creation) {
+			this.commitInstance(node, instance);
+			return instance;
+		}
+		const stale = instance as { onModuleDestroy?: () => unknown } | null;
+		try {
+			await stale?.onModuleDestroy?.();
+		} catch {
+			// Best effort; see above.
+		}
+		throw this.closed
+			? new ContainerClosedError()
+			: new ProviderUnloadedError(node.id);
 	}
 
 	/**
@@ -462,6 +518,14 @@ export class Resolver {
 		node: AnalyzeProvider,
 		ctx: ResolutionContext,
 	): unknown {
+		// A resolution tree that outlived close() (it was awaiting something
+		// when close() ran) must not create and cache anything: the destroy
+		// pass is over. Refused before construction, so there is nothing to
+		// destroy. No unload counterpart is needed: this path always reads
+		// the live graph, so it never creates an instance of an unloaded node.
+		if (this.closed) {
+			throw new ContainerClosedError();
+		}
 		ctx.enter(node.id);
 		try {
 			const provider = node.metatype;
