@@ -1,5 +1,21 @@
 # Change Log
 
+## Unreleased
+
+### BREAKING CHANGES
+
+- `NexusApplication.get()` and `ModuleRef.get()` are synchronous and return bootstrapped singletons. They throw `ProviderNotFoundError`, `ProviderScopeError` (Transient/Scoped), `ProviderNotInstantiatedError` (lazy mode or not yet loaded) or `ContainerClosedError`; pass `{ optional: true }` to get `undefined` for unknown tokens.
+- New async `resolve()` on `NexusApplication` and `ModuleRef` creates Transient, Scoped and lazy-mode providers on demand.
+- `@nexus-ioc/testing`: `Test.compile()` instantiates singletons and runs `onModuleInit`; `Test.get` is sync, `Test.resolve` is async.
+
+### Features
+
+- `close()` is idempotent and error-tolerant: it runs `onModuleDestroy` in reverse creation order, throws one `AggregateError` if hooks fail, detaches the parent, and makes later `get`/`resolve`/`load`/`unload` throw `ContainerClosedError`.
+
+### Deprecations
+
+- `.lazy()` is deprecated in favor of lazy modules (`lazy()` / `load()`).
+
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 

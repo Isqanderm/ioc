@@ -26,7 +26,7 @@ class AppModule {}
 
 async function main() {
 	const app = await NexusApplication.create(AppModule).bootstrap();
-	const service = await app.get<AppService>(AppService);
+	const service = app.get<AppService>(AppService);
 	service?.run(); // Hello, World!
 	await app.close();
 }

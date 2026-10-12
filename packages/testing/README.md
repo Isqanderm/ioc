@@ -46,7 +46,7 @@ describe('AppModule', () => {
       providers: [AppService],
     }).compile();
 
-    const appService = await appModule.get<AppService>(AppService);
+    const appService = appModule.get<AppService>(AppService);
     expect(appService).toBeInstanceOf(AppService);
   });
 });

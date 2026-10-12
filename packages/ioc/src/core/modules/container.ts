@@ -427,11 +427,7 @@ export class Container implements ContainerInterface {
 		return this.graph.errors;
 	}
 
-	/**
-	 * Closes the container and cleans up resources.
-	 *
-	 * @returns A promise that resolves when the container is closed
-	 */
+	/** Whether the container has been closed (or is closing). */
 	public get isClosed(): boolean {
 		return this.closed;
 	}
@@ -442,6 +438,11 @@ export class Container implements ContainerInterface {
 		}
 	}
 
+	/**
+	 * Closes the container and cleans up resources.
+	 *
+	 * @returns A promise that resolves when the container is closed
+	 */
 	public async close(): Promise<void> {
 		this.closed = true;
 		await Promise.all(
