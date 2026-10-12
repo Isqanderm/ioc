@@ -30,7 +30,7 @@ describe("LazyModuleLoader under Test", () => {
 		async check(total: number) {
 			if (total <= 100) return "ok";
 			const ref = await this.loader.load(FraudLazy);
-			const fraud = await ref.get<FraudService>(FraudService);
+			const fraud = await ref.resolve<FraudService>(FraudService);
 			return fraud?.check(total);
 		}
 	}
@@ -57,7 +57,7 @@ describe("LazyModuleLoader under Test", () => {
 		const ref = await testingContainer.load(FraudLazy);
 
 		expect(ref.module).toBe(FraudModule);
-		expect(await ref.get<FraudService>(FraudService)).toBeInstanceOf(
+		expect(await ref.resolve<FraudService>(FraudService)).toBeInstanceOf(
 			FraudService,
 		);
 		expect(await testingContainer.get(FraudService)).toBeInstanceOf(

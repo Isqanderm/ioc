@@ -23,14 +23,14 @@ describe("ModuleRef.unload", () => {
 	it("marks the ref unloaded and makes get() resolve to undefined", async () => {
 		const ref = await loadedRef();
 		expect(ref.loaded).toBe(true);
-		expect(await ref.get(FeatureService)).toBeInstanceOf(FeatureService);
+		expect(await ref.resolve(FeatureService)).toBeInstanceOf(FeatureService);
 
 		const result = await ref.unload();
 
 		expect(result.destroyedProviders).toEqual([FeatureService]);
 		expect(ref.loaded).toBe(false);
-		expect(await ref.get(FeatureService)).toBeUndefined();
-		expect(await ref.get(FeatureService, { strict: false })).toBeUndefined();
+		expect(ref.get(FeatureService)).toBeUndefined();
+		expect(ref.get(FeatureService, { strict: false })).toBeUndefined();
 	});
 
 	it("is a no-op the second time", async () => {

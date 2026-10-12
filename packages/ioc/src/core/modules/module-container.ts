@@ -40,6 +40,12 @@ export class ModuleContainer implements ModuleContainerInterface {
 		return Reflect.getMetadata(MODULE_METADATA.IMPORTS, this.metatype) || [];
 	}
 
+	private _resolvedImports: ModuleContainerInterface[] | undefined;
+
+	public get resolvedImports(): ModuleContainerInterface[] | undefined {
+		return this._resolvedImports;
+	}
+
 	public get imports(): Promise<ModuleContainerInterface[]> {
 		const modules = this.declaredImports.filter(
 			(item): item is Type | DynamicModule => !isLazyModule(item),
@@ -51,6 +57,7 @@ export class ModuleContainer implements ModuleContainerInterface {
 				const imports = await Promise.all(
 					modules.map((item) => self.container.addModule(item)),
 				);
+				self._resolvedImports = imports;
 				resolved(imports);
 			}
 			run();

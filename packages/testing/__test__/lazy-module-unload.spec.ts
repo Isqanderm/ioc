@@ -20,7 +20,7 @@ describe("Test.unload", () => {
 		await testContainer.compile();
 		const FeatureLazy = lazy(async () => FeatureModule);
 		const ref = await testContainer.load(FeatureLazy);
-		expect(await ref.get(FeatureService)).toBeInstanceOf(FeatureService);
+		expect(await ref.resolve(FeatureService)).toBeInstanceOf(FeatureService);
 
 		const result = await testContainer.unload(ref);
 

@@ -8,6 +8,8 @@ export interface ModuleContainerInterface {
 	token: string;
 	metatype: Module | DynamicModule;
 	imports: Promise<ModuleContainerInterface[]>;
+	/** Set once `imports` has resolved at least once. */
+	resolvedImports: ModuleContainerInterface[] | undefined;
 	/** Lazy imports declared by this module; never registered until loaded. */
 	lazyImports: LazyModule[];
 	providers: Provider[];
