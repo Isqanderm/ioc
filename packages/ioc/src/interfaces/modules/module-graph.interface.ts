@@ -7,6 +7,7 @@ import type { AnalyzeLazyModule } from "../../core/graph/analyze-lazy-module";
 import type { AnalyzeModule } from "../../core/graph/analyze-module";
 import type { AnalyzeProvider } from "../../core/graph/analyze-provider";
 import type { ProviderToken } from "../injection-token.interface";
+import type { Type } from "../type.interface";
 
 // Re-export GraphError from shared package
 export type { GraphError } from "@nexus-ioc/shared";
@@ -84,6 +85,13 @@ export interface ModuleGraphInterface {
 	 * keeps the target's module alive while the source's module is loaded.
 	 */
 	addRuntimeDependency(source: ProviderToken, target: ProviderToken): void;
+	/**
+	 * The container of the module that declares `child` in `@Module({ children })`,
+	 * including modules of loaded lazy segments.
+	 */
+	findChildDeclaration(
+		child: Type | LazyModule,
+	): ModuleContainerInterface | undefined;
 	getNode(token: ProviderToken): Node | undefined;
 	getEdge(token: ProviderToken): Edge[];
 	getAllNodes(): Node[];

@@ -22,6 +22,8 @@ function formatError(error: GraphError): string {
 			return `  Missing provider "${error.dependency}" in ${error.token} (inject[${error.key}])`;
 		case "PROVIDER_TOKEN_CONFLICT":
 			return `  Provider token "${error.token}" in ${error.module} is already registered by ${error.existingModule}`;
+		case "CHILD_DECLARED_TWICE":
+			return `  Module "${error.child}" is declared as a child by both ${error.modules[0]} and ${error.modules[1]}; a child may be declared by at most one module`;
 	}
 }
 

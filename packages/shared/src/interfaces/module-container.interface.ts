@@ -13,6 +13,8 @@ export interface ModuleContainerInterface {
 	resolvedImports: ModuleContainerInterface[] | undefined;
 	/** Lazy imports declared by this module; never registered until loaded. */
 	lazyImports: LazyModule[];
+	/** Child modules declared via `@Module({ children })`; `[]` for dynamic modules. */
+	children: readonly (Module | LazyModule)[];
 	providers: Provider[];
 	exports: (ProviderToken | Module)[];
 	/**

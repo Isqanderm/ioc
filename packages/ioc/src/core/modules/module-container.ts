@@ -69,6 +69,13 @@ export class ModuleContainer implements ModuleContainerInterface {
 		return this.declaredImports.filter(isLazyModule);
 	}
 
+	public get children(): readonly (Type | LazyModule)[] {
+		if (isDynamicModule(this.metatype)) {
+			return [];
+		}
+		return Reflect.getMetadata(MODULE_METADATA.CHILDREN, this.metatype) || [];
+	}
+
 	public get providers(): Provider[] {
 		if (isDynamicModule(this.metatype)) {
 			return this.metatype.providers || [];

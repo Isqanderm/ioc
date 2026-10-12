@@ -27,6 +27,7 @@ import {
 	getProviderToken,
 	isModule,
 } from "../../utils/helpers";
+import { isLazyModule } from "../../utils/lazy-module";
 import { AnalyzeLazyModule } from "./analyze-lazy-module";
 import { AnalyzeModule } from "./analyze-module";
 import type { AnalyzeProvider } from "./analyze-provider";
@@ -62,6 +63,11 @@ export class ModuleGraph implements ModuleGraphInterface {
 	 * through a `@Global()` module) on one of its providers.
 	 */
 	private readonly _moduleReferrers: Map<string, Set<string>> = new Map();
+	/**
+	 * Child declaration index: the child's module class (or the `LazyModule.id`
+	 * symbol of a lazy ref) -> the token of the one module declaring it.
+	 */
+	private readonly _childDeclarations = new Map<Type | symbol, string>();
 	private readonly _errors: GraphError[] = [];
 	/**
 	 * While a segment compiles, its errors are collected here instead of in
@@ -426,6 +432,13 @@ export class ModuleGraph implements ModuleGraphInterface {
 			}
 		}
 
+		const purged = new Set<ProviderToken>(tokens);
+		for (const [child, declarer] of this._childDeclarations) {
+			if (purged.has(declarer)) {
+				this._childDeclarations.delete(child);
+			}
+		}
+
 		for (const token of tokens) {
 			this._moduleProviders.delete(token as string);
 			this._moduleReferrers.delete(token as string);
@@ -452,6 +465,18 @@ export class ModuleGraph implements ModuleGraphInterface {
 			target,
 			metadata: { inject: "runtime", unreached: false, isCircular: false },
 		});
+	}
+
+	public findChildDeclaration(
+		child: Type | LazyModule,
+	): ModuleContainerInterface | undefined {
+		const key = isLazyModule(child) ? child.id : child;
+		const declarer = this._childDeclarations.get(key);
+		if (declarer === undefined) {
+			return undefined;
+		}
+		const node = this._nodes.get(declarer);
+		return node instanceof AnalyzeModule ? node.moduleContainer : undefined;
 	}
 
 	public getNode(token: ProviderToken): Node | undefined {
@@ -516,10 +541,43 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 	private async addModule(analyzeModule: AnalyzeModule) {
 		this.addNode(analyzeModule.id, analyzeModule);
+		this.indexChildren(analyzeModule);
 
 		if (analyzeModule.isGlobal) {
 			this._globalModules.set(analyzeModule.id, analyzeModule.moduleContainer);
 		}
+	}
+
+	/**
+	 * Records the module's declared children. Children are never compiled into
+	 * this graph; only the declaration is indexed. A child declared by a second
+	 * module is a graph error and keeps its first declarer.
+	 */
+	private indexChildren(analyzeModule: AnalyzeModule) {
+		for (const child of analyzeModule.moduleContainer.children) {
+			const key = isLazyModule(child) ? child.id : child;
+			const existing = this._childDeclarations.get(key);
+			if (existing === undefined) {
+				this._childDeclarations.set(key, analyzeModule.id);
+			} else if (existing !== analyzeModule.id) {
+				this.pushError({
+					type: "CHILD_DECLARED_TWICE",
+					child: child.name,
+					modules: [
+						this.moduleLabel(existing),
+						this.moduleLabel(analyzeModule.id),
+					],
+				});
+			}
+		}
+	}
+
+	private moduleLabel(moduleToken: string): string {
+		const node = this._nodes.get(moduleToken);
+		if (node instanceof AnalyzeModule) {
+			return getModuleLabel(node.moduleContainer.metatype);
+		}
+		return moduleToken;
 	}
 
 	/**

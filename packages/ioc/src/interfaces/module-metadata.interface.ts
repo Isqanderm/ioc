@@ -10,4 +10,9 @@ export interface ModuleMetadata {
 	imports?: (Type | DynamicModule | LazyModule)[];
 	exports?: (ProviderToken | Type)[];
 	providers?: Provider[];
+	/**
+	 * Modules that are not part of this graph but may later be instantiated as
+	 * child containers. Static declaration only; never compiled into the parent.
+	 */
+	children?: (Type | LazyModule)[];
 }

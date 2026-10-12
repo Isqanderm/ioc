@@ -32,4 +32,9 @@ export type GraphError =
 			token: string;
 			module: string;
 			existingModule: string;
+	  }
+	| {
+			type: "CHILD_DECLARED_TWICE";
+			child: string;
+			modules: [string, string];
 	  };
