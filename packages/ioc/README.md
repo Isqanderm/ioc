@@ -255,11 +255,25 @@ A provider whose factory returns a promise can be injected only if it already
 exists; otherwise `inject()` throws `AsyncProviderInjectionError`. To make that
 rare, `bootstrap()` creates singletons in this order: value providers, then
 factory providers, then class providers. A class provider can therefore
-`inject()` an async-factory provider.
+`inject()` an async-factory provider. A factory that `inject()`s a class which
+needs an async factory declared after it is retried once the other factories
+are created. This ordering only applies to `bootstrap()`: with `.lazy()` nothing
+is created up front, so `inject()` of an async-factory provider (directly or
+through a class that `@Inject`s it) throws `AsyncProviderInjectionError` unless
+that provider was already resolved. The error message shows the chain, for
+example `(via F -> Repo -> DB)`.
 
 An `onModuleInit` of an injected dependency may be async: it completes before
 the requester's own `onModuleInit` runs. A singleton whose async init fails is
-not left cached.
+not left cached, and neither is a provider that holds it. Another resolution
+(for example a concurrent `resolve()`) that meets the singleton while its init
+is still running waits for it.
+
+A dependency obtained with `inject()` may still be completing its async
+`onModuleInit` while your constructor or factory body runs; it is guaranteed to
+be done only before your own `onModuleInit`. For a dependency you must use in
+the constructor or factory body after its async init, use `@Inject` (or the
+factory's `inject: [...]`), which resolves it fully first.
 
 ### Cycles
 
@@ -273,6 +287,9 @@ does not see them and errors surface when the provider is created (for
 singletons, in `bootstrap()`). They are recorded as runtime edges
 (`inject: "runtime"`) in the module graph, so unloading a lazy module is
 protected against modules used via `inject()` the same way as for `@Inject`.
+One consequence: a provider of an always-loaded module (for example the root
+module) that `inject()`s from a loaded lazy `@Global()` module keeps that
+module loaded, so `unload()` of it becomes a no-op.
 
 The static type-checker and graph-analyzer do see `inject()` calls, including
 aliased imports. They report them with `location: "inject"` and include them
