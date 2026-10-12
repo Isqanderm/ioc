@@ -70,12 +70,36 @@ describe("@Module children", () => {
 		).toBeUndefined();
 	});
 
-	it("exposes children on the module container, [] for dynamic modules", async () => {
+	it("exposes children on the module container; a dynamic module reads its class's decorator", async () => {
 		const container = await compiled(AppModule);
 		const shell = await container.getModule(ShellModule);
 		expect(shell?.children).toEqual([ProfileModule, settingsLazy]);
 		const dyn = await container.addModule({ module: ProfileModule });
 		expect(dyn.children).toEqual([]);
+		const dynShell = await container.addModule({
+			module: ShellModule,
+			providers: [{ provide: "x", useValue: 1 }],
+		});
+		expect(dynShell.children).toEqual([ProfileModule, settingsLazy]);
+	});
+
+	it("rejects two dynamic variants of one class that declares children", async () => {
+		@Module({ children: [ProfileModule] })
+		class Variant {
+			static forX(x: string) {
+				return { module: Variant, providers: [{ provide: "x", useValue: x }] };
+			}
+		}
+		@Module({ imports: [Variant.forX("a"), Variant.forX("b")] })
+		class Root {}
+		const container = new Container(new HashUtil());
+		await container.run(Root);
+		expect(container.graph.errors).toEqual([
+			expect.objectContaining({
+				type: "CHILD_DECLARED_TWICE",
+				child: "ProfileModule",
+			}),
+		]);
 	});
 
 	it("rejects a child declared by two modules", async () => {

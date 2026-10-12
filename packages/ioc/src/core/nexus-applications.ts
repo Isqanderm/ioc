@@ -23,12 +23,9 @@ import {
 	type UnloadResult,
 } from "../interfaces";
 import { HashUtil } from "../utils/hash-utils";
-import {
-	getModuleLabel,
-	isDynamicModule,
-	withExtraProviders,
-} from "../utils/helpers";
+import { getModuleLabel, isDynamicModule } from "../utils/helpers";
 import { isLazyModule } from "../utils/lazy-module";
+import { withExtraProviders } from "./child-module";
 import { createInternalModule, LazyModuleLoader } from "./lazy-module-loader";
 import { ModuleRef } from "./module-ref";
 import { Container } from "./modules/container";
@@ -176,7 +173,13 @@ export class NexusApplication implements NexusApplicationInterface {
 
 		let module: Type | DynamicModule;
 		if (isLazyModule(child)) {
-			module = await this.loadChildModule(child);
+			try {
+				module = await this.loadChildModule(child);
+			} catch (error) {
+				// A parent that started closing reports that, not the load failure.
+				this.assertOpen();
+				throw error;
+			}
 			// The parent may have started closing while the code loaded.
 			this.assertOpen();
 		} else {
@@ -196,6 +199,8 @@ export class NexusApplication implements NexusApplicationInterface {
 		} catch (error) {
 			this.liveChildren.delete(app);
 			await app.close().catch(() => undefined);
+			// A parent that started closing reports that, not the bootstrap failure.
+			this.assertOpen();
 			throw error;
 		}
 
@@ -246,8 +251,10 @@ export class NexusApplication implements NexusApplicationInterface {
 	/**
 	 * The link a child declared in `declaredIn` uses: what that module sees
 	 * in this application, then this application's own parent chain. It
-	 * never caches anything; once this application closes, `canProvide` is
-	 * false and `get`/`resolve` throw `ContainerClosedError`.
+	 * never caches anything. Once this application closes, `canProvide` still
+	 * answers from the graph, so `get`/`resolve` of a token the child would
+	 * have taken from here throw `ContainerClosedError` (even with
+	 * `optional`) instead of quietly reporting it missing.
 	 */
 	private linkFor(declaredIn: ModuleContainerInterface): ParentLink {
 		const graph = () => this.container.graph;
@@ -256,8 +263,7 @@ export class NexusApplication implements NexusApplicationInterface {
 			graph().isProviderVisible(declaredIn, token);
 		return {
 			canProvide: (token) =>
-				!this.isClosed &&
-				(seesLocally(token) || (this.link?.canProvide(token) ?? false)),
+				seesLocally(token) || (this.link?.canProvide(token) ?? false),
 			get: (token) =>
 				seesLocally(token)
 					? this.container.get(token)

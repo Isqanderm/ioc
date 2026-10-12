@@ -35,11 +35,7 @@ class ProfileModule {
 
 @Module({ providers: [] })
 class SettingsModule {}
-let settingsLoads = 0;
-const settingsLazy = lazy(async () => {
-	settingsLoads++;
-	return SettingsModule;
-});
+const settingsLazy = lazy(async () => SettingsModule);
 
 @Module({ children: [ProfileModule, settingsLazy] })
 class AppModule {}
@@ -73,10 +69,17 @@ describe("createChild", () => {
 	});
 
 	it("loads a lazy child once and caches the code", async () => {
-		const app = await NexusApplication.create(AppModule).bootstrap();
-		await app.createChild(settingsLazy);
-		await app.createChild(settingsLazy);
-		expect(settingsLoads).toBe(1);
+		let loads = 0;
+		const ref = lazy(async () => {
+			loads++;
+			return SettingsModule;
+		});
+		@Module({ children: [ref] })
+		class Root {}
+		const app = await NexusApplication.create(Root).bootstrap();
+		await app.createChild(ref);
+		await app.createChild(ref);
+		expect(loads).toBe(1);
 	});
 
 	it("rejects undeclared children, un-bootstrapped and closed parents", async () => {
@@ -277,11 +280,49 @@ describe("createChild: get/resolve fallback through the link", () => {
 		expect(() => b.get("a-only")).toThrow(ProviderNotFoundError);
 	});
 
-	it("after the parent closes, fallback lookups stop", async () => {
+	it("after the parent closes, fallback lookups throw ContainerClosedError", async () => {
 		const parent = await NexusApplication.create(ParentModule).bootstrap();
 		const child = await parent.createChild(EmptyChild);
 		await parent.close();
-		expect(() => child.get("shared")).toThrow(ProviderNotFoundError);
+		expect(() => child.get("shared")).toThrow(ContainerClosedError);
+		expect(() => child.get("shared", { optional: true })).toThrow(
+			ContainerClosedError,
+		);
+		await expect(child.resolve("shared")).rejects.toThrow(ContainerClosedError);
+		await expect(child.resolve("shared", { optional: true })).rejects.toThrow(
+			ContainerClosedError,
+		);
+		// Tokens the declaring module never saw are still simply not found.
+		expect(child.get("nope", { optional: true })).toBeUndefined();
+	});
+
+	it("a grandchild survives a child root given extra providers or as a dynamic module", async () => {
+		@Module({ providers: [{ provide: "leaf", useValue: "leaf" }] })
+		class Leaf {}
+		@Module({ providers: [], children: [Leaf] })
+		class Profile {
+			static forId(id: string): DynamicModule {
+				return {
+					module: Profile,
+					providers: [{ provide: "id", useValue: id }],
+				};
+			}
+		}
+		@Module({ providers: [], children: [Profile] })
+		class Root {}
+		const root = await NexusApplication.create(Root).bootstrap();
+
+		const viaOptions = await root.createChild(Profile, {
+			providers: [{ provide: "id", useValue: "x" }],
+		});
+		const leafA = await viaOptions.createChild(Leaf);
+		expect(leafA.get("leaf")).toBe("leaf");
+		expect(leafA.get("id")).toBe("x");
+
+		const viaDynamic = await root.createChild(Profile.forId("y"));
+		const leafB = await viaDynamic.createChild(Leaf);
+		expect(leafB.get("leaf")).toBe("leaf");
+		expect(leafB.get("id")).toBe("y");
 	});
 });
 
@@ -382,6 +423,59 @@ describe("createChild: live children and lifecycle", () => {
 		await app.close();
 		release();
 		await expect(creating).rejects.toThrow(ContainerClosedError);
+		expect(liveChildren(app).size).toBe(0);
+	});
+
+	it("a lazy load failing while the parent closes rejects with ContainerClosedError", async () => {
+		let fail!: () => void;
+		const gate = new Promise<void>((_, reject) => {
+			fail = () => reject(new Error("network"));
+		});
+		const ref = lazy(async () => {
+			await gate;
+			return SettingsModule;
+		});
+		@Module({ children: [ref] })
+		class Root {}
+		const app = await NexusApplication.create(Root).bootstrap();
+		const creating = app.createChild(ref);
+		const closing = app.close();
+		fail();
+		await expect(creating).rejects.toThrow(ContainerClosedError);
+		await closing;
+		expect(liveChildren(app).size).toBe(0);
+	});
+
+	it("a bootstrap failing while the parent closes rejects with ContainerClosedError and closes the child", async () => {
+		const destroyed: string[] = [];
+		let fail!: () => void;
+		const gate = new Promise<void>((_, reject) => {
+			fail = () => reject(new Error("boom"));
+		});
+		@Injectable()
+		class First implements OnModuleDestroy {
+			onModuleDestroy() {
+				destroyed.push("first");
+			}
+		}
+		@Injectable()
+		class Slow {
+			constructor(@Inject(First) readonly first: First) {}
+			async onModuleInit() {
+				await gate;
+			}
+		}
+		@Module({ providers: [First, Slow] })
+		class Child {}
+		@Module({ children: [Child] })
+		class Root {}
+		const app = await NexusApplication.create(Root).bootstrap();
+		const creating = app.createChild(Child);
+		const closing = app.close();
+		fail();
+		await expect(creating).rejects.toThrow(ContainerClosedError);
+		await closing;
+		expect(destroyed).toEqual(["first"]);
 		expect(liveChildren(app).size).toBe(0);
 	});
 

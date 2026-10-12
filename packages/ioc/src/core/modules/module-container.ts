@@ -69,11 +69,16 @@ export class ModuleContainer implements ModuleContainerInterface {
 		return this.declaredImports.filter(isLazyModule);
 	}
 
+	/**
+	 * Children declared by the module class's `@Module` decorator. A dynamic
+	 * module literal cannot declare children, but one built from a class that
+	 * declares them (`forX()`, extra child providers) keeps them.
+	 */
 	public get children(): readonly (Type | LazyModule)[] {
-		if (isDynamicModule(this.metatype)) {
-			return [];
-		}
-		return Reflect.getMetadata(MODULE_METADATA.CHILDREN, this.metatype) || [];
+		const target = isDynamicModule(this.metatype)
+			? this.metatype.module
+			: this.metatype;
+		return Reflect.getMetadata(MODULE_METADATA.CHILDREN, target) || [];
 	}
 
 	public get providers(): Provider[] {
