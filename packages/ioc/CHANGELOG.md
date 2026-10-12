@@ -36,7 +36,9 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 ### Fixed
 
 - `Container.replaceModule(Old, New)` is remembered, so it also replaces `Old` when `Old` is not registered yet (it used to store `New` as an orphan). Later `addModule`/`getModule` of `Old`, or of a `DynamicModule` of `Old`, resolve to `New`; chains are followed and cycles stop. A module that re-exports a replaced module class exports the replacement, and replacements apply to everything that container adds later, lazy modules included.
-- Unloading a lazy module no longer destroys a `@Global()` provider that an eager or earlier-loaded consumer reaches through a static `@Optional() @Inject()` edge. The edge had no target when it was compiled, so it recorded no referrer; loading the global module now records it, and the module stays alive until the consumer's module unloads, as with `inject()`.
+- Unloading a lazy module no longer destroys a provider that an eager or earlier-loaded consumer holds through a static `@Optional() @Inject()` edge compiled before the provider was visible to it. Loading the module that makes it visible now records the consumer's module as a referrer, so the provider's module stays alive until the consumer's module unloads, as with `inject()`. The result no longer depends on load order.
+- Behaviour change: an `@Optional()` static dependency is injected only when its provider is visible from the consumer's module (own providers, imports, or a `@Global()` module). A provider in a module the consumer cannot see, whether present at bootstrap or loaded later, used to be injected anyway; it now stays `undefined`, as with `inject(token, { optional: true })`.
+- A `@Global()` module that re-exports a module class (`@Global() @Module({ imports: [Inner], exports: [Inner] })`) now exposes `Inner`'s exports to every module, as a direct export does.
 
 ### Notes
 

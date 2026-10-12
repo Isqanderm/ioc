@@ -44,6 +44,13 @@ export type Edge = {
 		 * graph only); its target is not resolved in this graph.
 		 */
 		external?: boolean;
+		/**
+		 * An `@Optional()` dependency whose target was not visible from the
+		 * source's module when the edge was compiled (it may not have existed
+		 * yet). Set only when true. The resolver injects the target only
+		 * while it exists and is visible from the source's module.
+		 */
+		lateBound?: boolean;
 	};
 };
 

@@ -52,6 +52,11 @@ function isThenable(value: unknown): value is PromiseLike<unknown> {
 export class Resolver {
 	private readonly providersContainer = new ProvidersContainer();
 	private readonly initializationOrder: ProviderToken[] = [];
+	/** `lateBoundVisible` results, valid while the graph version matches. */
+	private readonly lateBoundMemo = new WeakMap<
+		Edge,
+		{ version: number; visible: boolean }
+	>();
 	/**
 	 * Singletons created by inject() whose onModuleInit (or the wait on
 	 * inits queued before them) has not settled yet. Other resolution trees
@@ -360,6 +365,10 @@ export class Resolver {
 				);
 				continue;
 			}
+			if (edge.metadata.lateBound && !this.lateBoundVisible(edge, node)) {
+				resolvedDependencies.push(undefined);
+				continue;
+			}
 			if (edge.metadata.isCircular) {
 				// A circular target that another tree is creating gets the proxy
 				// too: awaiting it could deadlock, since that tree may be waiting
@@ -502,8 +511,12 @@ export class Resolver {
 		return this.createInstanceSync(node, ctx);
 	}
 
-	/** Resolves a static @Inject edge on the synchronous path. */
-	private resolveEdgeSync(edge: Edge, ctx: ResolutionContext): unknown {
+	/** Resolves a static @Inject edge of `requester` on the synchronous path. */
+	private resolveEdgeSync(
+		edge: Edge,
+		requester: AnalyzeProvider,
+		ctx: ResolutionContext,
+	): unknown {
 		// External first, before any node lookup (see createInstanceInContext).
 		if (edge.metadata.external) {
 			return this.linkFor(edge).get(edge.target);
@@ -513,8 +526,12 @@ export class Resolver {
 		}
 		// Unreached edges resolve to undefined, as on the async path. Reached
 		// edges were checked by the graph, so there is no second visibility
-		// check; a missing (@Optional) node resolves to undefined.
+		// check, except for a late-bound one (see lateBoundVisible); a missing
+		// (@Optional) node resolves to undefined.
 		if (edge.metadata.unreached) {
+			return undefined;
+		}
+		if (edge.metadata.lateBound && !this.lateBoundVisible(edge, requester)) {
 			return undefined;
 		}
 		const target = this.graph.getNode(edge.target);
@@ -544,7 +561,7 @@ export class Resolver {
 		try {
 			const provider = node.metatype;
 			const deps = this.constructorEdges(node).map((edge) =>
-				this.resolveEdgeSync(edge, ctx),
+				this.resolveEdgeSync(edge, node, ctx),
 			);
 			const injectionContext = this.contextFor(node, ctx);
 
@@ -691,6 +708,25 @@ export class Resolver {
 		};
 	}
 
+	/**
+	 * Whether a late-bound edge's target may be injected into `requester`:
+	 * it exists now and is visible from the requester's module. The graph
+	 * records the referrer (keeping the target's module alive) under the
+	 * same rule, so injection and unload bookkeeping agree.
+	 */
+	private lateBoundVisible(edge: Edge, requester: AnalyzeProvider): boolean {
+		const version = this.graph.version;
+		const memo = this.lateBoundMemo.get(edge);
+		if (memo?.version === version) {
+			return memo.visible;
+		}
+		const visible =
+			this.graph.getNode(edge.target)?.type === NodeTypeEnum.PROVIDER &&
+			this.graph.isProviderVisible(requester.moduleContainer, edge.target);
+		this.lateBoundMemo.set(edge, { version, visible });
+		return visible;
+	}
+
 	private constructorEdges(node: Node): Edge[] {
 		return this.graph
 			.getEdge(node.id)
@@ -721,7 +757,7 @@ export class Resolver {
 		for (const edge of this.propertyEdges(node)) {
 			(instance as unknown as Record<string, unknown>)[
 				edge.metadata.key as string
-			] = this.resolveEdgeSync(edge, ctx);
+			] = this.resolveEdgeSync(edge, node as AnalyzeProvider, ctx);
 		}
 	}
 
@@ -736,7 +772,10 @@ export class Resolver {
 				edge.metadata.key as string
 			] = edge.metadata.external
 				? await this.linkFor(edge).resolve(edge.target)
-				: await this.resolveProvider(edge.target, ctx);
+				: edge.metadata.lateBound &&
+						!this.lateBoundVisible(edge, node as AnalyzeProvider)
+					? undefined
+					: await this.resolveProvider(edge.target, ctx);
 		}
 	}
 }
