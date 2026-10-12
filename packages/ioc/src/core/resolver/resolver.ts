@@ -10,6 +10,7 @@ import {
 	type ModuleGraphInterface,
 	type Node,
 	NodeTypeEnum,
+	type ParentLink,
 	type Provider,
 	type ProviderToken,
 	Scope,
@@ -68,7 +69,26 @@ export class Resolver {
 		Promise<unknown>
 	>();
 
-	constructor(private readonly graph: ModuleGraphInterface) {}
+	/**
+	 * @param link - The parent chain of a child container. Edges marked
+	 *   `external` resolve through it; their results are never cached here.
+	 */
+	constructor(
+		private readonly graph: ModuleGraphInterface,
+		private readonly link: ParentLink | null = null,
+	) {}
+
+	/**
+	 * The link that satisfies an external edge. The graph marks an edge
+	 * external only when a link can provide its target, so a missing link
+	 * is an internal error, reported as not found rather than `undefined`.
+	 */
+	private linkFor(edge: Edge): ParentLink {
+		if (!this.link) {
+			throw new ProviderNotFoundError(edge.target, edge.source);
+		}
+		return this.link;
+	}
 
 	/** Cached singleton lookup; never creates. Uses has() so falsy values count. */
 	public getInstantiated(
@@ -261,6 +281,15 @@ export class Resolver {
 
 		const resolvedDependencies: (CircularDependencyFn | unknown)[] = [];
 		for (const edge of dependencyEdges) {
+			// An external target lives in the parent chain. Branch before any
+			// local lookup: the child graph may have no node for it (which would
+			// read as undefined) or a hidden one the requester must not get.
+			if (edge.metadata.external) {
+				resolvedDependencies.push(
+					await this.linkFor(edge).resolve(edge.target),
+				);
+				continue;
+			}
 			if (edge.metadata.isCircular) {
 				// A circular target that another tree is creating gets the proxy
 				// too: awaiting it could deadlock, since that tree may be waiting
@@ -397,6 +426,10 @@ export class Resolver {
 
 	/** Resolves a static @Inject edge on the synchronous path. */
 	private resolveEdgeSync(edge: Edge, ctx: ResolutionContext): unknown {
+		// External first, before any node lookup (see createInstanceInContext).
+		if (edge.metadata.external) {
+			return this.linkFor(edge).get(edge.target);
+		}
 		if (edge.metadata.isCircular) {
 			throw new CircularInjectionError([...ctx.path, edge.target]);
 		}
@@ -612,9 +645,12 @@ export class Resolver {
 		ctx: ResolutionContext,
 	) {
 		for (const edge of this.propertyEdges(node)) {
+			// External first, before resolveProvider's node lookup.
 			(instance as unknown as Record<string, unknown>)[
 				edge.metadata.key as string
-			] = await this.resolveProvider(edge.target, ctx);
+			] = edge.metadata.external
+				? await this.linkFor(edge).resolve(edge.target)
+				: await this.resolveProvider(edge.target, ctx);
 		}
 	}
 }

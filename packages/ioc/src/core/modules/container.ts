@@ -270,7 +270,7 @@ export class Container implements ContainerInterface {
 			link ? { externalLookup: (token) => link.canProvide(token) } : {},
 		);
 
-		this.moduleGraphResolver = new Resolver(this._graph);
+		this.moduleGraphResolver = new Resolver(this._graph, link);
 
 		await this._graph.compile();
 	}
