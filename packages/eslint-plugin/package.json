@@ -47,7 +47,7 @@
 		"test:ready": "echo 0"
 	},
 	"dependencies": {
-		"@nexus-ioc/type-checker": "*",
+		"@nexus-ioc/type-checker": "^0.2.0",
 		"@typescript-eslint/utils": "^8.0.0"
 	},
 	"devDependencies": {

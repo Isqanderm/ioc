@@ -1,6 +1,6 @@
 {
   "name": "@nexus-ioc/core",
-  "version": "1.0.0",
+  "version": "0.7.0",
   "description": "A powerful IoC container for TypeScript applications",
   "author": "Isqanderm <aleksandr.melnik.personal@gmail.com> (https://www.linkedin.com/in/isqander-melnik)",
   "homepage": "https://github.com/Isqanderm/ioc#readme",
@@ -57,7 +57,9 @@
   },
   "typesVersions": {
     "*": {
-      "internal": ["./dist/types/internal.d.ts"]
+      "internal": [
+        "./dist/types/internal.d.ts"
+      ]
     }
   },
   "sideEffects": false,
@@ -74,7 +76,7 @@
     "vitest": "^3.0.0"
   },
   "dependencies": {
-    "@nexus-ioc/shared": "^0.6.1",
+    "@nexus-ioc/shared": "^0.7.0",
     "tslib": "^2.6.3"
   },
   "scripts": {
