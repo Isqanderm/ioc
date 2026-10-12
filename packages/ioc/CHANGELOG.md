@@ -1,5 +1,8 @@
 # Change Log
 
+All notable changes to this project will be documented in this file.
+See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
+
 ## Unreleased
 
 ### BREAKING CHANGES
@@ -15,9 +18,6 @@
 ### Deprecations
 
 - `.lazy()` is deprecated in favor of lazy modules (`lazy()` / `load()`).
-
-All notable changes to this project will be documented in this file.
-See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
 ## [0.6.1](https://github.com/Isqanderm/ioc/compare/@nexus-ioc/core@0.6.0...@nexus-ioc/core@0.6.1) (2025-10-17)
 
