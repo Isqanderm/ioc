@@ -42,6 +42,7 @@ export const getSemanticDiagnosticsActions = (
 
 	const diagnostic: ts.Diagnostic[] = [];
 	const injectableClasses = InjectableParser.execute(sourceFile);
+	const childScopes = createChildScopeLookup(tsNsLs, typeChecker);
 
 	if (!injectableClasses.length) {
 		return originalDiagnostic;
@@ -213,15 +214,11 @@ export const getSemanticDiagnosticsActions = (
 						}
 					}
 
-					// A child module falls back to its declaring module's visibility
+					// A module in a child scope falls back to the declaring module's visibility
 					if (!found) {
 						found =
-							findInDeclaringModules(
-								module,
-								injectToken,
-								tsNsLs,
-								typeChecker,
-							) !== undefined;
+							findInChildScopeParents(module, injectToken, childScopes) !==
+							undefined;
 					}
 
 					if (!found) {
@@ -387,13 +384,12 @@ export const getSemanticDiagnosticsActions = (
 					}
 				}
 
-				// A child module falls back to its declaring module's visibility
+				// A module in a child scope falls back to the declaring module's visibility
 				if (!dependencyDeclare) {
-					dependencyDeclare = findInDeclaringModules(
+					dependencyDeclare = findInChildScopeParents(
 						referenceModule,
 						param.name,
-						tsNsLs,
-						typeChecker,
+						childScopes,
 					);
 				}
 
@@ -540,16 +536,6 @@ export const getSemanticDiagnosticsActions = (
 	return [...originalDiagnostic, ...diagnostic];
 };
 
-/**
- * Finds all global modules in the project
- *
- * Searches through all source files in the program to find modules
- * decorated with @Global() that export providers.
- *
- * @param tsNsLs - The Nexus IoC Language Service instance
- * @param typeChecker - TypeScript type checker for type analysis
- * @returns Array of global module declarations
- */
 /** Every `@Module` declared in the program's own (non-declaration,
  * non-`node_modules`) source files. */
 function findProjectModules(
@@ -649,56 +635,150 @@ function findInModuleVisibility(
 	return undefined;
 }
 
-/**
- * A module listed in another module's `@Module({ children })` is the root
- * of a child container, which falls back to what the declaring module sees
- * in the parent: its own providers and its imports' exports (global modules
- * are already searched by the caller). The search recurses up the chain of
- * declaring modules. Returns `undefined` for a module nobody declares as a
- * child, so diagnostics for ordinary modules are unchanged.
- */
-function findInDeclaringModules(
-	childModule: ModuleDeclaration,
-	token: ts.Expression,
+/** Lookups shared by one `getSemanticDiagnosticsActions` call; the
+ * project's module list is parsed at most once per call. */
+type ChildScopeLookup = {
+	tsNsLs: NsLanguageService;
+	typeChecker: ts.TypeChecker;
+	modules: () => readonly ModuleDeclaration[];
+};
+
+function createChildScopeLookup(
 	tsNsLs: NsLanguageService,
 	typeChecker: ts.TypeChecker,
-	projectModules?: readonly ModuleDeclaration[],
-	visited: Set<string> = new Set(),
-): ProviderType | ExportType | undefined {
-	const key = `${childModule.sourceFile.fileName}:${childModule.start}`;
-	if (visited.has(key)) return undefined;
-	visited.add(key);
-
-	const modules = projectModules ?? findProjectModules(tsNsLs, typeChecker);
-	const declaringModules = modules.filter((module) =>
-		module.children.some((child) =>
-			refersToModule(child.declaration, childModule, typeChecker),
-		),
-	);
-
-	for (const declaringModule of declaringModules) {
-		const found =
-			findInModuleVisibility(
-				declaringModule,
-				token,
-				modules,
-				tsNsLs,
-				typeChecker,
-			) ??
-			findInDeclaringModules(
-				declaringModule,
-				token,
-				tsNsLs,
-				typeChecker,
-				modules,
-				visited,
-			);
-		if (found) return found;
-	}
-
-	return undefined;
+): ChildScopeLookup {
+	let modules: ModuleDeclaration[] | undefined;
+	return {
+		tsNsLs,
+		typeChecker,
+		modules: () => {
+			modules ??= findProjectModules(tsNsLs, typeChecker);
+			return modules;
+		},
+	};
 }
 
+function moduleKey(module: ModuleDeclaration): string {
+	return `${module.sourceFile.fileName}:${module.start}`;
+}
+
+/** Modules whose `@Module({ children })` lists `module`. */
+function findDeclaringModules(
+	module: ModuleDeclaration,
+	lookup: ChildScopeLookup,
+): ModuleDeclaration[] {
+	return lookup
+		.modules()
+		.filter((candidate) =>
+			candidate.children.some((child) =>
+				refersToModule(child.declaration, module, lookup.typeChecker),
+			),
+		);
+}
+
+/**
+ * The declared child roots whose module tree `module` belongs to: `module`
+ * itself if some module lists it in `children`, plus the child roots of
+ * every module that imports it. `undefined` when `module` is also reachable
+ * outside any child scope: it has no importer and is not a declared child
+ * (a top-level module such as the app root), or one of its importers is in
+ * that situation.
+ *
+ * Known limitation: the legacy language service has no application entry
+ * point, so "reachable outside a child scope" means "imported (directly or
+ * transitively) by some module that is not itself inside a child scope",
+ * even if that importer is never reached from the real root. In that case
+ * the fallback is not applied and the diagnostic is kept, never hidden.
+ */
+function findChildScopeRoots(
+	module: ModuleDeclaration,
+	lookup: ChildScopeLookup,
+	visiting: Set<string> = new Set(),
+): ModuleDeclaration[] | undefined {
+	const key = moduleKey(module);
+	if (visiting.has(key)) return [];
+	visiting.add(key);
+
+	const isDeclaredChild = findDeclaringModules(module, lookup).length > 0;
+	const importers = lookup
+		.modules()
+		.filter((candidate) =>
+			candidate.imports.some(
+				(entry) =>
+					ts.isIdentifier(entry.declaration) &&
+					refersToModule(entry.declaration, module, lookup.typeChecker),
+			),
+		);
+	if (!isDeclaredChild && importers.length === 0) return undefined;
+
+	const roots = isDeclaredChild ? [module] : [];
+	for (const importer of importers) {
+		const importerRoots = findChildScopeRoots(importer, lookup, visiting);
+		if (importerRoots === undefined) return undefined;
+		roots.push(...importerRoots);
+	}
+
+	return roots.length > 0 ? roots : undefined;
+}
+
+/**
+ * A module inside a child scope (a module listed in some `@Module({ children
+ * })`, or any module reachable from one through imports) falls back to
+ * what the declaring module sees in the parent: its own providers and its
+ * imports' exports (global modules are already searched by the caller),
+ * recursing up the chain of declaring modules. The token must be found for
+ * every child scope the module belongs to. Returns `undefined` for a module
+ * that is not (only) inside child scopes, so diagnostics for ordinary
+ * modules are unchanged.
+ */
+function findInChildScopeParents(
+	module: ModuleDeclaration,
+	token: ts.Expression,
+	lookup: ChildScopeLookup,
+	visitedRoots: ReadonlySet<string> = new Set(),
+): ProviderType | ExportType | undefined {
+	const roots = findChildScopeRoots(module, lookup);
+	if (!roots) return undefined;
+
+	let found: ProviderType | ExportType | undefined;
+	const seen = new Set<string>();
+	for (const root of roots) {
+		const key = moduleKey(root);
+		if (seen.has(key)) continue;
+		seen.add(key);
+		if (visitedRoots.has(key)) return undefined;
+		const path = new Set(visitedRoots).add(key);
+
+		let rootFound: ProviderType | ExportType | undefined;
+		for (const declaringModule of findDeclaringModules(root, lookup)) {
+			rootFound =
+				findInModuleVisibility(
+					declaringModule,
+					token,
+					lookup.modules(),
+					lookup.tsNsLs,
+					lookup.typeChecker,
+				) ?? findInChildScopeParents(declaringModule, token, lookup, path);
+			if (rootFound) break;
+		}
+
+		if (!rootFound) return undefined;
+		found ??= rootFound;
+	}
+
+	return found;
+}
+
+/**
+ * Finds all global modules in the project
+ *
+ * Searches through all source files in the program to find modules
+ * decorated with @Global() that export providers.
+ *
+ * @param tsNsLs - The Nexus IoC Language Service instance
+ * @param typeChecker - TypeScript type checker for type analysis
+ * @returns Array of global module declarations
+ */
 function findGlobalModules(
 	tsNsLs: NsLanguageService,
 	typeChecker: ts.TypeChecker,

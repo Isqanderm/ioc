@@ -108,7 +108,11 @@ export interface DependencyInfo {
 	token: string;
 	optional: boolean;
 	/** `true` when the provider lives in a child scope and this dependency
-	 * comes from an ancestor scope. Present only when `true`. */
+	 * comes from an ancestor scope. Present only when `true`.
+	 *
+	 * Approximate: computed from which scope registers the token, not from
+	 * full imports/exports visibility. The type-checker's
+	 * `NexusResolvedDependency.fromParentScope` is the precise value. */
 	crossScope?: boolean;
 }
 

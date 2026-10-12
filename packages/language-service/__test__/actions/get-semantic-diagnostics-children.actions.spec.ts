@@ -214,4 +214,71 @@ export class AppModule {}
 		};
 		expect(missingFor("HttpService", files)).toHaveLength(1);
 	});
+
+	const PROFILE_WITH_DATA_MODULE = {
+		"profile.module.ts": `
+import { Module } from "@nexus-ioc/core";
+import { ProfileDataModule } from "./profile-data.module";
+
+@Module({ imports: [ProfileDataModule] })
+export class ProfileModule {}
+`,
+		"profile-data.module.ts": `
+import { Module } from "@nexus-ioc/core";
+import { ProfileStore } from "./profile.store";
+
+@Module({ providers: [ProfileStore], exports: [ProfileStore] })
+export class ProfileDataModule {}
+`,
+	};
+
+	it("applies the fallback to a module imported by the declared child root", () => {
+		const files = {
+			...HTTP,
+			...PROFILE_WITH_DATA_MODULE,
+			"app.module.ts": APP_DIRECT,
+		};
+		expect(missingFor("HttpService", files)).toEqual([]);
+		expect(missingFor("SecretService", files)).toHaveLength(1);
+	});
+
+	it("applies the fallback through a lazy() child root's imports", () => {
+		const files = {
+			...HTTP,
+			...PROFILE_WITH_DATA_MODULE,
+			"app.module.ts": APP_LAZY,
+		};
+		expect(missingFor("AppConfigService", files)).toEqual([]);
+	});
+
+	it("keeps the diagnostic when the child module is also imported outside a child scope", () => {
+		const files = {
+			...HTTP,
+			"app.module.ts": APP_DIRECT,
+			"other.module.ts": `
+import { Module } from "@nexus-ioc/core";
+import { ProfileModule } from "./profile.module";
+
+@Module({ imports: [ProfileModule] })
+export class OtherModule {}
+`,
+		};
+		expect(missingFor("HttpService", files)).toHaveLength(1);
+	});
+
+	it("keeps the diagnostic for an imported module that is also imported outside a child scope", () => {
+		const files = {
+			...HTTP,
+			...PROFILE_WITH_DATA_MODULE,
+			"app.module.ts": APP_DIRECT,
+			"other.module.ts": `
+import { Module } from "@nexus-ioc/core";
+import { ProfileDataModule } from "./profile-data.module";
+
+@Module({ imports: [ProfileDataModule] })
+export class OtherModule {}
+`,
+		};
+		expect(missingFor("HttpService", files)).toHaveLength(1);
+	});
 });
