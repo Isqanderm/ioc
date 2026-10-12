@@ -1,5 +1,5 @@
 import type { ForwardRef } from "../utils/forward-ref";
-import type { InjectionToken } from "./injection-token.interface";
+import type { ProviderToken } from "./injection-token.interface";
 import type { Scope } from "./scope.interface";
 import type { Type } from "./type.interface";
 
@@ -81,7 +81,7 @@ export type Provider<T = any> =
 // biome-ignore lint/suspicious/noExplicitAny: provider interface
 export interface ClassProvider<T = any> {
 	/** The injection token to register this provider under */
-	provide: InjectionToken;
+	provide: ProviderToken;
 	/** The class to instantiate */
 	useClass: Type<T>;
 	/** The lifecycle scope (default: Singleton) */
@@ -116,7 +116,7 @@ export interface ClassProvider<T = any> {
 // biome-ignore lint/suspicious/noExplicitAny: provider interface
 export interface ValueProvider<T = any> {
 	/** The injection token to register this provider under */
-	provide: InjectionToken;
+	provide: ProviderToken;
 	/** The value to provide */
 	useValue: T;
 }
@@ -157,12 +157,12 @@ export interface ValueProvider<T = any> {
 // biome-ignore lint/suspicious/noExplicitAny: provider interface
 export interface FactoryProvider<T = any> {
 	/** The injection token to register this provider under */
-	provide: InjectionToken;
+	provide: ProviderToken;
 	/** The factory function that creates the value */
 	// biome-ignore lint/suspicious/noExplicitAny: factory function interface
 	useFactory: (...args: any[]) => T | Promise<T>;
 	/** Tokens of dependencies to inject into the factory function */
-	inject?: (InjectionToken | ForwardRef)[];
+	inject?: (ProviderToken | ForwardRef)[];
 	/** The lifecycle scope (default: Singleton) */
 	scope?: Scope;
 }

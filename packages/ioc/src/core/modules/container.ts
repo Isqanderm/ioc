@@ -13,10 +13,10 @@ import type {
 	DynamicModule,
 	GraphSegment,
 	HashUtilInterface,
-	InjectionToken,
 	LazyModule,
 	ModuleContainerInterface,
 	ModuleGraphInterface,
+	ProviderToken,
 	Type,
 	UnloadResult,
 } from "../../interfaces";
@@ -139,7 +139,7 @@ export class Container implements ContainerInterface {
 	/**
 	 * True iff the graph has a provider node for the token.
 	 */
-	public hasProvider(token: InjectionToken): boolean {
+	public hasProvider(token: ProviderToken): boolean {
 		return this._graph?.getNode(token)?.type === NodeTypeEnum.PROVIDER;
 	}
 
@@ -156,7 +156,7 @@ export class Container implements ContainerInterface {
 	 * const userService = container.get(UserService);
 	 * ```
 	 */
-	public get<T>(token: InjectionToken): T {
+	public get<T>(token: ProviderToken): T {
 		this.assertOpen();
 		if (!this._graph || !this.moduleGraphResolver) {
 			throw new ContainerNotCompiledError();
@@ -185,7 +185,7 @@ export class Container implements ContainerInterface {
 	 * const userService = await container.resolve(UserService);
 	 * ```
 	 */
-	public async resolve<T>(token: InjectionToken): Promise<T> {
+	public async resolve<T>(token: ProviderToken): Promise<T> {
 		this.assertOpen();
 		if (!this._graph || !this.moduleGraphResolver) {
 			throw new ContainerNotCompiledError();
@@ -206,7 +206,7 @@ export class Container implements ContainerInterface {
 	 * @throws {ContainerNotCompiledError} If run() has not been called yet
 	 */
 	public async instantiateSingletons(
-		tokens: Iterable<InjectionToken>,
+		tokens: Iterable<ProviderToken>,
 	): Promise<void> {
 		if (!this._graph || !this.moduleGraphResolver) {
 			throw new ContainerNotCompiledError();

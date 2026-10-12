@@ -3,7 +3,6 @@ import {
 	EdgeTypeEnum,
 	type GraphError,
 	type GraphSegment,
-	type InjectionToken,
 	type LazyModule,
 	MODULE_TOKEN_WATERMARK,
 	MODULE_WATERMARK,
@@ -14,6 +13,7 @@ import {
 	PROPERTY_DEPS_METADATA,
 	PROPERTY_OPTIONAL_DEPS_METADATA,
 	type Provider,
+	type ProviderToken,
 	SELF_DECLARED_DEPS_METADATA,
 	SELF_DECLARED_OPTIONAL_DEPS_METADATA,
 	type Type,
@@ -41,19 +41,19 @@ import type { AnalyzeFunctionProvider } from "./providers/analyze-function-provi
 import { ProviderFactory } from "./providers/provider-factory";
 
 /**
- * Helper function to safely convert InjectionToken to string for error messages
+ * Helper function to safely convert ProviderToken to string for error messages
  */
-function tokenToString(token: InjectionToken): string {
+function tokenToString(token: ProviderToken): string {
 	return typeof token === "function" ? token.name : String(token);
 }
 
 export class ModuleGraph implements ModuleGraphInterface {
-	private _nodes: Map<InjectionToken, Node> = new Map();
-	private _edges: Map<InjectionToken, Edge[]> = new Map();
-	private _globalModules: Map<InjectionToken, ModuleContainerInterface> =
+	private _nodes: Map<ProviderToken, Node> = new Map();
+	private _edges: Map<ProviderToken, Edge[]> = new Map();
+	private _globalModules: Map<ProviderToken, ModuleContainerInterface> =
 		new Map();
 	/** Module token -> its own declared provider tokens. */
-	private readonly _moduleProviders: Map<string, Set<InjectionToken>> =
+	private readonly _moduleProviders: Map<string, Set<ProviderToken>> =
 		new Map();
 	/**
 	 * Module token -> the other module tokens that need it alive: every
@@ -107,7 +107,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 	 */
 	public async compile() {
 		const moduleTokens: string[] = [];
-		const providerTokens: InjectionToken[] = [];
+		const providerTokens: ProviderToken[] = [];
 
 		for (const root of [...this._internalRoots, this._root]) {
 			const added = await this.addModules(root, false);
@@ -194,7 +194,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 	 * `rescueCandidates` for a live outside referrer of a module reused by a
 	 * different, successful segment.
 	 */
-	private removeTokens(tokens: InjectionToken[]) {
+	private removeTokens(tokens: ProviderToken[]) {
 		this.purgeModuleIndexes(tokens);
 
 		for (const token of tokens) {
@@ -236,7 +236,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 		const alive = this.rescueCandidates(candidates);
 
 		const destroyedModules: string[] = [];
-		const destroyedProviders: InjectionToken[] = [];
+		const destroyedProviders: ProviderToken[] = [];
 
 		for (const moduleToken of candidates) {
 			if (alive.has(moduleToken)) {
@@ -347,7 +347,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 	private removeModuleTokens(
 		moduleTokens: string[],
-		providerTokens: InjectionToken[],
+		providerTokens: ProviderToken[],
 	) {
 		// Drop stale referrer entries, and the modules' own index entries,
 		// before deleting the edges they were derived from, so a module that
@@ -391,7 +391,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 	 * module, its `_moduleProviders` entry) are deleted — `moduleDependencies`
 	 * reads both to determine what each token itself depended on.
 	 */
-	private purgeModuleIndexes(tokens: InjectionToken[]) {
+	private purgeModuleIndexes(tokens: ProviderToken[]) {
 		for (const token of tokens) {
 			for (const dependencyModule of this.moduleDependencies(token as string)) {
 				this._moduleReferrers.get(dependencyModule)?.delete(token as string);
@@ -404,11 +404,11 @@ export class ModuleGraph implements ModuleGraphInterface {
 		}
 	}
 
-	public getNode(token: InjectionToken): Node | undefined {
+	public getNode(token: ProviderToken): Node | undefined {
 		return this._nodes.get(token);
 	}
 
-	public getEdge(token: InjectionToken) {
+	public getEdge(token: ProviderToken) {
 		return this._edges.get(token) || [];
 	}
 
@@ -426,13 +426,13 @@ export class ModuleGraph implements ModuleGraphInterface {
 		strictTokens: boolean,
 	): Promise<{
 		moduleTokens: string[];
-		providerTokens: InjectionToken[];
+		providerTokens: ProviderToken[];
 		lazyTokens: symbol[];
 	}> {
 		const moduleTokens: string[] = [];
-		const providerTokens: InjectionToken[] = [];
+		const providerTokens: ProviderToken[] = [];
 		const lazyTokens: symbol[] = [];
-		const visited = new Set<InjectionToken>();
+		const visited = new Set<ProviderToken>();
 		const imports = [root];
 
 		while (imports.length) {
@@ -505,8 +505,8 @@ export class ModuleGraph implements ModuleGraphInterface {
 	private async addModuleProviders(
 		analyzeModule: AnalyzeModule,
 		strictTokens: boolean,
-	): Promise<InjectionToken[]> {
-		const added: InjectionToken[] = [];
+	): Promise<ProviderToken[]> {
+		const added: ProviderToken[] = [];
 
 		for (const provider of analyzeModule.providers) {
 			const analyzeProvider = ProviderFactory(
@@ -549,7 +549,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 	// modules analyze
 
 	// graph helpers
-	private addEdge(token: InjectionToken, edge: Edge) {
+	private addEdge(token: ProviderToken, edge: Edge) {
 		const edges: Edge[] = this._edges.get(token) || [];
 
 		edges.push(edge);
@@ -557,14 +557,11 @@ export class ModuleGraph implements ModuleGraphInterface {
 		this._edges.set(token, edges);
 	}
 
-	private addNode(token: InjectionToken, node: Node) {
+	private addNode(token: ProviderToken, node: Node) {
 		this._nodes.set(token, node);
 	}
 
-	private addModuleProvider(
-		moduleToken: string,
-		providerToken: InjectionToken,
-	) {
+	private addModuleProvider(moduleToken: string, providerToken: ProviderToken) {
 		const providers = this._moduleProviders.get(moduleToken) ?? new Set();
 		providers.add(providerToken);
 		this._moduleProviders.set(moduleToken, providers);
@@ -585,8 +582,8 @@ export class ModuleGraph implements ModuleGraphInterface {
 	 * no help from `isProviderExported`.
 	 */
 	private recordCrossModuleReferrer(
-		consumerToken: InjectionToken,
-		dependencyToken: InjectionToken,
+		consumerToken: ProviderToken,
+		dependencyToken: ProviderToken,
 		isExported: boolean,
 	) {
 		if (!isExported) {
@@ -614,8 +611,8 @@ export class ModuleGraph implements ModuleGraphInterface {
 	// graph helpers
 
 	// providers dependencies
-	private async addDependencies(providerTokens: InjectionToken[]) {
-		const visited = new Set<InjectionToken>();
+	private async addDependencies(providerTokens: ProviderToken[]) {
+		const visited = new Set<ProviderToken>();
 
 		for (const token of providerTokens) {
 			const node = this._nodes.get(token);
@@ -637,7 +634,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 	}
 
 	private async addClassDependency(
-		token: InjectionToken,
+		token: ProviderToken,
 		node: AnalyzeFunctionProvider,
 	) {
 		const constructorDependencies = this.getConstructorDependencies(
@@ -649,10 +646,10 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 		for (const [index, dependency] of constructorDependencies.entries()) {
 			const isLazy = isForwardRef(dependency.param);
-			const dependencyToken: InjectionToken = isLazy
+			const dependencyToken: ProviderToken = isLazy
 				? ((
 						dependency.param as unknown as ForwardRef
-					).forwardRef() as InjectionToken)
+					).forwardRef() as ProviderToken)
 				: getDependencyToken(dependency.param);
 			const isExported =
 				optionalDependency.includes(index) ||
@@ -724,7 +721,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 	}
 
 	private async addClassProviderDependency(
-		token: InjectionToken,
+		token: ProviderToken,
 		node: AnalyzeClassProvider,
 	) {
 		const Class = node.useClass;
@@ -733,10 +730,10 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 		for (const [index, dependency] of constructorDependencies.entries()) {
 			const isLazy = isForwardRef(dependency.param);
-			const dependencyToken: InjectionToken = isLazy
+			const dependencyToken: ProviderToken = isLazy
 				? ((
 						dependency.param as unknown as ForwardRef
-					).forwardRef() as InjectionToken)
+					).forwardRef() as ProviderToken)
 				: getDependencyToken(dependency.param);
 			const isExported =
 				optionalDependency.includes(index) ||
@@ -802,7 +799,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 	}
 
 	private async addFactoryProviderDependency(
-		token: InjectionToken,
+		token: ProviderToken,
 		node: AnalyzeFactoryProvider,
 	) {
 		const dependencies = node.inject || [];
@@ -810,9 +807,9 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 		for (const dependency of dependencies) {
 			const isLazy = isForwardRef(dependency);
-			const dependencyToken: InjectionToken = isLazy
-				? ((dependency as ForwardRef).forwardRef() as InjectionToken)
-				: (dependency as InjectionToken);
+			const dependencyToken: ProviderToken = isLazy
+				? ((dependency as ForwardRef).forwardRef() as ProviderToken)
+				: (dependency as ProviderToken);
 
 			const isExported = await this.isProviderExported(
 				node.moduleContainer,
@@ -849,7 +846,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 	public async isProviderExported(
 		moduleContainer: ModuleContainerInterface,
-		dependencyToken: InjectionToken,
+		dependencyToken: ProviderToken,
 	): Promise<boolean> {
 		await moduleContainer.imports;
 		return this.isProviderVisible(moduleContainer, dependencyToken);
@@ -857,7 +854,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 	public isProviderVisible(
 		moduleContainer: ModuleContainerInterface,
-		dependencyToken: InjectionToken,
+		dependencyToken: ProviderToken,
 	): boolean {
 		// check globals
 		for (const globalModule of this._globalModules.values()) {
@@ -883,7 +880,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 		if (!containerImports) {
 			throw new Error("Module imports are not resolved yet");
 		}
-		const visitedModules = new Set<InjectionToken | Type>();
+		const visitedModules = new Set<ProviderToken | Type>();
 		const queue = containerImports.flatMap(
 			(firstLevelContainer) => firstLevelContainer.exports,
 		);
@@ -923,16 +920,16 @@ export class ModuleGraph implements ModuleGraphInterface {
 	}
 
 	private async detectCircularDependencies(
-		startTokens: InjectionToken[],
+		startTokens: ProviderToken[],
 	): Promise<void> {
 		const visit = (
-			nodeId: InjectionToken,
-			path: InjectionToken[],
-			visited: Set<InjectionToken>,
-			stack: Set<InjectionToken>,
+			nodeId: ProviderToken,
+			path: ProviderToken[],
+			visited: Set<ProviderToken>,
+			stack: Set<ProviderToken>,
 		): boolean => {
 			if (stack.has(nodeId)) {
-				const cyclePath: [InjectionToken, InjectionToken][] = path.map(
+				const cyclePath: [ProviderToken, ProviderToken][] = path.map(
 					(node, index) => [node, path[index + 1] || nodeId],
 				);
 
@@ -989,16 +986,16 @@ export class ModuleGraph implements ModuleGraphInterface {
 		};
 
 		for (const nodeId of new Set(startTokens)) {
-			visit(nodeId, [], new Set<InjectionToken>(), new Set<InjectionToken>());
+			visit(nodeId, [], new Set<ProviderToken>(), new Set<ProviderToken>());
 		}
 	}
 
 	private async detectCircularImports(startTokens: string[]): Promise<void> {
 		const visit = (
-			nodeId: InjectionToken,
-			path: InjectionToken[],
-			visited: Set<InjectionToken>,
-			stack: Set<InjectionToken>,
+			nodeId: ProviderToken,
+			path: ProviderToken[],
+			visited: Set<ProviderToken>,
+			stack: Set<ProviderToken>,
 		): void => {
 			if (stack.has(nodeId)) {
 				const cycleStartIndex = path.indexOf(nodeId);
@@ -1046,7 +1043,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 		};
 
 		for (const nodeId of new Set(startTokens)) {
-			visit(nodeId, [], new Set<InjectionToken>(), new Set<InjectionToken>());
+			visit(nodeId, [], new Set<ProviderToken>(), new Set<ProviderToken>());
 		}
 	}
 

@@ -2,13 +2,13 @@ import {
 	type DynamicModule,
 	type GetOptions,
 	type GraphError,
-	type InjectionToken,
 	type LazyModule,
 	type ModuleContainerInterface,
 	Module as ModuleDecorator,
 	type ModuleMetadata,
 	ModuleRef,
 	ProviderNotFoundError,
+	type ProviderToken,
 	type ScannerPluginInterface,
 	type Type,
 	type UnloadResult,
@@ -67,17 +67,14 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 		return this.container.replaceModule(metatypeToReplace, newMetatype);
 	}
 
-	public get<T>(token: InjectionToken): T;
+	public get<T>(token: ProviderToken): T;
 	public get<T>(
-		token: InjectionToken,
+		token: ProviderToken,
 		options: { optional: true },
 	): T | undefined;
-	public get<T>(token: InjectionToken, options: { optional?: false }): T;
-	public get<T>(token: InjectionToken, options: GetOptions): T | undefined;
-	public get<T>(
-		token: InjectionToken,
-		options: GetOptions = {},
-	): T | undefined {
+	public get<T>(token: ProviderToken, options: { optional?: false }): T;
+	public get<T>(token: ProviderToken, options: GetOptions): T | undefined;
+	public get<T>(token: ProviderToken, options: GetOptions = {}): T | undefined {
 		if (!this.containerCompiled) {
 			throw new ContainerNotCompiledError();
 		}
@@ -90,21 +87,21 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 		return this.container.get<T>(token);
 	}
 
-	public resolve<T>(token: InjectionToken): Promise<T>;
+	public resolve<T>(token: ProviderToken): Promise<T>;
 	public resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken,
 		options: { optional: true },
 	): Promise<T | undefined>;
 	public resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken,
 		options: { optional?: false },
 	): Promise<T>;
 	public resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken,
 		options: GetOptions,
 	): Promise<T | undefined>;
 	public async resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken,
 		options: GetOptions = {},
 	): Promise<T | undefined> {
 		if (!this.containerCompiled) {

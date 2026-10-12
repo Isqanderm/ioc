@@ -5,9 +5,9 @@ import {
 	type FactoryProvider,
 	INJECTABLE_OPTIONS,
 	INJECTABLE_WATERMARK,
-	type InjectionToken,
 	MODULE_GLOBAL_WATERMARK,
 	type Provider,
+	type ProviderToken,
 	Scope,
 	type Type,
 	type ValueProvider,
@@ -17,11 +17,11 @@ export function isFunctionProvider(target: Provider): target is Type {
 	return typeof target === "function";
 }
 
-export function isModule(target: Type | InjectionToken): target is Type {
+export function isModule(target: Type | ProviderToken): target is Type {
 	return typeof target === "function";
 }
 
-export function isFunctionToken(target: InjectionToken): target is Type {
+export function isFunctionToken(target: ProviderToken): target is Type {
 	return typeof target === "function";
 }
 
@@ -38,7 +38,7 @@ export function isFactoryProvider(target: Provider): target is FactoryProvider {
 	return !!(target as FactoryProvider).useFactory;
 }
 
-export function getProviderToken(target: Provider): InjectionToken {
+export function getProviderToken(target: Provider): ProviderToken {
 	if (isFunctionProvider(target)) {
 		return target;
 	}
@@ -50,12 +50,12 @@ export function isProvider(provider: Provider): provider is Provider {
 	return Reflect.getMetadata(INJECTABLE_WATERMARK, provider) || false;
 }
 
-export function getDependencyToken(target: Provider): InjectionToken {
+export function getDependencyToken(target: Provider): ProviderToken {
 	if (isFunctionProvider(target)) {
 		return target;
 	}
 
-	return target as unknown as InjectionToken;
+	return target as unknown as ProviderToken;
 }
 
 export function isDynamicModule(

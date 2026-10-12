@@ -4,10 +4,10 @@ import type {
 	ContainerBaseInterface,
 	DynamicModule,
 	GetOptions,
-	InjectionToken,
 	LazyModule,
 	ModuleContainerInterface,
 	Provider,
+	ProviderToken,
 	Type,
 } from "../../interfaces";
 import { MODULE_METADATA } from "../../interfaces";
@@ -77,7 +77,7 @@ export class ModuleContainer implements ModuleContainerInterface {
 		return Reflect.getMetadata(MODULE_METADATA.PROVIDERS, this.metatype) || [];
 	}
 
-	public get exports(): InjectionToken[] {
+	public get exports(): ProviderToken[] {
 		if (isDynamicModule(this.metatype)) {
 			return this.metatype.exports || [];
 		}
@@ -93,17 +93,14 @@ export class ModuleContainer implements ModuleContainerInterface {
 	 * @throws {ProviderScopeError} If the provider is Transient or Scoped; use resolve()
 	 * @throws {ProviderNotInstantiatedError} If the singleton is not created yet; use resolve()
 	 */
-	public get<T>(token: InjectionToken): T;
+	public get<T>(token: ProviderToken): T;
 	public get<T>(
-		token: InjectionToken,
+		token: ProviderToken,
 		options: { optional: true },
 	): T | undefined;
-	public get<T>(token: InjectionToken, options: { optional?: false }): T;
-	public get<T>(token: InjectionToken, options: GetOptions): T | undefined;
-	public get<T>(
-		token: InjectionToken,
-		options: GetOptions = {},
-	): T | undefined {
+	public get<T>(token: ProviderToken, options: { optional?: false }): T;
+	public get<T>(token: ProviderToken, options: GetOptions): T | undefined;
+	public get<T>(token: ProviderToken, options: GetOptions = {}): T | undefined {
 		if (!this.container.hasProvider(token)) {
 			if (options.optional) {
 				return undefined;
@@ -118,21 +115,21 @@ export class ModuleContainer implements ModuleContainerInterface {
 	 *
 	 * @throws {ProviderNotFoundError} If no provider has this token (unless optional)
 	 */
-	public resolve<T>(token: InjectionToken): Promise<T>;
+	public resolve<T>(token: ProviderToken): Promise<T>;
 	public resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken,
 		options: { optional: true },
 	): Promise<T | undefined>;
 	public resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken,
 		options: { optional?: false },
 	): Promise<T>;
 	public resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken,
 		options: GetOptions,
 	): Promise<T | undefined>;
 	public async resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken,
 		options: GetOptions = {},
 	): Promise<T | undefined> {
 		if (!this.container.hasProvider(token)) {

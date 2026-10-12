@@ -8,9 +8,9 @@ import type {
 	BootstrapOptions,
 	GetOptions,
 	HashUtilInterface,
-	InjectionToken,
 	LazyModule,
 	NexusApplicationInterface,
+	ProviderToken,
 	ScannerPluginInterface,
 	Type,
 	UnloadResult,
@@ -129,7 +129,7 @@ export class NexusApplication implements NexusApplicationInterface {
 	 * Pre-instantiates the singleton providers named by `tokens`, unless the
 	 * application is running in lazy mode.
 	 */
-	private async warmUpSingletons(tokens: Iterable<InjectionToken>) {
+	private async warmUpSingletons(tokens: Iterable<ProviderToken>) {
 		if (this.isAsyncContainer) {
 			return;
 		}
@@ -246,17 +246,14 @@ export class NexusApplication implements NexusApplicationInterface {
 	 * const config = app.get('CONFIG', { optional: true });
 	 * ```
 	 */
-	public get<T>(token: InjectionToken): T;
+	public get<T>(token: ProviderToken): T;
 	public get<T>(
-		token: InjectionToken,
+		token: ProviderToken,
 		options: { optional: true },
 	): T | undefined;
-	public get<T>(token: InjectionToken, options: { optional?: false }): T;
-	public get<T>(token: InjectionToken, options: GetOptions): T | undefined;
-	public get<T>(
-		token: InjectionToken,
-		options: GetOptions = {},
-	): T | undefined {
+	public get<T>(token: ProviderToken, options: { optional?: false }): T;
+	public get<T>(token: ProviderToken, options: GetOptions): T | undefined;
+	public get<T>(token: ProviderToken, options: GetOptions = {}): T | undefined {
 		this.assertUsable();
 		if (this.container.hasProvider(token)) {
 			return this.container.get<T>(token);
@@ -285,21 +282,21 @@ export class NexusApplication implements NexusApplicationInterface {
 	 * const handler = await app.resolve(RequestHandler);
 	 * ```
 	 */
-	public resolve<T>(token: InjectionToken): Promise<T>;
+	public resolve<T>(token: ProviderToken): Promise<T>;
 	public resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken,
 		options: { optional: true },
 	): Promise<T | undefined>;
 	public resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken,
 		options: { optional?: false },
 	): Promise<T>;
 	public resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken,
 		options: GetOptions,
 	): Promise<T | undefined>;
 	public async resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken,
 		options: GetOptions = {},
 	): Promise<T | undefined> {
 		this.assertUsable();

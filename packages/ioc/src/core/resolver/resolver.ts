@@ -1,9 +1,9 @@
 import {
 	EdgeTypeEnum,
-	type InjectionToken,
 	type ModuleGraphInterface,
 	type Node,
 	NodeTypeEnum,
+	type ProviderToken,
 	Scope,
 	type Type,
 } from "../../interfaces";
@@ -15,10 +15,10 @@ import {
 import type { AnalyzeProvider } from "../graph/analyze-provider";
 import { ProvidersContainer } from "./providers-container";
 
-// Type & { dependencyName: InjectionToken }
+// Type & { dependencyName: ProviderToken }
 type CircularDependencyFn = () => typeof Proxy;
 function isCircularDependencyFn(
-	fn: CircularDependencyFn | InjectionToken,
+	fn: CircularDependencyFn | ProviderToken,
 ): fn is CircularDependencyFn {
 	// @ts-expect-error
 	return !!(typeof fn === "function" && fn.dependencyName);
@@ -26,13 +26,13 @@ function isCircularDependencyFn(
 
 export class Resolver {
 	private readonly providersContainer = new ProvidersContainer();
-	private readonly initializationOrder: InjectionToken[] = [];
+	private readonly initializationOrder: ProviderToken[] = [];
 
 	constructor(private readonly graph: ModuleGraphInterface) {}
 
 	/** Cached singleton lookup; never creates. Uses has() so falsy values count. */
 	public getInstantiated(
-		token: InjectionToken,
+		token: ProviderToken,
 	): { found: true; instance: unknown } | { found: false } {
 		if (!this.providersContainer.has(token)) {
 			return { found: false };
@@ -68,7 +68,7 @@ export class Resolver {
 	 * `initializationOrder`. A token that was never instantiated (never
 	 * resolved, or `Transient`/non-singleton scope) is silently skipped.
 	 */
-	public async destroy(tokens: InjectionToken[]): Promise<void> {
+	public async destroy(tokens: ProviderToken[]): Promise<void> {
 		const dead = new Set(tokens);
 		const orderedDead = this.initializationOrder.filter((token) =>
 			dead.has(token),
@@ -90,7 +90,7 @@ export class Resolver {
 	}
 
 	public async resolveProvider<T>(
-		token: InjectionToken,
+		token: ProviderToken,
 		resolveCache: ProvidersContainer = new ProvidersContainer(),
 		isCircularDependency = false,
 	): Promise<T | undefined> {
@@ -181,7 +181,7 @@ export class Resolver {
 						);
 					(
 						circularResolver as unknown as {
-							dependencyName: InjectionToken;
+							dependencyName: ProviderToken;
 						}
 					).dependencyName = edge.target;
 					resolvedDependencies.push(circularResolver as CircularDependencyFn);
@@ -198,7 +198,7 @@ export class Resolver {
 		}
 
 		const deps = resolvedDependencies.map((dep) =>
-			isCircularDependencyFn(dep as InjectionToken | CircularDependencyFn)
+			isCircularDependencyFn(dep as ProviderToken | CircularDependencyFn)
 				? (dep as CircularDependencyFn)()
 				: dep,
 		);
@@ -231,7 +231,7 @@ export class Resolver {
 				const providerName =
 					typeof provider === "function"
 						? provider.name
-						: ((provider as { provide?: InjectionToken }).provide?.toString() ??
+						: ((provider as { provide?: ProviderToken }).provide?.toString() ??
 							"Unknown");
 				const errorMessage = `Failed to initialize provider "${providerName}": ${error instanceof Error ? error.message : String(error)}`;
 				const wrappedError = new Error(errorMessage);

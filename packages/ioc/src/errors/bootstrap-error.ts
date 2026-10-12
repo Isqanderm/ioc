@@ -1,6 +1,6 @@
-import type { GraphError, InjectionToken } from "../interfaces";
+import type { GraphError, ProviderToken } from "../interfaces";
 
-function tokenToStr(token: InjectionToken): string {
+function tokenToStr(token: ProviderToken): string {
 	return typeof token === "function" ? token.name : String(token);
 }
 

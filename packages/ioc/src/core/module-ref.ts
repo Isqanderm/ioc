@@ -1,7 +1,7 @@
 import type {
 	ContainerInterface,
 	GraphSegment,
-	InjectionToken,
+	ProviderToken,
 	Type,
 	UnloadResult,
 } from "../interfaces";
@@ -46,7 +46,7 @@ export class ModuleRef {
 	}
 
 	public get<T>(
-		token: InjectionToken,
+		token: ProviderToken,
 		options: ModuleRefGetOptions = {},
 	): T | undefined {
 		if (!this.canSee(token, options)) {
@@ -56,7 +56,7 @@ export class ModuleRef {
 	}
 
 	public async resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken,
 		options: ModuleRefGetOptions = {},
 	): Promise<T | undefined> {
 		if (!this.canSee(token, options)) {
@@ -65,7 +65,7 @@ export class ModuleRef {
 		return this.container.resolve<T>(token);
 	}
 
-	private canSee(token: InjectionToken, options: ModuleRefGetOptions): boolean {
+	private canSee(token: ProviderToken, options: ModuleRefGetOptions): boolean {
 		if (!this._loaded) {
 			return false;
 		}

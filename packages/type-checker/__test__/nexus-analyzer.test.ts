@@ -361,7 +361,7 @@ describe("NexusAnalyzer", () => {
 		expectSourceSpan(sourceFile, injectable.source, "@Service()");
 	});
 
-	it("returns semantic tokens for every InjectionToken variant", () => {
+	it("returns semantic tokens for every ProviderToken variant", () => {
 		const { program, sourceFile } = createProgram();
 		const analyzer = createNexusAnalyzer(program);
 

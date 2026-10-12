@@ -1,11 +1,11 @@
 import type { Abstract } from "./abstract.interface";
 import type { Type } from "./type.interface";
 
-// biome-ignore lint/suspicious/noExplicitAny: injection token interface
-export type InjectionToken<T = any> =
+// biome-ignore lint/suspicious/noExplicitAny: provider token
+export type ProviderToken<T = any> =
 	| string
 	| symbol
 	| Type<T>
 	| Abstract<T>
-	// biome-ignore lint/complexity/noBannedTypes: Function type needed for injection token
+	// biome-ignore lint/complexity/noBannedTypes: Function type needed for provider token
 	| Function;

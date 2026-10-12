@@ -6,7 +6,7 @@ import type {
 import type { AnalyzeLazyModule } from "../../core/graph/analyze-lazy-module";
 import type { AnalyzeModule } from "../../core/graph/analyze-module";
 import type { AnalyzeProvider } from "../../core/graph/analyze-provider";
-import type { InjectionToken } from "../injection-token.interface";
+import type { ProviderToken } from "../injection-token.interface";
 
 // Re-export GraphError from shared package
 export type { GraphError } from "@nexus-ioc/shared";
@@ -29,8 +29,8 @@ export type Node = AnalyzeModule | AnalyzeProvider | AnalyzeLazyModule;
 
 export type Edge = {
 	type: EdgeTypeEnum;
-	source: InjectionToken;
-	target: InjectionToken;
+	source: ProviderToken;
+	target: ProviderToken;
 	metadata: {
 		index?: number;
 		key?: string;
@@ -52,13 +52,13 @@ export interface GraphSegment {
 	/** Module node ids added by this segment. */
 	moduleTokens: string[];
 	/** Provider node ids added by this segment. */
-	providerTokens: InjectionToken[];
+	providerTokens: ProviderToken[];
 	errors: GraphError[];
 }
 
 export interface UnloadResult {
 	destroyedModules: string[];
-	destroyedProviders: InjectionToken[];
+	destroyedProviders: ProviderToken[];
 }
 
 export interface ModuleGraphInterface {
@@ -73,18 +73,18 @@ export interface ModuleGraphInterface {
 	): UnloadResult;
 	isProviderVisible(
 		moduleContainer: ModuleContainerInterface,
-		token: InjectionToken,
+		token: ProviderToken,
 	): boolean;
 	isProviderExported(
 		moduleContainer: ModuleContainerInterface,
-		token: InjectionToken,
+		token: ProviderToken,
 	): Promise<boolean>;
-	getNode(token: InjectionToken): Node | undefined;
-	getEdge(token: InjectionToken): Edge[];
+	getNode(token: ProviderToken): Node | undefined;
+	getEdge(token: ProviderToken): Edge[];
 	getAllNodes(): Node[];
 	getAllEdges(): Edge[][];
-	nodes: Map<InjectionToken, Node>;
-	edges: Map<InjectionToken, Edge[]>;
+	nodes: Map<ProviderToken, Node>;
+	edges: Map<ProviderToken, Edge[]>;
 	rootToken: string;
 	internalRootTokens: string[];
 	errors: GraphError[];

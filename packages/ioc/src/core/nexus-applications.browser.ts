@@ -2,9 +2,9 @@ import { ContainerNotCompiledError } from "@nexus-ioc/shared";
 import { ContainerClosedError, ProviderNotFoundError } from "../errors";
 import type {
 	GetOptions,
-	InjectionToken,
 	LazyModule,
 	NexusApplicationInterface,
+	ProviderToken,
 	ScannerPluginInterface,
 	Type,
 	UnloadResult,
@@ -49,17 +49,14 @@ export class NexusApplicationBrowser implements NexusApplicationInterface {
 		return this;
 	}
 
-	public get<T>(token: InjectionToken): T;
+	public get<T>(token: ProviderToken): T;
 	public get<T>(
-		token: InjectionToken,
+		token: ProviderToken,
 		options: { optional: true },
 	): T | undefined;
-	public get<T>(token: InjectionToken, options: { optional?: false }): T;
-	public get<T>(token: InjectionToken, options: GetOptions): T | undefined;
-	public get<T>(
-		token: InjectionToken,
-		options: GetOptions = {},
-	): T | undefined {
+	public get<T>(token: ProviderToken, options: { optional?: false }): T;
+	public get<T>(token: ProviderToken, options: GetOptions): T | undefined;
+	public get<T>(token: ProviderToken, options: GetOptions = {}): T | undefined {
 		this.assertUsable();
 		if (this.container.hasProvider(token)) {
 			return this.container.get<T>(token);
@@ -73,21 +70,21 @@ export class NexusApplicationBrowser implements NexusApplicationInterface {
 		throw new ProviderNotFoundError(token);
 	}
 
-	public resolve<T>(token: InjectionToken): Promise<T>;
+	public resolve<T>(token: ProviderToken): Promise<T>;
 	public resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken,
 		options: { optional: true },
 	): Promise<T | undefined>;
 	public resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken,
 		options: { optional?: false },
 	): Promise<T>;
 	public resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken,
 		options: GetOptions,
 	): Promise<T | undefined>;
 	public async resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken,
 		options: GetOptions = {},
 	): Promise<T | undefined> {
 		this.assertUsable();

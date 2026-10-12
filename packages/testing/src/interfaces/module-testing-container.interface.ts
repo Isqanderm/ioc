@@ -1,12 +1,12 @@
 import type {
 	ContainerBaseInterface,
 	GetOptions,
-	InjectionToken,
 	LazyModule,
 	ModuleContainerInterface,
 	ModuleMetadata,
 	ModulePluginInterface,
 	ModuleRef,
+	ProviderToken,
 	UnloadResult,
 } from "@nexus-ioc/core";
 
@@ -19,21 +19,18 @@ export interface ModuleTestingContainerInterface<_T extends ModuleMetadata>
 		) => ClassDecorator,
 	): this;
 
-	get<T>(token: InjectionToken): T;
-	get<T>(token: InjectionToken, options: { optional: true }): T | undefined;
-	get<T>(token: InjectionToken, options: { optional?: false }): T;
-	get<T>(token: InjectionToken, options: GetOptions): T | undefined;
+	get<T>(token: ProviderToken): T;
+	get<T>(token: ProviderToken, options: { optional: true }): T | undefined;
+	get<T>(token: ProviderToken, options: { optional?: false }): T;
+	get<T>(token: ProviderToken, options: GetOptions): T | undefined;
 
-	resolve<T>(token: InjectionToken): Promise<T>;
+	resolve<T>(token: ProviderToken): Promise<T>;
 	resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken,
 		options: { optional: true },
 	): Promise<T | undefined>;
-	resolve<T>(token: InjectionToken, options: { optional?: false }): Promise<T>;
-	resolve<T>(
-		token: InjectionToken,
-		options: GetOptions,
-	): Promise<T | undefined>;
+	resolve<T>(token: ProviderToken, options: { optional?: false }): Promise<T>;
+	resolve<T>(token: ProviderToken, options: GetOptions): Promise<T | undefined>;
 
 	compile(): Promise<ModuleContainerInterface>;
 
