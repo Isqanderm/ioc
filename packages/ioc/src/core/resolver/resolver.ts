@@ -384,6 +384,14 @@ export class Resolver {
 			node?.type === NodeTypeEnum.PROVIDER &&
 			this.graph.isProviderVisible(requester.moduleContainer, token);
 		if (!visible) {
+			// Not visible locally: the parent chain may provide it. `link.get`
+			// returns only an existing parent singleton (never creates one) and
+			// throws for a parent Transient, a not-yet-created singleton or a
+			// closed parent, even with `optional`. The dependency crosses
+			// containers, so no runtime edge is recorded and nothing is cached.
+			if (this.link?.canProvide(token)) {
+				return this.link.get(token);
+			}
 			if (options.optional) {
 				return undefined;
 			}

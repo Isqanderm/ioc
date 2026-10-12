@@ -6,6 +6,7 @@ import {
 	Inject,
 	Injectable,
 	InjectionToken,
+	inject,
 	lazy,
 	Module,
 	NexusApplication,
@@ -273,8 +274,19 @@ describe("child graph: compile-time external lookup", () => {
 			expect(edge?.metadata.unreached).toBe(false);
 		});
 
-		it.todo(
-			"Task 5: inject() (resolveSync) falls through to the link for the same token",
-		);
+		it("inject() (resolveSync) falls through to the link for the same token", async () => {
+			@Injectable()
+			class Consumer {
+				readonly http = inject(Http);
+			}
+			@Module({ imports: [InnerModule], providers: [Consumer] })
+			class ProfileModule {}
+
+			const app = await bootRoot([ProfileModule]);
+			const child = await app.createChild(ProfileModule);
+
+			expect(graphOf(child).getNode(Http)).toBeDefined();
+			expect(child.get(Consumer).http).toBe(app.get(Http));
+		});
 	});
 });
