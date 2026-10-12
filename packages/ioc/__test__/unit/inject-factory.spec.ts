@@ -1,6 +1,7 @@
 import "reflect-metadata";
 import {
 	AsyncProviderInjectionError,
+	Inject,
 	Injectable,
 	InjectionContextError,
 	InjectionToken,
@@ -99,6 +100,64 @@ describe("inject() in factories", () => {
 		const app = await NexusApplication.create(M).lazy().bootstrap();
 		await expect(app.resolve(Repo)).rejects.toThrow(
 			AsyncProviderInjectionError,
+		);
+	});
+
+	it("bootstrap() retries a factory whose inject() needs an async factory declared later", async () => {
+		const DB = new InjectionToken<{ ok: boolean }>("DB");
+		const F = new InjectionToken<Repo>("F");
+		@Injectable()
+		class Repo {
+			constructor(@Inject(DB) readonly db: { ok: boolean }) {}
+		}
+		@Module({
+			providers: [
+				Repo,
+				{ provide: F, useFactory: () => inject(Repo) },
+				{ provide: DB, useFactory: async () => ({ ok: true }) },
+			],
+		})
+		class M {}
+		const app = await NexusApplication.create(M).bootstrap();
+		expect(app.get(F)).toBe(app.get(Repo));
+		expect(app.get(F).db.ok).toBe(true);
+	});
+
+	it("bootstrap() still fails, naming the chain, when async factories need each other", async () => {
+		const A = new InjectionToken<object>("A");
+		const B = new InjectionToken<object>("B");
+		@Injectable()
+		class NeedsA {
+			constructor(@Inject(A) readonly a: object) {}
+		}
+		@Injectable()
+		class NeedsB {
+			constructor(@Inject(B) readonly b: object) {}
+		}
+		@Module({
+			providers: [
+				NeedsA,
+				NeedsB,
+				{
+					provide: A,
+					useFactory: async () => ({ b: inject(NeedsB) }),
+				},
+				{
+					provide: B,
+					useFactory: async () => ({ a: inject(NeedsA) }),
+				},
+			],
+		})
+		class M {}
+		const error = await NexusApplication.create(M)
+			.bootstrap()
+			.then(
+				() => undefined,
+				(e: unknown) => e,
+			);
+		expect(error).toBeInstanceOf(AsyncProviderInjectionError);
+		expect((error as Error).message).toContain(
+			"(via InjectionToken B -> NeedsA -> InjectionToken A)",
 		);
 	});
 });

@@ -415,7 +415,7 @@ export class Resolver {
 				if (isThenable(result)) {
 					// Never leave the abandoned promise rejecting unhandled.
 					result.then(undefined, () => {});
-					throw new AsyncProviderInjectionError(node.id);
+					throw new AsyncProviderInjectionError(node.id, [...ctx.path]);
 				}
 				instance = result;
 			} else {
