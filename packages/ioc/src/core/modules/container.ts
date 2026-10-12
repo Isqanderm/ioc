@@ -36,6 +36,10 @@ export type UnloadingHook = (
 	destroyedModules: string[],
 ) => Promise<{ closed: number; error?: unknown }>;
 
+function errorList(error: unknown): unknown[] {
+	return error instanceof AggregateError ? [...error.errors] : [error];
+}
+
 /**
  * Container is the core IoC (Inversion of Control) container that manages
  * modules, providers, and dependency injection.
@@ -441,7 +445,18 @@ export class Container implements ContainerInterface {
 				childFailure = closing.error;
 			}
 
-			await this.moduleGraphResolver?.destroy(result.destroyedProviders);
+			try {
+				await this.moduleGraphResolver?.destroy(result.destroyedProviders);
+			} catch (error) {
+				if (childFailure === undefined) {
+					throw error;
+				}
+				// Neither failure is dropped.
+				throw new AggregateError(
+					[...errorList(childFailure), ...errorList(error)],
+					"Unloading failed: child applications and onModuleDestroy hooks",
+				);
+			}
 
 			for (const moduleToken of result.destroyedModules) {
 				this.modulesContainer.removeModule(moduleToken);

@@ -79,8 +79,10 @@ export interface SegmentUnloadResult {
 /** What unloading a lazy module did. */
 export interface UnloadResult extends SegmentUnloadResult {
 	/**
-	 * Live child applications closed because the module that declared them
-	 * in `@Module({ children })` was destroyed by this unload.
+	 * Child applications this unload started closing because the module
+	 * that declared them in `@Module({ children })` was destroyed. A child
+	 * whose close failed still counts; a child that was already closing
+	 * (its own `close()`) does not, though the unload still waits for it.
 	 */
 	closedChildren: number;
 }

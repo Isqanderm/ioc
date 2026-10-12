@@ -1,5 +1,6 @@
 import "reflect-metadata";
 import {
+	ChildModuleNotDeclaredError,
 	ContainerClosedError,
 	Inject,
 	Injectable,
@@ -356,5 +357,234 @@ describe("child lifecycle: unload closes children declared in the segment", () =
 		expect(result.destroyedProviders).toEqual([SegmentService]);
 		expect(destroyed).toEqual(["segment"]);
 		expect(app.get(Http)).toBeInstanceOf(Http);
+	});
+});
+
+describe("child lifecycle: createChild racing an unload of the declaring segment", () => {
+	it("a lazy child whose declaring segment unloads while its code loads is rejected (R2)", async () => {
+		@Injectable()
+		class W {}
+		@Module({ providers: [W] })
+		class Widget {}
+		let release!: () => void;
+		const gate = new Promise<void>((r) => {
+			release = r;
+		});
+		const widgetLazy = lazy(async () => {
+			await gate;
+			return Widget;
+		});
+		@Module({ children: [widgetLazy] })
+		class Feature {}
+		const featureLazy = lazy(async () => Feature);
+		@Module({})
+		class Root {}
+
+		const app = await NexusApplication.create(Root).bootstrap();
+		const ref = await app.load(featureLazy);
+		const creating = app.createChild(widgetLazy);
+		await tick(1);
+		const result = await app.unload(ref);
+		release();
+
+		const error = await creating.catch((e) => e);
+		expect(error).toBeInstanceOf(ChildModuleNotDeclaredError);
+		expect((error as Error).message).toMatch(/unloaded/);
+		expect(result.closedChildren).toBe(0);
+		expect(liveChildren(app).size).toBe(0);
+		expect(app.isClosed).toBe(false);
+	});
+
+	it("a lazy child is rejected even when the declaring segment was reloaded meanwhile", async () => {
+		@Module({})
+		class Widget {}
+		let release!: () => void;
+		const gate = new Promise<void>((r) => {
+			release = r;
+		});
+		const widgetLazy = lazy(async () => {
+			await gate;
+			return Widget;
+		});
+		@Module({ children: [widgetLazy] })
+		class Feature {}
+		const featureLazy = lazy(async () => Feature);
+		@Module({})
+		class Root {}
+
+		const app = await NexusApplication.create(Root).bootstrap();
+		const ref = await app.load(featureLazy);
+		const creating = app.createChild(widgetLazy);
+		await tick(1);
+		await app.unload(ref);
+		await app.load(featureLazy);
+		release();
+
+		await expect(creating).rejects.toThrow(ChildModuleNotDeclaredError);
+		expect(liveChildren(app).size).toBe(0);
+		// The new declaration works.
+		const child = await app.createChild(widgetLazy);
+		expect(child.isClosed).toBe(false);
+	});
+
+	it("a child with no singletons, closed by an unload mid-bootstrap, is rejected with the unload error (R3)", async () => {
+		@Module({})
+		class Widget {}
+		@Module({ children: [Widget] })
+		class Feature {}
+		const featureLazy = lazy(async () => Feature);
+		@Module({})
+		class Root {}
+
+		const app = await NexusApplication.create(Root).bootstrap();
+		const ref = await app.load(featureLazy);
+		const creating = app.createChild(Widget);
+		const result = await app.unload(ref);
+
+		const error = await creating.catch((e) => e);
+		expect(error).toBeInstanceOf(ChildModuleNotDeclaredError);
+		expect((error as Error).message).toMatch(/unloaded/);
+		expect(result.closedChildren).toBe(1);
+		expect(liveChildren(app).size).toBe(0);
+	});
+
+	it("a child mid warm-up, closed by an unload, is rejected with the unload error and destroyed (R3b)", async () => {
+		let created = 0;
+		let destroyed = 0;
+		@Injectable()
+		class S {
+			constructor() {
+				created++;
+			}
+			async onModuleInit() {
+				await tick(10);
+			}
+			onModuleDestroy() {
+				destroyed++;
+			}
+		}
+		@Module({ providers: [S] })
+		class Widget {}
+		@Module({ children: [Widget] })
+		class Feature {}
+		const featureLazy = lazy(async () => Feature);
+		@Module({})
+		class Root {}
+
+		const app = await NexusApplication.create(Root).bootstrap();
+		const ref = await app.load(featureLazy);
+		const creating = app.createChild(Widget);
+		await tick(2);
+		expect(created).toBe(1);
+		const result = await app.unload(ref);
+
+		const error = await creating.catch((e) => e);
+		expect(error).toBeInstanceOf(ChildModuleNotDeclaredError);
+		expect((error as Error).message).toMatch(/unloaded/);
+		expect(result.closedChildren).toBe(1);
+		expect(destroyed).toBe(created);
+		expect(liveChildren(app).size).toBe(0);
+	});
+});
+
+describe("child lifecycle: unload error reporting and counting", () => {
+	it("keeps both a child's close failure and a segment provider's destroy failure (R5)", async () => {
+		const childBoom = new Error("child boom");
+		const featureBoom = new Error("feature boom");
+		@Injectable()
+		class W implements OnModuleDestroy {
+			onModuleDestroy() {
+				throw childBoom;
+			}
+		}
+		@Module({ providers: [W] })
+		class Widget {}
+		@Injectable()
+		class F implements OnModuleDestroy {
+			onModuleDestroy() {
+				throw featureBoom;
+			}
+		}
+		@Module({ providers: [F], children: [Widget] })
+		class Feature {}
+		const featureLazy = lazy(async () => Feature);
+		@Module({})
+		class Root {}
+
+		const app = await NexusApplication.create(Root).bootstrap();
+		const ref = await app.load(featureLazy);
+		await app.createChild(Widget);
+		const error = await app.unload(ref).catch((e) => e);
+
+		expect(error).toBeInstanceOf(AggregateError);
+		expect((error as AggregateError).errors).toEqual([childBoom, featureBoom]);
+		await app.close().catch(() => undefined);
+	});
+
+	it("a child's close failure alone is rethrown after the unload completes", async () => {
+		const childBoom = new Error("child boom");
+		const Widget = recordingModule([], "widget", childBoom);
+		@Injectable()
+		class F {}
+		@Module({ providers: [F], children: [Widget] })
+		class Feature {}
+		const featureLazy = lazy(async () => Feature);
+		@Module({})
+		class Root {}
+
+		const app = await NexusApplication.create(Root).bootstrap();
+		const ref = await app.load(featureLazy);
+		await app.createChild(Widget);
+		const error = await app.unload(ref).catch((e) => e);
+
+		expect(error).toBeInstanceOf(AggregateError);
+		expect((error as AggregateError).errors).toEqual([childBoom]);
+		expect(() => app.get(F)).toThrow();
+		await app.close();
+	});
+
+	it("closedChildren does not count a child the user was already closing", async () => {
+		let releaseUserClose!: () => void;
+		const userCloseGate = new Promise<void>((r) => {
+			releaseUserClose = r;
+		});
+		const order: string[] = [];
+		@Injectable()
+		class SlowDestroy implements OnModuleDestroy {
+			async onModuleDestroy() {
+				await userCloseGate;
+				order.push("user-closed");
+			}
+		}
+		@Module({ providers: [SlowDestroy] })
+		class SlowWidget {}
+		const Fine = recordingModule(order, "fine");
+		@Injectable()
+		class F implements OnModuleDestroy {
+			onModuleDestroy() {
+				order.push("feature");
+			}
+		}
+		@Module({ providers: [F], children: [SlowWidget, Fine] })
+		class Feature {}
+		const featureLazy = lazy(async () => Feature);
+		@Module({})
+		class Root {}
+
+		const app = await NexusApplication.create(Root).bootstrap();
+		const ref = await app.load(featureLazy);
+		const userClosed = await app.createChild(SlowWidget);
+		await app.createChild(Fine);
+		const userClosing = userClosed.close();
+		const unloading = app.unload(ref);
+		await tick(1);
+		releaseUserClose();
+		await userClosing;
+		const result = await unloading;
+
+		expect(result.closedChildren).toBe(1);
+		// The unload still waits for the user's close before destroying providers.
+		expect(order).toEqual(["fine", "user-closed", "feature"]);
+		expect(liveChildren(app).size).toBe(0);
 	});
 });

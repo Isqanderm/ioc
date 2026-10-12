@@ -180,7 +180,9 @@ export class NexusApplication implements NexusApplicationInterface {
 	 *
 	 * @throws {ContainerNotCompiledError} If this application is not bootstrapped
 	 * @throws {ContainerClosedError} If this application is closed or closing
-	 * @throws {ChildModuleNotDeclaredError} If no module declares `child`
+	 * @throws {ChildModuleNotDeclaredError} If no module declares `child`, or
+	 *   (`reason: "unloaded"`) the lazy module declaring it was unloaded while
+	 *   the child was being created; the child is closed then
 	 * @throws {LazyModuleLoadError} If a lazy child's loader fails or returns a non-module
 	 *
 	 * @example
@@ -204,12 +206,18 @@ export class NexusApplication implements NexusApplicationInterface {
 			: isDynamicModule(child)
 				? child.module
 				: child;
+		const childName = isLazyModule(child) ? child.name : getModuleLabel(child);
 		const declaredIn = this.container.graph.findChildDeclaration(key);
 		if (!declaredIn) {
-			throw new ChildModuleNotDeclaredError(
-				isLazyModule(child) ? child.name : getModuleLabel(child),
-			);
+			throw new ChildModuleNotDeclaredError(childName);
 		}
+		// The declaring module may live in a lazy segment that is unloaded
+		// (and maybe loaded again, as a new module) while this call awaits.
+		const assertStillDeclared = () => {
+			if (this.container.graph.findChildDeclaration(key) !== declaredIn) {
+				throw new ChildModuleNotDeclaredError(childName, "unloaded");
+			}
+		};
 
 		let module: Type | DynamicModule;
 		if (isLazyModule(child)) {
@@ -220,8 +228,10 @@ export class NexusApplication implements NexusApplicationInterface {
 				this.assertOpen();
 				throw error;
 			}
-			// The parent may have started closing while the code loaded.
+			// The parent may have started closing, or the declaring segment
+			// unloading, while the code loaded.
 			this.assertOpen();
+			assertStillDeclared();
 		} else {
 			module = child;
 		}
@@ -237,19 +247,34 @@ export class NexusApplication implements NexusApplicationInterface {
 		);
 		// Registered before bootstrap so a concurrent close() sees it.
 		this.liveChildren.add(app);
+		// Only this application can close a child still bootstrapping: its
+		// close() cascade or an unload of the declaring module. The caller
+		// hears about the parent closing first, then about the unload.
+		const reportClosedWhileCreating = () => {
+			this.assertOpen();
+			if (app.isClosed) {
+				throw new ChildModuleNotDeclaredError(childName, "unloaded");
+			}
+			assertStillDeclared();
+		};
 		try {
 			await app.bootstrap();
 		} catch (error) {
+			const closedByParent = app.isClosed;
 			this.liveChildren.delete(app);
 			await app.close().catch(() => undefined);
-			// A parent that started closing reports that, not the bootstrap failure.
 			this.assertOpen();
+			if (closedByParent) {
+				reportClosedWhileCreating();
+			}
 			throw error;
 		}
 
-		if (this.isClosed) {
+		try {
+			reportClosedWhileCreating();
+		} catch (error) {
 			await app.close();
-			throw new ContainerClosedError();
+			throw error;
 		}
 		return app;
 	}
@@ -463,9 +488,14 @@ export class NexusApplication implements NexusApplicationInterface {
 		const doomed = [...this.liveChildren]
 			.filter((child) => child.declaredIn && destroyed.has(child.declaredIn))
 			.reverse();
-		const errors = await closeAll(doomed);
+		// A child someone else is already closing is waited for (it may still
+		// use the parent's providers) but neither counted nor re-reported.
+		const closingElsewhere = doomed.filter((child) => child.isClosed);
+		const started = doomed.filter((child) => !child.isClosed);
+		const errors = await closeAll(started);
+		await Promise.allSettled(closingElsewhere.map((child) => child.close()));
 		return {
-			closed: doomed.length,
+			closed: started.length,
 			error:
 				errors.length > 0
 					? new AggregateError(
