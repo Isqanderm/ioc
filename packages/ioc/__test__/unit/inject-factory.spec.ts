@@ -160,4 +160,105 @@ describe("inject() in factories", () => {
 			"(via InjectionToken B -> NeedsA -> InjectionToken A)",
 		);
 	});
+
+	it("bootstrap() retry reuses the async factory's first result instead of calling it again", async () => {
+		const DB = new InjectionToken<{ id: number }>("DB");
+		const F = new InjectionToken<Repo>("F");
+		let calls = 0;
+		const inits: number[] = [];
+		const destroyed: number[] = [];
+		@Injectable()
+		class Repo {
+			constructor(@Inject(DB) readonly db: { id: number }) {}
+		}
+		@Module({
+			providers: [
+				Repo,
+				{ provide: F, useFactory: () => inject(Repo) },
+				{
+					provide: DB,
+					useFactory: async () => {
+						const id = ++calls;
+						return {
+							id,
+							onModuleInit() {
+								inits.push(id);
+							},
+							onModuleDestroy() {
+								destroyed.push(id);
+							},
+						};
+					},
+				},
+			],
+		})
+		class M {}
+		const app = await NexusApplication.create(M).bootstrap();
+		expect(calls).toBe(1);
+		expect(app.get(Repo).db).toBe(app.get(DB));
+		await app.close();
+		expect(inits).toEqual([1]);
+		expect(destroyed).toEqual([1]);
+	});
+
+	it("lazy mode: resolve() of an async factory adopts the result a failed inject() started", async () => {
+		const DB = new InjectionToken<{ id: number }>("DB");
+		let calls = 0;
+		@Injectable()
+		class Repo {
+			constructor(@Inject(DB) readonly db: { id: number }) {}
+		}
+		@Injectable()
+		class Svc {
+			readonly repo = inject(Repo);
+		}
+		@Module({
+			providers: [
+				Svc,
+				Repo,
+				{ provide: DB, useFactory: async () => ({ id: ++calls }) },
+			],
+		})
+		class M {}
+		const app = NexusApplication.create(M).lazy();
+		await app.bootstrap();
+		await expect(app.resolve(Svc)).rejects.toThrow(AsyncProviderInjectionError);
+		await expect(app.resolve(Svc)).rejects.toThrow(AsyncProviderInjectionError);
+		const db = await app.resolve(DB);
+		expect(calls).toBe(1);
+		expect(db.id).toBe(1);
+		expect((await app.resolve(Svc)).repo.db).toBe(db);
+	});
+
+	it("calls the async factory again when the adopted result rejected", async () => {
+		const DB = new InjectionToken<{ id: number }>("DB");
+		let calls = 0;
+		@Injectable()
+		class Svc {
+			readonly db = inject(DB);
+		}
+		@Module({
+			providers: [
+				Svc,
+				{
+					provide: DB,
+					useFactory: async () => {
+						const id = ++calls;
+						if (id === 1) {
+							throw new Error("connect failed");
+						}
+						return { id };
+					},
+				},
+			],
+		})
+		class M {}
+		const app = NexusApplication.create(M).lazy();
+		await app.bootstrap();
+		await expect(app.resolve(Svc)).rejects.toThrow(AsyncProviderInjectionError);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		const db = await app.resolve(DB);
+		expect(calls).toBe(2);
+		expect(db.id).toBe(2);
+	});
 });

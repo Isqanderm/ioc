@@ -55,6 +55,17 @@ export class Resolver {
 	 * see it half-initialised or keep it after a failed init evicted it.
 	 */
 	private readonly inFlightInits = new Map<ProviderToken, Promise<unknown>>();
+	/**
+	 * Results of async singleton factories that inject() called and then had
+	 * to abandon (AsyncProviderInjectionError). The next asynchronous
+	 * creation adopts the result instead of calling the factory again, so a
+	 * pool or socket it opened is the one the container keeps and destroys.
+	 * An entry is dropped when its promise rejects.
+	 */
+	private readonly pendingFactoryResults = new Map<
+		ProviderToken,
+		Promise<unknown>
+	>();
 
 	constructor(private readonly graph: ModuleGraphInterface) {}
 
@@ -62,7 +73,9 @@ export class Resolver {
 	public getInstantiated(
 		token: ProviderToken,
 	): { found: true; instance: unknown } | { found: false } {
-		if (!this.providersContainer.has(token)) {
+		// A singleton inject() created is cached before its async init settles;
+		// like the async path, it counts as instantiated only after the init.
+		if (!this.providersContainer.has(token) || this.inFlightInits.has(token)) {
 			return { found: false };
 		}
 		return { found: true, instance: this.providersContainer.get(token) };
@@ -83,6 +96,7 @@ export class Resolver {
 		this.providersContainer.clear();
 		this.initializationOrder.length = 0;
 		this.inFlightInits.clear();
+		this.pendingFactoryResults.clear();
 		if (errors.length > 0) {
 			throw new AggregateError(
 				errors,
@@ -112,6 +126,7 @@ export class Resolver {
 		}
 		for (const token of dead) {
 			this.inFlightInits.delete(token);
+			this.pendingFactoryResults.delete(token);
 		}
 
 		const survivors = this.initializationOrder.filter(
@@ -238,6 +253,14 @@ export class Resolver {
 		isCircularDependency: boolean,
 	): Promise<unknown> {
 		const provider = node.metatype;
+		const adopted = this.takePendingFactoryResult(node);
+		if (adopted) {
+			// The factory already ran (with its dependencies) inside inject().
+			const instance = await adopted.result;
+			await ctx.drainPendingInits();
+			await this.callInit(provider, instance);
+			return instance;
+		}
 		const dependencyEdges = this.constructorEdges(node).filter(
 			(edge) => edge.metadata.unreached === false,
 		);
@@ -305,7 +328,16 @@ export class Resolver {
 		// onModuleInit of providers created via inject() must finish before
 		// this instance's own onModuleInit runs.
 		await ctx.drainPendingInits();
+		await this.callInit(provider, instance);
 
+		return instance;
+	}
+
+	private async callInit(
+		provider: Provider,
+		// biome-ignore lint/suspicious/noExplicitAny: provider instance
+		instance: any,
+	): Promise<void> {
 		if (instance?.onModuleInit) {
 			try {
 				await instance.onModuleInit();
@@ -313,8 +345,18 @@ export class Resolver {
 				throw this.wrapInitError(provider, error);
 			}
 		}
+	}
 
-		return instance;
+	/** Removes and returns the abandoned async factory result for a singleton. */
+	private takePendingFactoryResult(
+		node: AnalyzeProvider,
+	): { result: Promise<unknown> } | undefined {
+		const result = this.pendingFactoryResults.get(node.id);
+		if (!result) {
+			return undefined;
+		}
+		this.pendingFactoryResults.delete(node.id);
+		return { result };
 	}
 
 	/**
@@ -409,12 +451,16 @@ export class Resolver {
 			if (isValueProvider(provider)) {
 				instance = provider.useValue;
 			} else if (isFactoryProvider(provider)) {
+				if (this.pendingFactoryResults.has(node.id)) {
+					// Already called by an earlier inject(); its result is still
+					// waiting to be adopted by an asynchronous creation.
+					throw new AsyncProviderInjectionError(node.id, [...ctx.path]);
+				}
 				const result = withInjectionContext(injectionContext, () =>
 					provider.useFactory(...deps),
 				);
 				if (isThenable(result)) {
-					// Never leave the abandoned promise rejecting unhandled.
-					result.then(undefined, () => {});
+					this.keepFactoryResult(node, result);
 					throw new AsyncProviderInjectionError(node.id, [...ctx.path]);
 				}
 				instance = result;
@@ -464,6 +510,27 @@ export class Resolver {
 		} finally {
 			ctx.leave(node.id);
 		}
+	}
+
+	/**
+	 * Keeps an async singleton factory's result for adoption by the next
+	 * asynchronous creation. Scoped and Transient results are not reused.
+	 * The rejection handler also prevents an unhandled rejection.
+	 */
+	private keepFactoryResult(
+		node: AnalyzeProvider,
+		result: PromiseLike<unknown>,
+	): void {
+		const promise = Promise.resolve(result);
+		const adoptable = node.scope === Scope.Singleton;
+		if (adoptable) {
+			this.pendingFactoryResults.set(node.id, promise);
+		}
+		promise.catch(() => {
+			if (adoptable && this.pendingFactoryResults.get(node.id) === promise) {
+				this.pendingFactoryResults.delete(node.id);
+			}
+		});
 	}
 
 	/** Registers `init` as the in-flight init of a just-committed singleton. */

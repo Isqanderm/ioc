@@ -10,6 +10,7 @@ import {
 	NexusApplication,
 	type OnModuleInit,
 	ProviderNotFoundError,
+	ProviderNotInstantiatedError,
 	Scope,
 } from "../../src";
 
@@ -533,6 +534,31 @@ describe("inject() and async onModuleInit across resolution trees", () => {
 });
 
 describe("inject() details", () => {
+	it("get() does not return a singleton while its inject()-started init is in flight", async () => {
+		@Injectable()
+		class S {
+			ready = false;
+			async onModuleInit() {
+				await new Promise((resolve) => setTimeout(resolve, 5));
+				this.ready = true;
+			}
+		}
+		@Injectable()
+		class A {
+			readonly s = inject(S);
+		}
+		@Module({ providers: [S, A] })
+		class M {}
+		const app = NexusApplication.create(M).lazy();
+		await app.bootstrap();
+		const pendingA = app.resolve(A);
+		await Promise.resolve();
+		expect(() => app.get(S)).toThrow(ProviderNotInstantiatedError);
+		const a = await pendingA;
+		expect(app.get(S)).toBe(a.s);
+		expect(app.get(S).ready).toBe(true);
+	});
+
 	it("keeps the original error as cause when onModuleInit fails", async () => {
 		@Injectable()
 		class Dep {}

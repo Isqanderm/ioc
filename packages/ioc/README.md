@@ -257,7 +257,8 @@ rare, `bootstrap()` creates singletons in this order: value providers, then
 factory providers, then class providers. A class provider can therefore
 `inject()` an async-factory provider. A factory that `inject()`s a class which
 needs an async factory declared after it is retried once the other factories
-are created. This ordering only applies to `bootstrap()`: with `.lazy()` nothing
+are created; the async factory is not called again, its first result is
+reused. This ordering only applies to `bootstrap()`: with `.lazy()` nothing
 is created up front, so `inject()` of an async-factory provider (directly or
 through a class that `@Inject`s it) throws `AsyncProviderInjectionError` unless
 that provider was already resolved. The error message shows the chain, for
@@ -273,7 +274,11 @@ A dependency obtained with `inject()` may still be completing its async
 `onModuleInit` while your constructor or factory body runs; it is guaranteed to
 be done only before your own `onModuleInit`. For a dependency you must use in
 the constructor or factory body after its async init, use `@Inject` (or the
-factory's `inject: [...]`), which resolves it fully first.
+factory's `inject: [...]`), which resolves it fully first. Until that init
+settles, `app.get()` of such a singleton throws `ProviderNotInstantiatedError`,
+just as for a singleton still being created by `resolve()`. Don't resolve
+providers that depend on a provider from that provider's own `onModuleInit`:
+the resolution waits for the init that is waiting for it, and never settles.
 
 ### Cycles
 
