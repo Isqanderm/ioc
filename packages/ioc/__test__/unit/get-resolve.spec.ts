@@ -30,7 +30,7 @@ describe("NexusApplication.get (sync) / resolve (async)", () => {
 			{ provide: "null", useValue: null },
 			{ provide: "zero", useValue: 0 },
 			{ provide: "false", useValue: false },
-			{ provide: "async", useFactory: async () => "async-value" },
+			{ provide: "factory", useFactory: () => "factory-value" },
 		],
 	})
 	class AppModule {}
@@ -43,9 +43,9 @@ describe("NexusApplication.get (sync) / resolve (async)", () => {
 		expect(app.get(SingletonService)).toBe(result);
 	});
 
-	it("returns async-factory singletons synchronously after bootstrap", async () => {
+	it("returns factory singletons synchronously after bootstrap", async () => {
 		const app = await NexusApplication.create(AppModule).bootstrap();
-		expect(app.get("async")).toBe("async-value");
+		expect(app.get("factory")).toBe("factory-value");
 	});
 
 	it.each([

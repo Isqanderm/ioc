@@ -128,7 +128,11 @@ export interface ValueProvider<T = any> {
  * - The value requires complex initialization logic
  * - The value depends on other providers
  * - You need to create the value dynamically
- * - You want to return a Promise for async initialization
+ * - You need to compute the value synchronously from other providers
+ *
+ * The factory must return the value synchronously. Returning a promise throws
+ * `AsyncFactoryError`; move async setup into `onModuleInit` of the provided
+ * class, or create the value before bootstrap and register it with `useValue`.
  *
  * @template T - The type of value the factory creates
  *
@@ -138,11 +142,7 @@ export interface ValueProvider<T = any> {
  *   providers: [
  *     {
  *       provide: 'DATABASE',
- *       useFactory: async (config: Config) => {
- *         const db = await createConnection(config.dbUrl);
- *         await db.migrate();
- *         return db;
- *       },
+ *       useFactory: (config: Config) => createDatabase(config),
  *       inject: ['CONFIG'],
  *       scope: Scope.Singleton
  *     },
@@ -158,9 +158,9 @@ export interface ValueProvider<T = any> {
 export interface FactoryProvider<T = any> {
 	/** The injection token to register this provider under */
 	provide: ProviderToken;
-	/** The factory function that creates the value */
+	/** Synchronous factory that creates the value; a returned promise throws AsyncFactoryError */
 	// biome-ignore lint/suspicious/noExplicitAny: factory function interface
-	useFactory: (...args: any[]) => T | Promise<T>;
+	useFactory: (...args: any[]) => T;
 	/** Tokens of dependencies to inject into the factory function */
 	inject?: (ProviderToken | ForwardRef)[];
 	/** The lifecycle scope (default: Singleton) */

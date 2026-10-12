@@ -1,6 +1,5 @@
 export { BootstrapError, formatGraphErrors } from "./bootstrap-error";
 export {
-	AsyncProviderInjectionError,
 	CircularInjectionError,
 	InjectionContextError,
 } from "./injection-errors";
@@ -9,6 +8,7 @@ export {
 	LazyModuleLoadError,
 } from "./lazy-module-errors";
 export {
+	AsyncFactoryError,
 	ContainerClosedError,
 	formatToken,
 	ProviderNotFoundError,

@@ -251,16 +251,11 @@ message names the requester (`requested by "Y" via inject()`; the error has a
 
 ### Async providers
 
-A provider whose factory returns a promise can be injected only if it already
-exists; otherwise `inject()` throws `AsyncProviderInjectionError`. To make that
-rare, `bootstrap()` creates singletons in this order: value providers, then
-factory providers, then class providers. A class provider can therefore
-`inject()` an async-factory provider. This ordering only applies to
-`bootstrap()`: with `.lazy()` nothing
-is created up front, so `inject()` of an async-factory provider (directly or
-through a class that `@Inject`s it) throws `AsyncProviderInjectionError` unless
-that provider was already resolved. The error message shows the chain, for
-example `(via F -> Repo -> DB)`.
+A `useFactory` must return its value synchronously. A factory that returns a
+promise throws `AsyncFactoryError` when the provider is created (at
+`bootstrap()`, or on `resolve()` in lazy mode). Move async setup into
+`onModuleInit` of the provided class, or create the value before bootstrap and
+register it with `useValue`.
 
 An `onModuleInit` of an injected dependency may be async: it completes before
 the requester's own `onModuleInit` runs. A singleton whose async init fails is
@@ -547,6 +542,10 @@ pair, so `moduleRef.get<X>(X)` needs no `await`.
   or a class unrelated to `T` (`get<Foo>(Bar)`), is now a compile error.
 - A class with a `private` or `protected` constructor can no longer be used as
   a token: use an `InjectionToken` instead.
+- Async factories are removed: a `useFactory` that returns a promise throws
+  `AsyncFactoryError`. Move the async setup into `onModuleInit` of the provided
+  class, or create the value before bootstrap and register it with `useValue`.
+  Singletons are now created in plain declaration order.
 - `get()` no longer returns a promise: drop the `await` for singletons and use
   `await resolve()` for `Transient`, `Scoped` and lazy-mode providers.
 - `get()` now throws instead of returning `undefined` for unknown tokens. Pass

@@ -13,8 +13,8 @@ import { HttpService } from "./http.service";
 			useValue: "https://example.com",
 		},
 		{
-			provide: "ASYNC_FACTORY",
-			useFactory: () => Promise.resolve("ASYNC_FACTORY"),
+			provide: "FACTORY",
+			useFactory: () => "FACTORY",
 		},
 	],
 })

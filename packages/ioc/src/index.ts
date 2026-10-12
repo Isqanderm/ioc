@@ -12,7 +12,7 @@ export { Injectable } from "./decorators/injectable";
 export { Module } from "./decorators/module";
 export { Optional } from "./decorators/optional";
 export {
-	AsyncProviderInjectionError,
+	AsyncFactoryError,
 	BootstrapError,
 	CircularInjectionError,
 	ContainerClosedError,

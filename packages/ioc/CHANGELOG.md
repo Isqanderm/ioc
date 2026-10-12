@@ -7,6 +7,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ### BREAKING CHANGES
 
+- `useFactory` must return synchronously. A factory that returns a promise throws `AsyncFactoryError`; move async setup into `onModuleInit` of the provided class, or create the value before bootstrap and register it with `useValue`. Singletons are created in declaration order.
 - `NexusApplication.get()` is synchronous and returns bootstrapped singletons. It throws `ProviderNotFoundError`, `ProviderScopeError` (Transient/Scoped), `ProviderNotInstantiatedError` (lazy mode or not yet loaded), `ContainerClosedError` or `ContainerNotCompiledError` (before `bootstrap()`); pass `{ optional: true }` to get `undefined` for unknown tokens.
 - `ModuleRef.get()` is synchronous too. It returns `undefined` for tokens the module cannot see (strict by default) and after `unload()`; for visible tokens it throws the same errors as `NexusApplication.get()`.
 - New async `resolve()` on `NexusApplication` and `ModuleRef` creates Transient, Scoped and lazy-mode providers on demand.
@@ -20,7 +21,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ### Features
 
-- New `inject(token)`, `inject(token, { optional: true })` and `inject(token, options)` in `@nexus-ioc/core`, usable synchronously while the container creates a provider (field initializers, constructor, a factory before its first `await`). Outside that it throws `InjectionContextError`; cycles throw `CircularInjectionError`; an uncreated async-factory provider throws `AsyncProviderInjectionError`. Singletons are warmed as value, then factory, then class providers. `inject()` dependencies are runtime graph edges (they protect lazy-module unload), and the type-checker and graph-analyzer report them with `location: "inject"`. `ProviderNotFoundError` has an optional `requestedBy`.
+- New `inject(token)`, `inject(token, { optional: true })` and `inject(token, options)` in `@nexus-ioc/core`, usable synchronously while the container creates a provider (field initializers, constructor, a synchronous factory). Outside that it throws `InjectionContextError`; cycles throw `CircularInjectionError`. `inject()` dependencies are runtime graph edges (they protect lazy-module unload), and the type-checker and graph-analyzer report them with `location: "inject"`. `ProviderNotFoundError` has an optional `requestedBy`.
 - New `InjectionToken<T>` class: `new InjectionToken<Config>("CONFIG")`. Tokens are compared by identity and work with `useValue`/`useFactory`/`useClass`, `@Inject`, `@Optional` and module `exports`. Error messages and graph labels use `toString()` (`InjectionToken CONFIG`).
 - `get()`/`resolve()` on `NexusApplication`, `ModuleRef`, `Test` and the `Test.compile()` result infer `T` from class tokens (including abstract classes) and `InjectionToken<T>`.
 - The type-checker and graph-analyzer treat an `InjectionToken` constant as one token across re-exports.

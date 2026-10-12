@@ -22,14 +22,3 @@ export class CircularInjectionError extends Error {
 		Object.setPrototypeOf(this, CircularInjectionError.prototype);
 	}
 }
-
-/** inject() reached a provider whose factory is async and that is not created yet. */
-export class AsyncProviderInjectionError extends Error {
-	constructor(public readonly token: ProviderToken) {
-		super(
-			`Provider "${formatToken(token)}" has an async factory and is not created yet; inject() is synchronous. Inject it with @Inject() instead, or make sure it is created first.`,
-		);
-		this.name = "AsyncProviderInjectionError";
-		Object.setPrototypeOf(this, AsyncProviderInjectionError.prototype);
-	}
-}

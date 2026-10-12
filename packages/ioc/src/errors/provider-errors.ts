@@ -59,3 +59,14 @@ export class ContainerClosedError extends Error {
 		Object.setPrototypeOf(this, ContainerClosedError.prototype);
 	}
 }
+
+/** A useFactory returned a promise; factories must be synchronous. */
+export class AsyncFactoryError extends Error {
+	constructor(public readonly token: ProviderToken) {
+		super(
+			`Provider "${formatToken(token)}": useFactory must return the value synchronously; move async setup into onModuleInit of the provided class, or create the value before bootstrap and register it with useValue.`,
+		);
+		this.name = "AsyncFactoryError";
+		Object.setPrototypeOf(this, AsyncFactoryError.prototype);
+	}
+}

@@ -226,23 +226,22 @@ describe("Providers", () => {
 			expect(client?.timeout).toBe(5000);
 		});
 
-		it("should support async factories", async () => {
+		it("should reject async factories with AsyncFactoryError", async () => {
 			const asyncFactory = async () => {
 				await new Promise((resolve) => setTimeout(resolve, 10));
 				return { value: "async-result" };
 			};
 
-			const container = await Test.createModule({
-				providers: [
-					{
-						provide: "ASYNC_SERVICE",
-						useFactory: asyncFactory,
-					},
-				],
-			}).compile();
-
-			const service = await container.get<{ value: string }>("ASYNC_SERVICE");
-			expect(service?.value).toBe("async-result");
+			await expect(
+				Test.createModule({
+					providers: [
+						{
+							provide: "ASYNC_SERVICE",
+							useFactory: asyncFactory,
+						},
+					],
+				}).compile(),
+			).rejects.toMatchObject({ name: "AsyncFactoryError" });
 		});
 
 		it("should support factory with multiple dependencies", async () => {

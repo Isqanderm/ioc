@@ -40,7 +40,6 @@ export function withInjectionContext<R>(
  * @throws {InjectionContextError} When called outside of an injection context
  * @throws {ProviderNotFoundError} When the token is not visible to the requester and `optional` is not set
  * @throws {CircularInjectionError} When the token is already being created in this resolution
- * @throws {AsyncProviderInjectionError} When the token has an async factory and is not created yet
  */
 export function inject<T>(token: ProviderToken<T>): T;
 export function inject<T>(

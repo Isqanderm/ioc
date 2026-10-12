@@ -1,8 +1,8 @@
+import { CircularInjectionError } from "../../errors/injection-errors";
 import {
-	AsyncProviderInjectionError,
-	CircularInjectionError,
-} from "../../errors/injection-errors";
-import { ProviderNotFoundError } from "../../errors/provider-errors";
+	AsyncFactoryError,
+	ProviderNotFoundError,
+} from "../../errors/provider-errors";
 import {
 	type Edge,
 	EdgeTypeEnum,
@@ -293,9 +293,7 @@ export class Resolver {
 		} else if (isValueProvider(provider)) {
 			instance = provider.useValue;
 		} else if (isFactoryProvider(provider)) {
-			instance = await withInjectionContext(injectionContext, () =>
-				provider.useFactory(...deps),
-			);
+			instance = this.callFactory(node, provider, deps, injectionContext);
 		} else {
 			instance = withInjectionContext(
 				injectionContext,
@@ -411,15 +409,7 @@ export class Resolver {
 			if (isValueProvider(provider)) {
 				instance = provider.useValue;
 			} else if (isFactoryProvider(provider)) {
-				const result = withInjectionContext(injectionContext, () =>
-					provider.useFactory(...deps),
-				);
-				if (isThenable(result)) {
-					// Never leave the abandoned promise rejecting unhandled.
-					result.then(undefined, () => {});
-					throw new AsyncProviderInjectionError(node.id);
-				}
-				instance = result;
+				instance = this.callFactory(node, provider, deps, injectionContext);
 			} else {
 				const Class = isClassProvider(provider)
 					? provider.useClass
@@ -466,6 +456,24 @@ export class Resolver {
 		} finally {
 			ctx.leave(node.id);
 		}
+	}
+
+	/** Runs a factory; factories must be synchronous. */
+	private callFactory(
+		node: AnalyzeProvider,
+		provider: Extract<Provider, { useFactory: unknown }>,
+		deps: unknown[],
+		injectionContext: InjectionContext,
+	): unknown {
+		const result = withInjectionContext(injectionContext, () =>
+			provider.useFactory(...deps),
+		);
+		if (isThenable(result)) {
+			// Never leave the rejected promise unhandled.
+			result.then(undefined, () => {});
+			throw new AsyncFactoryError(node.id);
+		}
+		return result;
 	}
 
 	/** Registers `init` as the in-flight init of a just-committed singleton. */
