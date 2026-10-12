@@ -16,12 +16,17 @@ import type {
 	LazyModule,
 	ModuleContainerInterface,
 	ModuleGraphInterface,
+	Provider,
 	ProviderToken,
 	Type,
 	UnloadResult,
 } from "../../interfaces";
 import { MODULE_WATERMARK, NodeTypeEnum, Scope } from "../../interfaces";
-import { isDynamicModule } from "../../utils/helpers";
+import {
+	isDynamicModule,
+	isFactoryProvider,
+	isValueProvider,
+} from "../../utils/helpers";
 import { ModuleGraph } from "../graph/module-graph";
 import { Resolver } from "../resolver/resolver";
 import { ModulesContainer } from "./modules-container";
@@ -211,6 +216,9 @@ export class Container implements ContainerInterface {
 		if (!this._graph || !this.moduleGraphResolver) {
 			throw new ContainerNotCompiledError();
 		}
+		// Warm in three passes so that inject() (synchronous) finds async
+		// factories already created: values, then factories, then classes.
+		const passes: ProviderToken[][] = [[], [], []];
 		for (const token of tokens) {
 			const node = this._graph.getNode(token);
 			if (
@@ -218,6 +226,18 @@ export class Container implements ContainerInterface {
 				node.type === NodeTypeEnum.PROVIDER &&
 				node.scope === Scope.Singleton
 			) {
+				const metatype = node.metatype as Provider | undefined;
+				const pass =
+					metatype && isValueProvider(metatype)
+						? 0
+						: metatype && isFactoryProvider(metatype)
+							? 1
+							: 2;
+				passes[pass].push(token);
+			}
+		}
+		for (const pass of passes) {
+			for (const token of pass) {
 				await this.moduleGraphResolver.resolveProvider(token);
 			}
 		}
