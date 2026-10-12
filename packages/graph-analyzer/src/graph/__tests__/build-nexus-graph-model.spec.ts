@@ -262,4 +262,112 @@ NexusApplicationServer.create(AppModule).bootstrap();
 		expect(appModule?.providers[0].id).toContain("/app/main.ts:");
 		expect(appModule?.exports.map((entry) => entry.name)).toEqual(["CONFIG"]);
 	});
+
+	const SERVER = `export class NexusApplicationServer {
+  static create(_module: unknown): NexusApplicationServer {
+    return new NexusApplicationServer();
+  }
+  bootstrap(): void {}
+}
+`;
+
+	function buildFrom(main: string) {
+		const { program, entryFileName } = createProgram(
+			new Map([
+				["/app/main.ts", main],
+				["/app/server.ts", SERVER],
+			]),
+		);
+		const entryPoint = findApplicationEntryPoint(program, entryFileName);
+		if (!entryPoint) throw new Error("Entry point not found");
+		const analyzer = createNexusAnalyzer(program);
+		return buildNexusGraphModel(
+			createNexusApplicationAnalyzer(analyzer).analyze(entryPoint),
+		);
+	}
+
+	it("adds an Api -> Http edge for an inject() field initializer", () => {
+		const graphModel =
+			buildFrom(`import { inject, Injectable, Module } from "@nexus-ioc/core";
+import { NexusApplicationServer } from "./server";
+
+@Injectable()
+export class Http {}
+
+@Injectable()
+export class Api {
+  readonly http = inject(Http);
+}
+
+@Module({ providers: [Api, Http] })
+export class AppModule {}
+
+NexusApplicationServer.create(AppModule).bootstrap();
+`);
+		const providers = graphModel.modules.get(
+			graphModel.entryModuleId,
+		)?.providers;
+		const api = providers?.find((provider) => provider.token === "Api");
+		const http = providers?.find((provider) => provider.token === "Http");
+		expect(api?.dependencies).toEqual([
+			{ token: "Http", tokenId: http?.id, optional: false },
+		]);
+		expect(api?.undeclaredDependencies).toEqual([]);
+	});
+
+	it("reports an A <-> B cycle made of inject() calls", () => {
+		const graphModel =
+			buildFrom(`import { inject, Injectable, Module } from "@nexus-ioc/core";
+import { NexusApplicationServer } from "./server";
+
+@Injectable()
+export class ServiceA {
+  readonly b = inject(ServiceB);
+}
+
+@Injectable()
+export class ServiceB {
+  constructor() {
+    inject(ServiceA);
+  }
+}
+
+@Module({ providers: [ServiceA, ServiceB] })
+export class AppModule {}
+
+NexusApplicationServer.create(AppModule).bootstrap();
+`);
+		const analysis = new CircularDependencyDetector(graphModel).analyze();
+		expect(analysis.hasCircularDependencies).toBe(true);
+		expect(analysis.providerCircularCount).toBe(1);
+		expect(analysis.circularDependencies[0].cycle).toEqual([
+			"ServiceA",
+			"ServiceB",
+			"ServiceA",
+		]);
+	});
+
+	it("adds a factory's inject() calls to the factory provider's dependencies", () => {
+		const graphModel =
+			buildFrom(`import { inject, Injectable, Module } from "@nexus-ioc/core";
+import { NexusApplicationServer } from "./server";
+
+@Injectable()
+export class Http {}
+
+@Module({
+  providers: [Http, { provide: "CLIENT", useFactory: () => ({ http: inject(Http) }) }],
+})
+export class AppModule {}
+
+NexusApplicationServer.create(AppModule).bootstrap();
+`);
+		const providers = graphModel.modules.get(
+			graphModel.entryModuleId,
+		)?.providers;
+		const client = providers?.find((provider) => provider.token === "CLIENT");
+		expect(client?.dependencies.map((dependency) => dependency.token)).toEqual([
+			"Http",
+		]);
+	});
 });

@@ -32,6 +32,18 @@ ruleTester.run("check-dependency-types", rule, {
 			`,
 		},
 		{
+			name: "class using inject() but no @Inject decorator",
+			code: `
+				import { inject } from '@nexus-ioc/core';
+
+				class Logger {}
+
+				class UserService {
+					private readonly logger = inject(Logger);
+				}
+			`,
+		},
+		{
 			name: "class without @Inject",
 			code: `
 				class UserService {

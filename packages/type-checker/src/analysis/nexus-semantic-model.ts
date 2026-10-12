@@ -40,7 +40,12 @@ export type NexusToken =
 	  };
 
 export type NexusDependency = {
-	location: "constructor" | "property";
+	/** `"inject"` marks a call to the `inject()` function from
+	 * `@nexus-ioc/core` made while the provider is being created: in a field
+	 * initializer (`name` is the field name), a constructor parameter default
+	 * (`name` is the parameter name) or the constructor body
+	 * (`name` is `"constructor"`). */
+	location: "constructor" | "property" | "inject";
 	name: string;
 	/** Position among constructor parameters. Only set for `location: "constructor"`. */
 	index?: number;

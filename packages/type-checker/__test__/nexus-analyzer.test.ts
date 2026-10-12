@@ -890,3 +890,244 @@ export class Svc {
 		expect(a.id).not.toBe(b.id);
 	});
 });
+
+describe("inject() dependencies", () => {
+	const TOKENS = `import { InjectionToken } from "@nexus-ioc/core";
+export const CONFIG = new InjectionToken<{ url: string }>("CONFIG");
+export class Http {}
+export class X {}
+export class Late {}
+`;
+
+	function analyze(source: string, extra: [string, string][] = []) {
+		const program = createMultiFileProgram(
+			new Map([["/app/tokens.ts", TOKENS], ...extra, ["/app/svc.ts", source]]),
+		);
+		const analyzer = createNexusAnalyzer(program);
+		const file = program.getSourceFile("/app/svc.ts");
+		const tokensFile = program.getSourceFile("/app/tokens.ts");
+		if (!file || !tokensFile) throw new Error("Source files not created");
+		const idOf = (name: string) => {
+			const statement = tokensFile.statements.find(
+				(item) =>
+					(ts.isClassDeclaration(item) && item.name?.text === name) ||
+					(ts.isVariableStatement(item) &&
+						item.declarationList.declarations.some(
+							(declaration) =>
+								ts.isIdentifier(declaration.name) &&
+								declaration.name.text === name,
+						)),
+			);
+			if (!statement) throw new Error(`${name} not found`);
+			const node = ts.isVariableStatement(statement)
+				? statement.declarationList.declarations[0]
+				: statement;
+			const { line, character } = ts.getLineAndCharacterOfPosition(
+				tokensFile,
+				node.getStart(),
+			);
+			return `/app/tokens.ts:${line + 1}:${character + 1}`;
+		};
+		return { analyzer, file, idOf };
+	}
+
+	const tokenId = (token: unknown) =>
+		(token as { id?: string } | undefined)?.id;
+
+	it("reports a field-initializer inject() as a dependency named after the field", () => {
+		const { analyzer, file, idOf } =
+			analyze(`import { inject, Injectable } from "@nexus-ioc/core";
+import { Http } from "./tokens";
+
+@Injectable()
+export class Api {
+  readonly http: Http = inject(Http);
+}
+`);
+		const api = analyzer.getClass(getClass(file, "Api"));
+		expect(api.dependencies).toHaveLength(1);
+		const [dependency] = api.dependencies;
+		expect(dependency.location).toBe("inject");
+		expect(dependency.name).toBe("http");
+		expect(dependency.index).toBeUndefined();
+		expect(dependency.optional).toBe(false);
+		expect(dependency.token?.kind).toBe("reference");
+		expect(tokenId(dependency.token)).toBe(idOf("Http"));
+		expectSourceSpan(file, dependency.source, "inject(Http)");
+		// Typed + initialised by inject() must not be flagged as missing @Inject.
+		expect(api.undeclaredDependencies).toEqual([]);
+	});
+
+	it("reports a constructor-body inject() with optional: true", () => {
+		const { analyzer, file, idOf } =
+			analyze(`import { inject as get, Injectable } from "@nexus-ioc/core";
+import { CONFIG } from "./tokens";
+
+@Injectable()
+export class Api {
+  private cfg: { url: string } | undefined;
+  constructor() {
+    this.cfg = get(CONFIG, { optional: true });
+  }
+}
+`);
+		const api = analyzer.getClass(getClass(file, "Api"));
+		expect(api.dependencies).toHaveLength(1);
+		const [dependency] = api.dependencies;
+		expect(dependency.location).toBe("inject");
+		expect(dependency.name).toBe("constructor");
+		expect(dependency.optional).toBe(true);
+		expect(tokenId(dependency.token)).toBe(idOf("CONFIG"));
+	});
+
+	it("treats a non-literal or false optional flag as not optional", () => {
+		const { analyzer, file } =
+			analyze(`import { inject, Injectable } from "@nexus-ioc/core";
+import { Http, X } from "./tokens";
+const opts = { optional: true };
+
+@Injectable()
+export class Api {
+  a = inject(Http, { optional: false });
+  b = inject(X, opts);
+}
+`);
+		const api = analyzer.getClass(getClass(file, "Api"));
+		expect(api.dependencies.map((item) => item.optional)).toEqual([
+			false,
+			false,
+		]);
+	});
+
+	it("does not report inject() in methods, lifecycle hooks, nested functions or static fields", () => {
+		const { analyzer, file } =
+			analyze(`import { inject, Injectable } from "@nexus-ioc/core";
+import { Http, X } from "./tokens";
+
+@Injectable()
+export class Api {
+  static shared = inject(X);
+  lazy = () => inject(X);
+  nested = { get: function () { return inject(X); } };
+  run() { inject(X); }
+  onModuleInit() { inject(X); }
+  get value() { return inject(X); }
+  http = inject(Http);
+  constructor() {
+    setTimeout(() => inject(X));
+  }
+}
+`);
+		const api = analyzer.getClass(getClass(file, "Api"));
+		expect(api.dependencies.map((item) => item.name)).toEqual(["http"]);
+	});
+
+	it("reports inject() in a constructor parameter default under the parameter name", () => {
+		const { analyzer, file, idOf } =
+			analyze(`import { inject, Injectable } from "@nexus-ioc/core";
+import { Http } from "./tokens";
+
+@Injectable()
+export class Api {
+  constructor(private readonly http: Http = inject(Http)) {}
+}
+`);
+		const api = analyzer.getClass(getClass(file, "Api"));
+		expect(api.dependencies.map((item) => [item.location, item.name])).toEqual([
+			["inject", "http"],
+		]);
+		expect(tokenId(api.dependencies[0].token)).toBe(idOf("Http"));
+		expect(api.undeclaredDependencies).toEqual([]);
+	});
+
+	it("does not report a local function named inject", () => {
+		const { analyzer, file } =
+			analyze(`import { Injectable } from "@nexus-ioc/core";
+import { Http } from "./tokens";
+function inject<T>(token: unknown): T { return undefined as T; }
+
+@Injectable()
+export class Api {
+  http = inject<Http>(Http);
+}
+`);
+		const api = analyzer.getClass(getClass(file, "Api"));
+		expect(api.dependencies).toEqual([]);
+	});
+
+	it("recognises inject imported through a re-export of @nexus-ioc/core", () => {
+		const { analyzer, file, idOf } = analyze(
+			`import { Injectable } from "@nexus-ioc/core";
+import { inject } from "./di";
+import { Http } from "./tokens";
+
+@Injectable()
+export class Api {
+  http = inject(Http);
+}
+`,
+			[["/app/di.ts", `export { inject } from "@nexus-ioc/core";\n`]],
+		);
+		const api = analyzer.getClass(getClass(file, "Api"));
+		expect(api.dependencies).toHaveLength(1);
+		expect(tokenId(api.dependencies[0].token)).toBe(idOf("Http"));
+	});
+
+	it("keeps @Inject dependencies first and in their original order", () => {
+		const { analyzer, file } =
+			analyze(`import { Inject, inject, Injectable } from "@nexus-ioc/core";
+import { Http, X } from "./tokens";
+
+@Injectable()
+export class Api {
+  http = inject(Http);
+  constructor(@Inject(X) readonly x: X) {}
+}
+`);
+		const api = analyzer.getClass(getClass(file, "Api"));
+		expect(
+			api.dependencies.map((item) => [item.location, item.name, item.index]),
+		).toEqual([
+			["constructor", "x", 0],
+			["inject", "http", undefined],
+		]);
+	});
+
+	it("adds a useFactory's synchronous inject() calls to factoryInject, stopping at the first unconditional await", () => {
+		const { analyzer, file, idOf } =
+			analyze(`import { inject, Module } from "@nexus-ioc/core";
+import { CONFIG, Http, Late, X } from "./tokens";
+
+@Module({
+  providers: [
+    {
+      provide: "A",
+      useFactory: (cfg: unknown) => ({ cfg, http: inject(Http) }),
+      inject: [CONFIG],
+    },
+    {
+      provide: "B",
+      useFactory: async () => {
+        const x = inject(X);
+        if (Math.random() > 0.5) {
+          await Promise.resolve();
+        }
+        const cfg = inject(CONFIG);
+        await load(inject(Http));
+        const late = inject(Late);
+        return { x, cfg, late };
+      },
+    },
+  ],
+})
+export class AppModule {}
+
+async function load(value: unknown) { return value; }
+`);
+		const module = analyzer.getClass(getClass(file, "AppModule")).module;
+		const ids = (index: number) =>
+			module?.providers[index].factoryInject.map((token) => tokenId(token));
+		expect(ids(0)).toEqual([idOf("CONFIG"), idOf("Http")]);
+		expect(ids(1)).toEqual([idOf("X"), idOf("CONFIG"), idOf("Http")]);
+	});
+});
