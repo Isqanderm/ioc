@@ -14,6 +14,7 @@ import {
 } from "../../utils/helpers";
 import type { AnalyzeProvider } from "../graph/analyze-provider";
 import { ProvidersContainer } from "./providers-container";
+import { ResolutionContext } from "./resolution-context";
 
 // Type & { dependencyName: ProviderToken }
 type CircularDependencyFn = () => typeof Proxy;
@@ -91,7 +92,7 @@ export class Resolver {
 
 	public async resolveProvider<T>(
 		token: ProviderToken,
-		resolveCache: ProvidersContainer = new ProvidersContainer(),
+		ctx: ResolutionContext = new ResolutionContext(),
 		isCircularDependency = false,
 	): Promise<T | undefined> {
 		const node = this.graph.getNode(token);
@@ -113,7 +114,7 @@ export class Resolver {
 		if (scope === Scope.Transient) {
 			const [instance] = await this.createInstance(
 				node,
-				resolveCache,
+				ctx,
 				isCircularDependency,
 			);
 			return instance as T;
@@ -125,20 +126,20 @@ export class Resolver {
 		}
 
 		// For Request and Singleton scopes, check resolve cache (within current resolution tree)
-		if (resolveCache.has(token)) {
-			return resolveCache.get(token);
+		if (ctx.cache.has(token)) {
+			return ctx.cache.get(token);
 		}
 
 		const [instance, saveInCache] = await this.createInstance(
 			node,
-			resolveCache,
+			ctx,
 			isCircularDependency,
 		);
 
 		// Add to resolve cache for current resolution context (for Request and Singleton)
 		// This ensures same instance is used within a single dependency resolution tree
 		if (scope === Scope.Singleton || scope === Scope.Scoped) {
-			resolveCache.set(token, instance);
+			ctx.cache.set(token, instance);
 		}
 
 		// Only save to global cache for Singleton scope
@@ -152,7 +153,7 @@ export class Resolver {
 
 	private async createInstance(
 		node: AnalyzeProvider,
-		resolveCache: ProvidersContainer,
+		ctx: ResolutionContext,
 		isCircularDependency = false,
 	): Promise<[Type, boolean]> {
 		const provider = node.metatype;
@@ -174,7 +175,7 @@ export class Resolver {
 							{},
 							{
 								get: (_, prop) => {
-									const instance = resolveCache.get(edge.target);
+									const instance = ctx.cache.get(edge.target);
 									return instance?.[prop];
 								},
 							},
@@ -188,13 +189,11 @@ export class Resolver {
 					continue;
 				}
 				resolvedDependencies.push(
-					await this.resolveProvider(edge.target, resolveCache, true),
+					await this.resolveProvider(edge.target, ctx, true),
 				);
 				continue;
 			}
-			resolvedDependencies.push(
-				await this.resolveProvider(edge.target, resolveCache),
-			);
+			resolvedDependencies.push(await this.resolveProvider(edge.target, ctx));
 		}
 
 		const deps = resolvedDependencies.map((dep) =>
@@ -210,7 +209,7 @@ export class Resolver {
 
 		if (isClassProvider(provider)) {
 			instance = new provider.useClass(...deps);
-			await this.injectPropertyDependencies(instance, node, resolveCache);
+			await this.injectPropertyDependencies(instance, node, ctx);
 			saveInCache = scope === Scope.Singleton;
 		} else if (isValueProvider(provider)) {
 			instance = provider.useValue;
@@ -220,7 +219,7 @@ export class Resolver {
 			saveInCache = scope === Scope.Singleton;
 		} else {
 			instance = new (provider as Type)(...deps);
-			await this.injectPropertyDependencies(instance, node, resolveCache);
+			await this.injectPropertyDependencies(instance, node, ctx);
 			saveInCache = scope === Scope.Singleton;
 		}
 
@@ -248,7 +247,7 @@ export class Resolver {
 	private async injectPropertyDependencies(
 		instance: Type,
 		node: Node,
-		resolveCache: ProvidersContainer,
+		ctx: ResolutionContext,
 	) {
 		const dependencies = this.graph
 			.getEdge(node.id)
@@ -263,7 +262,7 @@ export class Resolver {
 		for (const edge of dependencies) {
 			(instance as unknown as Record<string, unknown>)[
 				edge.metadata.key as string
-			] = await this.resolveProvider(edge.target, resolveCache);
+			] = await this.resolveProvider(edge.target, ctx);
 		}
 	}
 }
