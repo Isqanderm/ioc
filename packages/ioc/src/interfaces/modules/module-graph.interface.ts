@@ -126,4 +126,9 @@ export interface ModuleGraphInterface {
 	rootToken: string;
 	internalRootTokens: string[];
 	errors: GraphError[];
+	/**
+	 * Changes whenever a compile, segment load or unload may have changed
+	 * which providers exist or are visible; lets callers cache visibility.
+	 */
+	readonly version: number;
 }

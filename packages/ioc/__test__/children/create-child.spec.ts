@@ -5,6 +5,7 @@ import {
 	ContainerClosedError,
 	ContainerNotCompiledError,
 	type DynamicModule,
+	Global,
 	Inject,
 	Injectable,
 	InjectionToken,
@@ -254,6 +255,42 @@ describe("createChild: get/resolve fallback through the link", () => {
 		expect(leaf.get("mid")).toBe("mid");
 		expect(leaf.get("top")).toBe("top");
 		await expect(leaf.resolve("top")).resolves.toBe("top");
+	});
+
+	it("sees a parent token that a later load makes visible, and loses it on unload", async () => {
+		@Injectable()
+		class Late {}
+		@Global()
+		@Module({ providers: [Late], exports: [Late] })
+		class LateGlobal {}
+		const lateLazy = lazy(async () => LateGlobal);
+		@Module({ providers: [] })
+		class Leaf {}
+		@Module({ providers: [], children: [Leaf] })
+		class Watcher {}
+		@Module({ providers: [], children: [Watcher] })
+		class Root {}
+
+		const root = await NexusApplication.create(Root).bootstrap();
+		const child = await root.createChild(Watcher);
+		const grandchild = await child.createChild(Leaf);
+		// Asked before the load: remembered as not visible.
+		expect(child.get(Late, { optional: true })).toBeUndefined();
+		expect(grandchild.get(Late, { optional: true })).toBeUndefined();
+
+		const ref = await root.load(lateLazy);
+		expect(child.get(Late)).toBe(root.get(Late));
+		expect(grandchild.get(Late)).toBe(root.get(Late));
+		await expect(grandchild.resolve(Late)).resolves.toBe(root.get(Late));
+
+		await root.unload(ref);
+		expect(child.get(Late, { optional: true })).toBeUndefined();
+		expect(() => grandchild.get(Late)).toThrow(ProviderNotFoundError);
+		await expect(child.resolve(Late)).rejects.toThrow(ProviderNotFoundError);
+
+		await root.load(lateLazy);
+		expect(grandchild.get(Late)).toBe(root.get(Late));
+		await root.close();
 	});
 
 	it("a parent never sees its child's providers (migrated from hierarchy.spec)", async () => {

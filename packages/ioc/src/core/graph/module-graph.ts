@@ -76,6 +76,8 @@ export class ModuleGraph implements ModuleGraphInterface {
 	 * eager graph or of another segment.
 	 */
 	private _errorSink: GraphError[] | null = null;
+	/** See `version`. */
+	private _version = 0;
 
 	constructor(
 		private readonly _root: ModuleContainerInterface,
@@ -103,6 +105,15 @@ export class ModuleGraph implements ModuleGraphInterface {
 		return this._internalRoots.map((root) => root.token);
 	}
 
+	/**
+	 * Bumped whenever `compile`, `compileSegment` or `unloadSegment` may have
+	 * changed which providers exist or which modules see them. A cache of
+	 * `isProviderVisible` results is valid while this number is unchanged.
+	 */
+	public get version(): number {
+		return this._version;
+	}
+
 	/** Records a graph error in the active sink, or in the shared list. */
 	private pushError(error: GraphError) {
 		(this._errorSink ?? this._errors).push(error);
@@ -127,6 +138,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 		await this.addDependencies(providerTokens);
 		await this.detectCircularDependencies(providerTokens);
 		await this.detectCircularImports(moduleTokens);
+		this._version++;
 	}
 
 	/**
@@ -188,6 +200,8 @@ export class ModuleGraph implements ModuleGraphInterface {
 			};
 		} finally {
 			this._errorSink = previousSink;
+			// Even a rolled-back segment was briefly part of the graph.
+			this._version++;
 		}
 	}
 
@@ -259,6 +273,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 		this.removeModuleTokens(destroyedModules, destroyedProviders);
 		placeholder.markUnloaded();
+		this._version++;
 
 		return { destroyedModules, destroyedProviders };
 	}

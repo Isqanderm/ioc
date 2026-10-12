@@ -331,16 +331,35 @@ export class NexusApplication implements NexusApplicationInterface {
 	/**
 	 * The link a child declared in `declaredIn` uses: what that module sees
 	 * in this application, then this application's own parent chain. It
-	 * never caches anything. Once this application closes, `canProvide` still
-	 * answers from the graph, so `get`/`resolve` of a token the child would
-	 * have taken from here throw `ContainerClosedError` (even with
-	 * `optional`) instead of quietly reporting it missing.
+	 * never caches instances, only which tokens the declaring module sees,
+	 * so a `canProvide` followed by `get` walks the imports once per token
+	 * (until a load or unload changes the graph) instead of twice per call.
+	 * Once this application closes, `canProvide` still answers from the
+	 * graph, so `get`/`resolve` of a token the child would have taken from
+	 * here throw `ContainerClosedError` (even with `optional`) instead of
+	 * quietly reporting it missing.
 	 */
 	private linkFor(declaredIn: ModuleContainerInterface): ParentLink {
-		const graph = () => this.container.graph;
-		const seesLocally = (token: ProviderToken) =>
-			this.container.hasProvider(token) &&
-			graph().isProviderVisible(declaredIn, token);
+		// Memoised per token: the visibility walk is a breadth-first search
+		// over the declaring module's imports. Valid until a load or unload
+		// changes the graph, which bumps `graph.version`.
+		const visibility = new Map<ProviderToken, boolean>();
+		let visibilityVersion = -1;
+		const seesLocally = (token: ProviderToken): boolean => {
+			const { version } = this.container.graph;
+			if (version !== visibilityVersion) {
+				visibility.clear();
+				visibilityVersion = version;
+			}
+			let sees = visibility.get(token);
+			if (sees === undefined) {
+				sees =
+					this.container.hasProvider(token) &&
+					this.container.graph.isProviderVisible(declaredIn, token);
+				visibility.set(token, sees);
+			}
+			return sees;
+		};
 		return {
 			canProvide: (token) =>
 				seesLocally(token) || (this.link?.canProvide(token) ?? false),
