@@ -18,14 +18,10 @@ describe("NexusApplication.get (sync) / resolve (async)", () => {
 	@Injectable({ scope: Scope.Transient })
 	class TransientService {}
 
-	@Injectable({ scope: Scope.Scoped })
-	class ScopedService {}
-
 	@Module({
 		providers: [
 			SingletonService,
 			TransientService,
-			ScopedService,
 			{ provide: "undef", useValue: undefined },
 			{ provide: "null", useValue: null },
 			{ provide: "zero", useValue: 0 },
@@ -69,10 +65,9 @@ describe("NexusApplication.get (sync) / resolve (async)", () => {
 		expect(app.get("missing", { optional: true })).toBeUndefined();
 	});
 
-	it("throws ProviderScopeError for Transient and Scoped", async () => {
+	it("throws ProviderScopeError for Transient", async () => {
 		const app = await NexusApplication.create(AppModule).bootstrap();
 		expect(() => app.get(TransientService)).toThrow(ProviderScopeError);
-		expect(() => app.get(ScopedService)).toThrow(ProviderScopeError);
 		expect(() => app.get(TransientService)).toThrow(/resolve\(\)/);
 	});
 

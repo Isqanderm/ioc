@@ -59,24 +59,19 @@ describe("inject() in class providers", () => {
 		expect(app.get(A).dep).toBe(app.get(B).dep);
 	});
 
-	it("transient gives a new instance per inject(), scoped is shared within a tree", async () => {
+	it("transient gives a new instance per inject()", async () => {
 		@Injectable({ scope: Scope.Transient })
 		class T1 {}
-		@Injectable({ scope: Scope.Scoped })
-		class S1 {}
 		@Injectable()
 		class Holder {
 			readonly t1 = inject(T1);
 			readonly t2 = inject(T1);
-			readonly s1 = inject(S1);
-			readonly s2 = inject(S1);
 		}
-		@Module({ providers: [T1, S1, Holder] })
+		@Module({ providers: [T1, Holder] })
 		class M {}
 		const app = await NexusApplication.create(M).bootstrap();
 		const h = app.get(Holder);
 		expect(h.t1).not.toBe(h.t2);
-		expect(h.s1).toBe(h.s2);
 	});
 
 	it("optional returns undefined for unknown tokens; otherwise ProviderNotFoundError names the requester", async () => {

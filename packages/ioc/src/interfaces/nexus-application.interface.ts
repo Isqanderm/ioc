@@ -25,7 +25,7 @@ export interface NexusApplicationInterface extends ModulePluginInterface {
 	get<T>(token: ProviderToken<T>, options: { optional?: false }): T;
 	get<T>(token: ProviderToken<T>, options: GetOptions): T | undefined;
 	/**
-	 * Resolves a provider, creating it on demand (Transient, Scoped, lazy
+	 * Resolves a provider, creating it on demand (Transient, lazy
 	 * mode). `T` is inferred from the token as for `get()`.
 	 *
 	 * @param token - The provider token: class, InjectionToken, string or symbol

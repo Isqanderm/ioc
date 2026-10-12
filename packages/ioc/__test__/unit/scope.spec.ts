@@ -3,6 +3,14 @@ import { Test } from "@nexus-ioc/testing";
 import { Inject, Injectable, Scope } from "../../src";
 
 describe("Scope Management", () => {
+	it("has no Scoped member (Singleton and Transient only)", () => {
+		expect(Object.keys(Scope).filter((k) => Number.isNaN(Number(k)))).toEqual([
+			"Singleton",
+			"Transient",
+		]);
+		expect(Scope.Transient).toBe(2);
+	});
+
 	describe("Singleton Scope", () => {
 		it("should return same instance for singleton scope", async () => {
 			@Injectable({ scope: Scope.Singleton })
@@ -207,72 +215,6 @@ describe("Scope Management", () => {
 
 			expect(instance1?.id).toBe(1);
 			expect(instance2?.id).toBe(2); // Different instances
-		});
-	});
-
-	describe("Request Scope", () => {
-		it("should not cache request-scoped providers globally", async () => {
-			@Injectable({ scope: Scope.Scoped })
-			class RequestService {
-				id = Math.random();
-			}
-
-			const container = await Test.createModule({
-				providers: [RequestService],
-			}).compile();
-
-			const instance1 = await container.resolve<RequestService>(RequestService);
-			const instance2 = await container.resolve<RequestService>(RequestService);
-
-			// Request scope should create new instances for each request (each get() call)
-			expect(instance1?.id).not.toBe(instance2?.id);
-		});
-
-		it("should work with class providers", async () => {
-			@Injectable()
-			class ImplementationService {
-				id = Math.random();
-			}
-
-			const container = await Test.createModule({
-				providers: [
-					{
-						provide: "SERVICE",
-						useClass: ImplementationService,
-						scope: Scope.Scoped,
-					},
-				],
-			}).compile();
-
-			const instance1 =
-				await container.resolve<ImplementationService>("SERVICE");
-			const instance2 =
-				await container.resolve<ImplementationService>("SERVICE");
-
-			expect(instance1?.id).not.toBe(instance2?.id);
-		});
-
-		it("should inject request-scoped dependencies", async () => {
-			@Injectable({ scope: Scope.Scoped })
-			class RequestService {
-				id = Math.random();
-			}
-
-			@Injectable()
-			class ConsumerService {
-				constructor(@Inject(RequestService) public request: RequestService) {}
-			}
-
-			const container = await Test.createModule({
-				providers: [RequestService, ConsumerService],
-			}).compile();
-
-			const consumer1 = await container.get<ConsumerService>(ConsumerService);
-			const consumer2 = await container.get<ConsumerService>(ConsumerService);
-
-			// Each consumer should get the same singleton instance
-			// but the request service should be different
-			expect(consumer1).toBe(consumer2);
 		});
 	});
 

@@ -90,7 +90,7 @@ export class ModuleContainer implements ModuleContainerInterface {
 	 * contract as `Test.get()`.
 	 *
 	 * @throws {ProviderNotFoundError} If no provider has this token (unless optional)
-	 * @throws {ProviderScopeError} If the provider is Transient or Scoped; use resolve()
+	 * @throws {ProviderScopeError} If the provider is Transient; use resolve()
 	 * @throws {ProviderNotInstantiatedError} If the singleton is not created yet; use resolve()
 	 */
 	public get<T>(token: ProviderToken<T>): T;

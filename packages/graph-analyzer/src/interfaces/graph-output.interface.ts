@@ -3,10 +3,7 @@ import type {
 	DepthLevel,
 	ModuleDepthInfo,
 } from "../analyzer/module-depth-analyzer";
-import type {
-	ProviderScopeInfo,
-	ScopeMismatch,
-} from "../analyzer/provider-scope-analyzer";
+import type { ProviderScopeInfo } from "../analyzer/provider-scope-analyzer";
 import type { UnusedProvider } from "../analyzer/unused-provider-detector";
 import type { GraphUndeclaredDependency } from "../graph/nexus-graph-model";
 
@@ -61,10 +58,8 @@ export interface GraphAnalysis {
 		totalProviders: number;
 		/** Number of singleton providers */
 		singletonProviders: number;
-		/** Number of scoped providers */
-		scopedProviders: number;
-		/** Scope mismatches detected */
-		scopeMismatches: ScopeMismatch[];
+		/** Number of transient providers */
+		transientProviders: number;
 		/** All provider scope information */
 		providerScopes: ProviderScopeInfo[];
 	};
@@ -148,7 +143,7 @@ export interface ProviderInfo {
 	/** The module that registers this provider */
 	module: ModuleReferenceInfo;
 	/** Lifecycle scope of the provider (only for class providers) */
-	scope?: "Singleton" | "Scoped" | "Transient";
+	scope?: "Singleton" | "Transient";
 	/** Dependencies required by this provider */
 	dependencies: DependencyInfo[];
 	/** Constructor parameters/properties that look like dependencies but have

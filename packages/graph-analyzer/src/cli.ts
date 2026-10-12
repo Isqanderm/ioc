@@ -161,7 +161,7 @@ Usage: graph-analyzer [options] <entry-file>
 
 Statically analyzes Nexus IoC dependency injection graphs and reports
 circular dependencies, unused providers, module depth metrics, and provider
-scope mismatches as JSON.
+provider scopes as JSON.
 
 For PNG or interactive HTML visualization of the graph, use the separate
 @nexus-ioc/graph-visualizer package.
@@ -177,7 +177,7 @@ Options:
   --check-unused            Detect providers that are registered but never injected
   --check-depth             Analyze module hierarchy depth and complexity metrics
   --depth-threshold <n>     Threshold for identifying deep modules (default: 5)
-  --check-scope             Analyze provider scopes and detect scope mismatches
+  --check-scope             Report provider scopes (Singleton or Transient)
   --verbose                 Show detailed progress information
   --quiet                   Suppress all output except errors
   --init [json|js]          Generate a configuration file (default: json)

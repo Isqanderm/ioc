@@ -236,7 +236,7 @@ export class NexusApplication implements NexusApplicationInterface {
 	 * @param options - `optional: true` returns undefined instead of throwing when no provider exists
 	 * @throws {ContainerNotCompiledError} If called before bootstrap()
 	 * @throws {ProviderNotFoundError} If no provider has this token (unless optional)
-	 * @throws {ProviderScopeError} If the provider is Transient or Scoped; use resolve()
+	 * @throws {ProviderScopeError} If the provider is Transient; use resolve()
 	 * @throws {ProviderNotInstantiatedError} If the singleton is not created yet (lazy mode); use resolve()
 	 *
 	 * @example
@@ -272,7 +272,7 @@ export class NexusApplication implements NexusApplicationInterface {
 
 	/**
 	 * Resolves a provider asynchronously, creating it according to its scope
-	 * (Transient and Scoped providers are created per call). Falls back to the
+	 * (Transient providers are created per call). Falls back to the
 	 * parent application when the token is not a provider of this one.
 	 *
 	 * @param token - The provider token: class, InjectionToken, string or symbol

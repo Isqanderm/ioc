@@ -6,6 +6,7 @@ import {
 	Module,
 	type ModuleRef,
 	NexusApplication,
+	Scope,
 } from "../../src";
 
 interface Config {
@@ -126,5 +127,12 @@ describe("token type inference", () => {
 			expectTypeOf(inject(Svc)).toEqualTypeOf<Svc>();
 		};
 		expect(typeof check).toBe("function");
+	});
+});
+
+describe("Scope enum", () => {
+	it("no longer has Scoped", () => {
+		// @ts-expect-error Scoped was removed
+		expect(Scope.Scoped).toBeUndefined();
 	});
 });

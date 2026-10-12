@@ -23,7 +23,7 @@ import { RpcService } from "./rpc.service";
 				return new RpcService(urlToken, RpcHelper);
 			},
 			inject: ["URL_TOKEN", RpcHelper],
-			scope: Scope.Scoped,
+			scope: Scope.Transient,
 		},
 	],
 	exports: [RpcService],

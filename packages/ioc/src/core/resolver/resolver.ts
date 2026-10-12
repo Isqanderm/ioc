@@ -160,7 +160,7 @@ export class Resolver {
 			return cached;
 		}
 
-		// For Request and Singleton scopes, check resolve cache (within current resolution tree)
+		// Check the resolve cache for singletons created earlier in this tree (within current resolution tree)
 		if (ctx.cache.has(token)) {
 			return ctx.cache.get(token);
 		}
@@ -171,9 +171,9 @@ export class Resolver {
 	}
 
 	/**
-	 * Caching rules shared by the async and sync paths: Singleton and Scoped
-	 * go into the resolution-tree cache; Singletons (and value providers) go
-	 * into the global cache and the destroy order. Transient is never cached.
+	 * Caching rules shared by the async and sync paths: Singletons go into the
+	 * resolution-tree cache (cycle and identity handling within the tree), the
+	 * global cache and the destroy order. Transient is never cached.
 	 */
 	private commitInstance(
 		node: AnalyzeProvider,
@@ -185,11 +185,8 @@ export class Resolver {
 			return;
 		}
 		ctx.cache.set(node.id, instance);
-		if (
-			(scope === Scope.Singleton || isValueProvider(node.metatype)) &&
-			// First writer wins if concurrent creations race for the same token.
-			!this.providersContainer.has(node.id)
-		) {
+		// First writer wins if concurrent creations race for the same token.
+		if (!this.providersContainer.has(node.id)) {
 			this.providersContainer.set(node.id, instance);
 			this.initializationOrder.push(node.id);
 		}
@@ -364,7 +361,7 @@ export class Resolver {
 			}
 			return this.providersContainer.get(token);
 		}
-		if (node.scope !== Scope.Transient && ctx.cache.has(token)) {
+		if (ctx.cache.has(token)) {
 			return ctx.cache.get(token);
 		}
 		return this.createInstanceSync(node, ctx);
@@ -486,7 +483,7 @@ export class Resolver {
 			!this.providersContainer.has(token) ||
 			this.providersContainer.get(token) !== instance
 		) {
-			return; // not the global singleton (scoped, or lost a race)
+			return; // not the global singleton (lost a race)
 		}
 		this.inFlightInits.set(token, init);
 		const clear = () => {

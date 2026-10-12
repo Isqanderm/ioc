@@ -9,7 +9,7 @@ import { Inject, Injectable, Module, Scope } from "../src";
  * This test suite checks for memory leaks in the IoC container by:
  * 1. Measuring heap memory before and after operations
  * 2. Using WeakRef to verify objects are garbage collected
- * 3. Testing different scopes (Singleton, Request, Transient)
+ * 3. Testing different scopes (Singleton, Transient)
  * 4. Stress testing with many iterations
  *
  * Run with: npm run test:memory
@@ -268,8 +268,8 @@ describe("Memory Leak Detection", () => {
 			console.log("   Instance alive after GC: ✅");
 		});
 
-		it("should cleanup Request scope after resolution", async () => {
-			@Injectable({ scope: Scope.Scoped })
+		it("should cleanup Transient scope after resolution", async () => {
+			@Injectable({ scope: Scope.Transient })
 			class RequestService {
 				id = Math.random();
 			}
@@ -299,8 +299,8 @@ describe("Memory Leak Detection", () => {
 				(ref) => ref.deref() !== undefined,
 			).length;
 
-			console.log("\n🔄 Request Scope Test:");
-			console.log("   Created: 50 request contexts");
+			console.log("\n🔄 Transient Scope Test:");
+			console.log("   Created: 50 contexts");
 			console.log(`   After GC: ${aliveAfterGC} alive`);
 
 			// Request scope instances should be collected
@@ -720,7 +720,7 @@ describe("Memory Leak Detection", () => {
 				id = Math.random();
 			}
 
-			@Injectable({ scope: Scope.Scoped })
+			@Injectable({ scope: Scope.Transient })
 			class RequestService {
 				constructor(public singleton: SingletonService) {}
 			}

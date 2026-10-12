@@ -2,7 +2,7 @@ import type { ProviderToken } from "../../interfaces";
 import { ProvidersContainer } from "./providers-container";
 
 export class ResolutionContext {
-	/** Per-resolution-tree cache (Singleton + Scoped instances seen in this tree). */
+	/** Per-resolution-tree cache (singletons created in this tree). */
 	readonly cache = new ProvidersContainer();
 	/** Tokens currently being constructed in this tree, outermost first. */
 	readonly path: ProviderToken[] = [];

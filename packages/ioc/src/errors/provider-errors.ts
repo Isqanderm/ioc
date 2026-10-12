@@ -37,7 +37,7 @@ export class ProviderNotInstantiatedError extends Error {
 	}
 }
 
-/** get() only serves singletons; Transient/Scoped are created per call. */
+/** get() only serves singletons; Transient providers are created per call. */
 export class ProviderScopeError extends Error {
 	constructor(
 		public readonly token: ProviderToken,

@@ -258,7 +258,7 @@ describe("GraphResolver", () => {
 				serviceA: IServiceA;
 			}
 
-			@Injectable({ scope: Scope.Scoped })
+			@Injectable({ scope: Scope.Transient })
 			class ServiceA implements IServiceA {
 				constructor(
 					@Inject("secret") public readonly secret: string,
@@ -266,7 +266,7 @@ describe("GraphResolver", () => {
 				) {}
 			}
 
-			@Injectable({ scope: Scope.Scoped })
+			@Injectable({ scope: Scope.Transient })
 			class ServiceB implements IServiceB {
 				constructor(
 					@Inject("secret") public readonly secret: string,
@@ -444,7 +444,7 @@ describe("GraphResolver", () => {
 			@Injectable()
 			class ServiceC {}
 
-			@Injectable({ scope: Scope.Scoped })
+			@Injectable({ scope: Scope.Transient })
 			class ServiceA implements IServiceA {
 				constructor(
 					@Inject("secret") public readonly secret: string,
@@ -453,7 +453,7 @@ describe("GraphResolver", () => {
 				) {}
 			}
 
-			@Injectable({ scope: Scope.Scoped })
+			@Injectable({ scope: Scope.Transient })
 			class ServiceB implements IServiceB {
 				constructor(
 					@Inject("secret") public readonly secret: string,

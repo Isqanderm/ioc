@@ -47,7 +47,6 @@ export {
 	type ProviderScopeAnalysis,
 	ProviderScopeAnalyzer,
 	type ProviderScopeInfo,
-	type ScopeMismatch,
 } from "./analyzer/provider-scope-analyzer";
 export {
 	type UnusedProvider,

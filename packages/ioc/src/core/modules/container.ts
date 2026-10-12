@@ -147,7 +147,7 @@ export class Container implements ContainerInterface {
 	 * Synchronously returns an already-created singleton.
 	 *
 	 * @throws {ProviderNotFoundError} If no provider has this token
-	 * @throws {ProviderScopeError} If the provider is Transient or Scoped
+	 * @throws {ProviderScopeError} If the provider is Transient
 	 * @throws {ProviderNotInstantiatedError} If the singleton is not created yet
 	 *
 	 * @example

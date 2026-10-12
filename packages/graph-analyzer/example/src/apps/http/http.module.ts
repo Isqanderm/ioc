@@ -9,7 +9,7 @@ import { HttpService } from "./http.service";
 		{
 			provide: "REQUEST_ID",
 			useValue: "request-123",
-			scope: Scope.Scoped,
+			scope: Scope.Transient,
 		},
 		{
 			provide: "requestFactory",
@@ -17,7 +17,7 @@ import { HttpService } from "./http.service";
 				return `Request: ${requestId}`;
 			},
 			inject: ["REQUEST_ID"],
-			scope: Scope.Scoped,
+			scope: Scope.Transient,
 		},
 	],
 	exports: [HttpService],
