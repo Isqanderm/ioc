@@ -2,8 +2,8 @@ import "reflect-metadata";
 import {
 	INJECT_WATERMARK,
 	PROPERTY_DEPS_METADATA,
+	type ProviderToken,
 	SELF_DECLARED_DEPS_METADATA,
-	type Type,
 } from "../interfaces";
 import type { ForwardRef } from "../utils/forward-ref";
 
@@ -47,7 +47,7 @@ import type { ForwardRef } from "../utils/forward-ref";
  * ```
  */
 export function Inject(
-	token: Type | symbol | string | ForwardRef,
+	token: ProviderToken | ForwardRef,
 ): PropertyDecorator & ParameterDecorator {
 	return (
 		target: object,

@@ -1,5 +1,5 @@
 // Re-export shared types and errors
-export { ContainerNotCompiledError } from "@nexus-ioc/shared";
+export { ContainerNotCompiledError, InjectionToken } from "@nexus-ioc/shared";
 export { LazyModuleLoader } from "./core/lazy-module-loader";
 export type { ModuleRefGetOptions } from "./core/module-ref";
 export { ModuleRef } from "./core/module-ref";
