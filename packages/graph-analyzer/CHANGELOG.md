@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `scopeAnalysis` JSON shape: Transient providers were previously mislabelled `"Singleton"` in `providerScopes` and are now labelled `"Transient"`. `scopedProviders` is renamed to `transientProviders`. `scopeMismatches` and the `ScopeMismatch` export are removed, because `Scope.Scoped` no longer exists in `@nexus-ioc/core`.
 
+### Added
+
+- Child scopes: the graph follows `@Module({ children })`. JSON modules gain `scope` (the module that roots the child scope) and `children`, and a provider dependency gets `crossScope: true` when a child-scope provider gets it from an ancestor scope (approximate).
+
 ## [0.1.0] - 2025-01-18
 
 **First public release of @nexus-ioc/graph-analyzer!**

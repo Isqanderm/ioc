@@ -199,6 +199,8 @@ for (const cycle of graph.cycles) {
 
 `NexusApplicationGraphBuilder.build()` resolves every class's dependency tokens to the concrete `NexusProvider` that satisfies them, honoring module scoping: a module's own `providers`, providers its imported modules `export` (including transitively re-exported ones), and providers exported by any `@Global()` module anywhere in the application. Each match is reported as a `NexusResolvedDependency` (`class`, `dependencyName`, `provider`, `providingModule`); a *required* dependency with no match is reported as a `NexusUnresolvedDependency` instead — an unmatched optional dependency is silently skipped. `NexusProviderCycle` reports a cycle found among `useFactory` providers' `inject` tokens, matched by `ts.Symbol`/token identity rather than class-name strings.
 
+**Child scopes.** `NexusApplication.scopes` lists the container scopes of the application: the root scope plus one scope per module statically declared in `@Module({ children })` (class references and the `lazy(() => import("...").then((m) => m.X))` shape; `NexusModule.children` holds the raw entries). A dependency that a child scope's own module tree cannot provide falls back to what the declaring module sees in the parent scope, recursively; such a match has `fromParentScope: true` on its `NexusResolvedDependency`. An application without `children` has exactly one scope.
+
 Cycle detection is scoped per module: it walks each module's own `providers` registrations independently, so it will not detect a cycle that spans factory `inject` tokens registered as *own* providers of two different modules — only cycles within a single module's own provider registrations are found. This is a deliberate, documented limitation (see the `detectCycles()` comment in `nexus-application-graph-builder.ts`).
 
 ### Custom logger
@@ -281,6 +283,14 @@ class NexusApplicationAnalyzer {
 type NexusApplication = {
   entryPoint: NexusSourceSpan;
   classes: readonly NexusClass[];
+  scopes: readonly NexusScope[];
+};
+
+type NexusScope = {
+  rootId: string;
+  declaredInId?: string;
+  parentRootId?: string;
+  classIds: readonly string[];
 };
 ```
 
@@ -308,6 +318,7 @@ type NexusResolvedDependency = {
   dependencyName: string;
   provider: NexusProvider;
   providingModule: NexusClass;
+  fromParentScope: boolean;
 };
 
 type NexusUnresolvedDependency = {

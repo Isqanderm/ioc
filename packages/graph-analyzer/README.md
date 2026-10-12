@@ -330,6 +330,49 @@ npx graph-analyzer --check-scope src/main.ts
 - `scopedProviders` is renamed to `transientProviders`.
 - `scopeMismatches` and the `ScopeMismatch` export are removed.
 
+### Child Scopes
+
+Modules listed in `@Module({ children })` (direct class references and the `lazy(() => import("...").then((m) => m.X))` shape) are not imports: each one opens a child container scope that is created at runtime with `createChild()`. The analyzer follows them, resolves each scope's dependencies with the declaring module's visibility as the fallback, and reports the scopes in the output. Applications without `children` are unchanged.
+
+**Example Output:**
+```json
+{
+  "modules": [
+    {
+      "name": "AppModule",
+      "path": "/path/to/app.module.ts",
+      "imports": [],
+      "exports": [],
+      "providers": ["EventBus"],
+      "isGlobal": false,
+      "scope": "AppModule",
+      "children": [{ "name": "ProfileModule", "path": "/path/to/profile.module.ts" }]
+    },
+    {
+      "name": "ProfileModule",
+      "path": "/path/to/profile.module.ts",
+      "imports": [],
+      "exports": [],
+      "providers": ["ProfileStore"],
+      "isGlobal": false,
+      "scope": "ProfileModule"
+    }
+  ],
+  "providers": [
+    {
+      "token": "ProfileStore",
+      "type": "Class",
+      "module": { "name": "ProfileModule", "path": "/path/to/profile.module.ts" },
+      "dependencies": [{ "token": "EventBus", "optional": false, "crossScope": true }]
+    }
+  ]
+}
+```
+
+- `scope` on a module is the name of the module that roots its scope (a module present in several scopes is tagged with the first one). `children` lists the modules it declares as children.
+- `crossScope: true` on a dependency means a provider in a child scope gets that token from an ancestor scope. It is approximate: it only checks that some module of an ancestor scope registers the token, not the imports/exports visibility rules. `@nexus-ioc/type-checker` reports the visibility-correct answer as `fromParentScope`.
+- Circular dependency detection is scope-aware: a child-scope provider that shadows a parent token (the parent's `A -> B` plus a child's `B -> A`) is not reported as a cycle, while a real cycle inside a child scope still is.
+
 ### Missing Decorator Detection
 
 Identifies dependencies that lack explicit `@Inject` decorators.

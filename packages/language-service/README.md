@@ -46,6 +46,10 @@ npm install @nexus-ioc/language-service
 
 ```
 
+### Child containers
+
+Modules declared in `@Module({ children })` are analysed as child scopes. A missing-dependency error in a child scope is suppressed when the declaring module can see the token in the parent graph. A module that is also imported outside a child scope keeps the diagnostic. Tokens the declaring module sees only through a re-export are not recognised yet. See [Child containers](../ioc/README.md#child-containers).
+
 ## Example Project
 
 A comprehensive example project is available in the `example/` directory that demonstrates all plugin features:

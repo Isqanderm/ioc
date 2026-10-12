@@ -25,6 +25,7 @@ Nexus IoC is a powerful and flexible Inversion of Control (IoC) container for Ty
 - [get() vs resolve()](#get-vs-resolve)
 - [Lifecycle and close()](#lifecycle-and-close)
 - [Lazy Modules](#lazy-modules)
+- [Child containers](#child-containers)
 - [Migrating to the synchronous get()](#migrating-to-the-synchronous-get)
 - [Testing](#testing)
 - [License](#license)
@@ -289,6 +290,9 @@ provider's own `onModuleInit` (for example `await app.resolve(A)` in the
 init that is waiting for it, and never settles. This is not detected, because
 the inner `resolve()` cannot be told apart from an unrelated concurrent one.
 
+Under concurrency a `forwardRef` dependency may be the proxy rather than the
+real instance.
+
 ### Cycles
 
 Any cycle that goes through `inject()` throws `CircularInjectionError` with the
@@ -333,7 +337,8 @@ const maybe = app.get<AppService>(AppService, { optional: true });
 `get()` throws:
 
 - `ProviderNotFoundError` — the token is not a provider in this container
-  (or its parent). With `{ optional: true }` it returns `undefined` instead.
+  (or what its parent link provides). With `{ optional: true }` it returns
+  `undefined` instead.
 - `ProviderScopeError` — the provider is `Transient`; use
   `resolve()`.
 - `ProviderNotInstantiatedError` — the singleton has not been created yet
@@ -344,8 +349,11 @@ const maybe = app.get<AppService>(AppService, { optional: true });
   not consulted in this case.
 
 A token found in this container is always answered here; only unknown tokens
-are looked up in the parent (for a child made with `createChild()`). Falsy
+are looked up in the parent (for a child made with `createChild()`, through its link). Falsy
 `useValue` values (`undefined`, `null`, `0`, `false`) are returned as they are.
+
+`bootstrap()` rejects with `InvalidScopeError` for a provider whose `scope` is
+not a `Scope` member (`Singleton` or `Transient`).
 
 `resolve()` takes the same `{ optional }` option. It throws
 `ProviderNotFoundError`, `ContainerClosedError` and
@@ -382,8 +390,10 @@ await app.close();
   after `close()`; for a token it cannot see (or after `unload()`), they
   keep returning `undefined`. `ref.unload()` after `close()` rejects with
   `ContainerClosedError`.
-- `close()` detaches the parent and does not close child containers. A service
-  that subscribed to a parent service must unsubscribe in `onModuleDestroy`.
+- `close()` first closes the live child containers (see
+  [Child containers](#child-containers)), newest first; their errors join the
+  `AggregateError`. A service that subscribed to a parent service must
+  unsubscribe in `onModuleDestroy`.
 - A `resolve()` that is still in flight when `close()` is called is not
   awaited, so await your `resolve()` calls before closing.
 
@@ -484,7 +494,8 @@ so services that inject it work in tests; the `Test` instance itself also has
 ```typescript
 const ref = await app.load(FeatureLazy);
 // ... later ...
-const { destroyedModules, destroyedProviders } = await app.unload(ref);
+const { destroyedModules, destroyedProviders, closedChildren } =
+  await app.unload(ref);
 ```
 
 - `app.unload(ref)`, `ref.unload()`, and `LazyModuleLoader.unload(ref)` all do the
@@ -498,8 +509,10 @@ const { destroyedModules, destroyedProviders } = await app.unload(ref);
   `undefined` for every token afterward — the ref does not come back to life; loading the
   same `lazy()` ref again returns a new `ModuleRef`.
 - Unloading a ref that was never loaded, or unloading it twice, is a no-op:
-  `{ destroyedModules: [], destroyedProviders: [] }`. After `app.close()`,
+  `{ destroyedModules: [], destroyedProviders: [], closedChildren: 0 }`. After `app.close()`,
   unloading rejects with `ContainerClosedError`.
+- Child containers declared by the modules the unload destroys are closed
+  first (`closedChildren` counts them); see [Child containers](#child-containers).
 - Not handled: an instance obtained via `app.get()` or `ref.get()` and held
   outside the container (for example in a closure) keeps working as a plain
   object after its module is destroyed — the same contract as an Angular
@@ -509,6 +522,223 @@ const { destroyedModules, destroyedProviders } = await app.unload(ref);
   while an `unload()` of that same ref is in flight, without awaiting the
   unload first, can return a `ModuleRef` for a segment that is about to be
   destroyed — this race is not guarded against either.
+
+## Child containers
+
+A child container is a second application created from a module of a running
+one. It has its own singletons and its own lifetime, and it can use the
+providers of the application that created it. Typical uses: per-profile,
+per-tenant or per-document state that is created and thrown away while the main
+application keeps running.
+
+### Per-profile containers
+
+Declare the module that may become a child in `children` of the module whose
+providers it should use, bootstrap the application, then call `createChild()`:
+
+```typescript
+import {
+  DynamicModule,
+  Inject,
+  Injectable,
+  InjectionToken,
+  Module,
+  NexusApplication,
+} from '@nexus-ioc/core';
+
+const PROFILE_ID = new InjectionToken<string>('PROFILE_ID');
+
+@Injectable()
+class HttpClient {}
+
+@Module({ providers: [HttpClient], exports: [HttpClient] })
+class HttpModule {}
+
+@Injectable()
+class EventBus {}
+
+@Injectable()
+class ProfileStore {
+  constructor(
+    @Inject(PROFILE_ID) readonly profileId: string,
+    @Inject(EventBus) readonly bus: EventBus,
+    @Inject(HttpClient) readonly http: HttpClient,
+  ) {}
+}
+
+@Module({ providers: [ProfileStore] })
+class ProfileModule {
+  static forProfile(id: string): DynamicModule {
+    return {
+      module: ProfileModule,
+      providers: [ProfileStore, { provide: PROFILE_ID, useValue: id }],
+    };
+  }
+}
+
+@Module({ imports: [HttpModule], providers: [EventBus], children: [ProfileModule] })
+class AppModule {}
+
+const app = await NexusApplication.create(AppModule).bootstrap();
+let profile = await app.createChild(ProfileModule.forProfile('a'));
+profile.get(ProfileStore).profileId; // 'a'
+// switch profile
+await profile.close();
+profile = await app.createChild(ProfileModule.forProfile('b'));
+```
+
+`createChild()` returns a `NexusApplication` that is already bootstrapped, with
+its singletons created. As with any dynamic module, the `providers` of the
+`DynamicModule` object are used instead of the ones in the class's `@Module`
+decorator, which is why `forProfile()` lists `ProfileStore` too. `ProfileStore` gets `EventBus` and `HttpClient` from
+`AppModule`; the profile id is data that exists only per child, so it is
+supplied when the child is created.
+
+### Declaring children
+
+```typescript
+const ReportsLazy = lazy(() =>
+  import('./reports/reports.module').then((m) => m.ReportsModule),
+);
+
+@Module({
+  children: [ProfileModule, ReportsLazy],
+})
+class AppModule {}
+```
+
+- `children` takes classes and `lazy()` refs. It is static `@Module` metadata:
+  a `DynamicModule` object cannot declare children.
+- A child module is not an import. It is not compiled into the parent graph and
+  nothing is created until you call `createChild()`.
+- A given child may be declared by at most one module in the whole parent
+  graph. A second declaration is the graph error `CHILD_DECLARED_TWICE`. It is
+  also raised when one class is imported as two module ids (two `forX()`
+  variants, or a static plus a dynamic import) in a graph where that class
+  declares children.
+- A class (`Type`) child and a `lazy()` child that load the same class are
+  different declarations.
+- A `lazy()` ref is matched by identity.
+
+### createChild()
+
+```typescript
+createChild(
+  child: Type | DynamicModule | LazyModule,
+  options?: { providers?: Provider[] },
+): Promise<NexusApplication>
+```
+
+- A class matches a declared class. A `DynamicModule` matches by its `.module`
+  class, so `ProfileModule.forProfile(id)` works when `ProfileModule` is
+  declared. A `lazy()` ref matches the declared ref.
+- The loader of a lazy child runs once per ref per parent and its result is
+  cached; a failed load is not cached. The loaded class must be the declared
+  one or carry `@Module`; otherwise `LazyModuleLoadError`.
+- `options.providers` are appended to the providers of the child's root
+  module. Use them for per-instance data:
+
+  ```typescript
+  const profile = await app.createChild(ProfileModule, {
+    providers: [{ provide: PROFILE_ID, useValue: 'a' }],
+  });
+  ```
+- A child root created with `forProfile(id)` or `options.providers` keeps the
+  `children` its class declares, so a child can have children of its own.
+
+`createChild()` rejects with:
+
+- `ChildModuleNotDeclaredError` — no module declares the child. Its `reason`
+  is `"unloaded"` when the lazy module that declares it was unloaded while the
+  child was being created (the child is closed then).
+- `ContainerNotCompiledError` — the parent is not bootstrapped.
+- `ContainerClosedError` — the parent is closed or closing. It wins when the
+  parent closes during creation.
+- `LazyModuleLoadError` — the loader of a lazy child failed or returned
+  something that is not a module.
+
+### What a child sees
+
+A child sees what its declaring module sees in the parent graph: that module's
+own providers, what its imports export to it and global modules, plus whatever
+the parent's own link provides, recursively up the chain. Providers a module
+does not export stay hidden. A provider visible in the child itself wins over
+the parent's.
+
+- `child.get(token)` and `child.resolve(token)` look in the child first (any
+  provider of the child, whatever its exports), then through the link, then
+  throw `ProviderNotFoundError` (or return `undefined` with
+  `{ optional: true }`).
+- After the parent closes, lookups through the link throw
+  `ContainerClosedError`, even with `{ optional: true }`.
+
+### Scopes across the boundary
+
+- `@Inject` of a parent token gives the parent's singleton instance. For a
+  parent `Transient` it gives a new instance, created by the parent.
+- `inject()` uses the link's synchronous `get`, which cannot create anything:
+  - a parent `Transient` reached through `inject()` throws
+    `ProviderScopeError`;
+  - a parent singleton that does not exist yet throws
+    `ProviderNotInstantiatedError`. That is the case for a parent in `.lazy()`
+    mode, for a parent singleton whose async `onModuleInit` is still running,
+    and while a `load()` warm-up is still creating it.
+
+  Use `@Inject` for dependencies on the parent when any of those can happen.
+- A required dependency that neither the child nor the link provides fails the
+  child's `bootstrap()`, so `createChild()` rejects with `BootstrapError`
+  instead of creating a provider with an `undefined` dependency.
+
+### Lifecycle
+
+- The parent tracks its live children. `child.close()` closes only that child
+  and removes it from the parent, so it can be garbage-collected; closing a
+  child does not touch the parent or its siblings.
+- `parent.close()` first closes all live children, newest first, then tears
+  itself down. Errors from the children join the parent's `AggregateError`.
+- Unloading a lazy module closes every live child declared by a module the
+  unload destroys, before it destroys providers. `UnloadResult` has a
+  `closedChildren` count of the closes that unload itself started (a child that
+  was already closing is not counted). A child-close error and a
+  provider-destroy error during one unload are joined into one `AggregateError`.
+- A child creation that completes after `close()` or an unload is not cached.
+  Its `onModuleDestroy` is called on a best-effort basis, and the caller gets
+  `ContainerClosedError` or `ProviderUnloadedError`.
+- A child's `onModuleDestroy` that awaits `parent.load()` or `parent.unload()`
+  while that parent is unloading hangs, because the parent's compile queue is
+  busy. After an unload that is not followed by a reload, a stalled async tree
+  may construct a requester with an `undefined` dependency before it is
+  discarded.
+
+### Concurrent children
+
+Children of the same module are independent containers with separate
+singletons. Creating several at once is fine:
+
+```typescript
+const [a, b] = await Promise.all([
+  app.createChild(ProfileModule.forProfile('a')),
+  app.createChild(ProfileModule.forProfile('b')),
+]);
+```
+
+### React and other UI scopes
+
+A React `<ContainerScope>` maps onto this directly: call `createChild()` in an
+effect and `close()` in its cleanup. In StrictMode effects run twice in
+development, so guard against the double mount: close the first child in the
+cleanup, and close a child whose creation finished after its effect was already
+cleaned up. The adapter itself is not part of this package.
+
+### Static analysis
+
+`@nexus-ioc/type-checker` and `@nexus-ioc/graph-analyzer` follow `children`
+(direct class references and the
+`lazy(() => import('...').then((m) => m.X))` shape). The type-checker resolves
+each child scope's dependencies with the declaring module's visibility as the
+fallback, and the graph-analyzer reports child scopes. The language service
+suppresses missing-dependency errors in a child scope when the declaring module
+can see the token. See [graph-analyzer](../graph-analyzer/README.md).
 
 ## Testing
 
@@ -564,8 +794,16 @@ pair, so `moduleRef.get<X>(X)` needs no `await`.
   Singletons are now created in plain declaration order.
 - `AsyncProviderInjectionError` is removed; it can no longer happen.
 - `Scope.Scoped` is removed. Only `Singleton` and `Transient` remain (`Transient`
-  keeps the value 2). Use `Transient`, or a child container (`createChild`,
-  planned) for per-request state.
+  keeps the value 2). Use `Transient`, or a child container
+  ([`createChild`](#child-containers)) for per-request state. A scope value that
+  is not a `Scope` member (such as `1`, the old `Scoped`) throws
+  `InvalidScopeError` at bootstrap.
+- `setParent()` and `getParent()` are removed. Replace
+  `NexusApplication.create(X).setParent(app).bootstrap()` by declaring `X` in
+  `children` of the module that owns it and calling `await app.createChild(X)`;
+  see [Child containers](#child-containers). A child now sees what its
+  declaring module sees, not the whole parent, and the parent closes its live
+  children.
 - `get()` no longer returns a promise: drop the `await` for singletons and use
   `await resolve()` for `Transient` and lazy-mode providers.
 - `get()` now throws instead of returning `undefined` for unknown tokens. Pass
