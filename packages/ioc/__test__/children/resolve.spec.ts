@@ -7,7 +7,9 @@ import {
 	Module,
 	NexusApplication,
 	type OnModuleDestroy,
+	type OnModuleInit,
 	ProviderNotFoundError,
+	ProviderNotInstantiatedError,
 	Scope,
 } from "../../src";
 
@@ -119,6 +121,7 @@ describe("child resolution through the parent link", () => {
 		const child = await app.createChild(ProfileModule);
 
 		expect(child.get(FACTORY)).toBe(app.get(Http));
+		expectNotCachedIn(child, Http);
 	});
 
 	it("creates a new parent Transient for each child singleton", async () => {
@@ -275,6 +278,20 @@ describe("child resolution through the parent link", () => {
 			expect(child.get(Consumer).http).toBe(app.get(Http));
 		});
 
+		it("a property @Inject resolves to the parent's instance, not the hidden one", async () => {
+			@Injectable()
+			class Consumer {
+				@Inject(Http) readonly http!: Http;
+			}
+			@Module({ imports: [InnerModule], providers: [Consumer] })
+			class ProfileModule {}
+
+			const app = await bootRoot([ProfileModule]);
+			const child = await app.createChild(ProfileModule);
+
+			expect(child.get(Consumer).http).toBe(app.get(Http));
+		});
+
 		it("the same holds for a requester created via inject()", async () => {
 			@Injectable({ scope: Scope.Transient })
 			class Consumer {
@@ -292,5 +309,151 @@ describe("child resolution through the parent link", () => {
 
 			expect(child.get(Host).consumer.http).toBe(app.get(Http));
 		});
+	});
+});
+
+function deferred(): { promise: Promise<void>; resolve: () => void } {
+	let resolve!: () => void;
+	const promise = new Promise<void>((r) => {
+		resolve = r;
+	});
+	return { promise, resolve };
+}
+
+describe("child resolution while the parent is still initialising", () => {
+	const unhandled: unknown[] = [];
+	const onUnhandled = (error: unknown) => unhandled.push(error);
+	beforeEach(() => {
+		unhandled.length = 0;
+		process.on("unhandledRejection", onUnhandled);
+	});
+	afterEach(async () => {
+		await new Promise((r) => setTimeout(r, 20));
+		process.off("unhandledRejection", onUnhandled);
+		expect(unhandled).toEqual([]);
+	});
+
+	it("createChild waits for a lazy parent's singleton whose async init is in flight", async () => {
+		const gate = deferred();
+		let constructed = 0;
+		@Injectable()
+		class Slow implements OnModuleInit {
+			ready = false;
+			constructor() {
+				constructed++;
+			}
+			async onModuleInit(): Promise<void> {
+				await gate.promise;
+				this.ready = true;
+			}
+		}
+		@Module({ providers: [Slow], exports: [Slow] })
+		class SlowModule {}
+		@Injectable()
+		class Store {
+			readonly ready: boolean;
+			constructor(@Inject(Slow) readonly slow: Slow) {
+				this.ready = slow.ready;
+			}
+		}
+		@Module({ providers: [Store] })
+		class ChildModule {}
+		@Module({ imports: [SlowModule], children: [ChildModule] })
+		class AppModule {}
+
+		const app = await NexusApplication.create(AppModule).lazy().bootstrap();
+		const parentResolve = app.resolve(Slow);
+		await Promise.resolve();
+		expect(() => app.get(Slow)).toThrow(ProviderNotInstantiatedError);
+
+		let done = false;
+		const childPromise = app.createChild(ChildModule).then((c) => {
+			done = true;
+			return c;
+		});
+		await new Promise((r) => setTimeout(r, 20));
+		expect(done).toBe(false);
+
+		gate.resolve();
+		const child = await childPromise;
+		expect(child.get(Store).ready).toBe(true);
+		expect(child.get(Store).slow).toBe(await parentResolve);
+		expect(constructed).toBe(1);
+	});
+
+	it("an inject() requester rejects while the parent init is in flight, then succeeds", async () => {
+		const gate = deferred();
+		@Injectable()
+		class Slow implements OnModuleInit {
+			async onModuleInit(): Promise<void> {
+				await gate.promise;
+			}
+		}
+		@Module({ providers: [Slow], exports: [Slow] })
+		class SlowModule {}
+		@Injectable({ scope: Scope.Transient })
+		class Requester {
+			constructor(@Inject(Slow) readonly slow: Slow) {}
+		}
+		@Injectable({ scope: Scope.Transient })
+		class Host {
+			readonly requester = inject(Requester);
+		}
+		@Module({ providers: [Requester, Host] })
+		class ChildModule {}
+		@Module({ imports: [SlowModule], children: [ChildModule] })
+		class AppModule {}
+
+		const app = await NexusApplication.create(AppModule).lazy().bootstrap();
+		const child = await app.createChild(ChildModule);
+		const parentResolve = app.resolve(Slow);
+		await Promise.resolve();
+
+		await expect(child.resolve(Host)).rejects.toBeInstanceOf(
+			ProviderNotInstantiatedError,
+		);
+
+		gate.resolve();
+		await parentResolve;
+		const host = await child.resolve(Host);
+		expect(host.requester.slow).toBe(app.get(Slow));
+	});
+
+	it("a parent dependency failing during child bootstrap rejects createChild and cleans up the child", async () => {
+		const destroyedInChild: string[] = [];
+		@Injectable()
+		class Bad implements OnModuleInit {
+			async onModuleInit(): Promise<void> {
+				throw new Error("boom");
+			}
+		}
+		@Module({ providers: [Bad], exports: [Bad] })
+		class BadModule {}
+		@Injectable()
+		class First implements OnModuleDestroy {
+			onModuleDestroy(): void {
+				destroyedInChild.push("First");
+			}
+		}
+		@Injectable()
+		class Store {
+			constructor(
+				@Inject(First) readonly first: First,
+				@Inject(Bad) readonly bad: Bad,
+			) {}
+		}
+		@Module({ providers: [First, Store] })
+		class ChildModule {}
+		@Module({ imports: [BadModule], children: [ChildModule] })
+		class AppModule {}
+
+		const app = await NexusApplication.create(AppModule).lazy().bootstrap();
+
+		await expect(app.createChild(ChildModule)).rejects.toThrow(/boom/);
+		expect(destroyedInChild).toEqual(["First"]);
+		expect(
+			(app as unknown as { liveChildren: Set<NexusApplication> }).liveChildren
+				.size,
+		).toBe(0);
 	});
 });
