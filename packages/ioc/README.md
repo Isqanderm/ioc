@@ -21,6 +21,7 @@ Nexus IoC is a powerful and flexible Inversion of Control (IoC) container for Ty
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Tokens](#tokens)
+- [inject()](#inject)
 - [get() vs resolve()](#get-vs-resolve)
 - [Lifecycle and close()](#lifecycle-and-close)
 - [Lazy Modules](#lazy-modules)
@@ -160,6 +161,128 @@ inferred. String and symbol tokens give `unknown` unless you pass `<T>` or the
 expected type supplies it (`const url: string = app.get('API_URL')`).
 `useValue` and `useFactory` results are not type-checked against the token's
 `T`, so make sure the provided value matches it.
+
+A class with a `private` or `protected` constructor cannot be used as a token,
+because the container cannot construct it. Use an `InjectionToken` instead.
+
+## inject()
+
+`inject()` resolves a dependency from code instead of a constructor
+parameter, in the style of Angular:
+
+```typescript
+import { Inject, Injectable, InjectionToken, inject } from '@nexus-ioc/core';
+
+const CONFIG = new InjectionToken<{ apiUrl: string }>('CONFIG');
+
+@Injectable()
+class Logger {}
+
+// with @Inject
+@Injectable()
+class ApiClientA {
+  constructor(
+    private readonly logger: Logger,
+    @Inject(CONFIG) private readonly config: { apiUrl: string },
+  ) {}
+}
+
+// with inject()
+@Injectable()
+class ApiClientB {
+  private readonly logger = inject(Logger);
+  private readonly config = inject(CONFIG);
+}
+```
+
+Signatures:
+
+- `inject(token)` returns `T` and throws `ProviderNotFoundError` if the token is
+  not visible.
+- `inject(token, { optional: true })` returns `T | undefined`.
+- `inject(token, options: InjectOptions)` returns `T | undefined`.
+
+### Where inject() works
+
+Only synchronously, while the container is creating a provider:
+
+- class field initializers;
+- the constructor body and constructor parameter defaults;
+- a `useFactory` function, before its first `await`;
+- the same places in providers that are created as a consequence of an
+  `inject()` call.
+
+Anywhere else `inject()` throws `InjectionContextError`: in `onModuleInit`
+(including that of providers created through `inject()`), in methods, after an
+`await`, and at module scope.
+
+```typescript
+const FEATURES = new InjectionToken<string[]>('FEATURES');
+
+@Module({
+  providers: [
+    Logger,
+    {
+      provide: FEATURES,
+      useFactory: () => {
+        const logger = inject(Logger); // ok: before the first await
+        return logger ? ['a', 'b'] : [];
+      },
+    },
+  ],
+})
+class FeaturesModule {}
+```
+
+### Visibility and optional
+
+`inject()` follows the same rules as `@Inject`: the module of the requesting
+provider must see the token (its own providers, exports of imported modules,
+global modules). Otherwise `inject()` throws `ProviderNotFoundError`, whose
+message names the requester (`requested by "Y" via inject()`; the error has a
+`requestedBy` property). With `{ optional: true }` it returns `undefined`.
+
+### Scopes
+
+- Singleton: the cached instance, or a new one created synchronously on the
+  first `inject()`.
+- Scoped: shared within one resolution tree, the same as `@Inject`.
+- Transient: a new instance on every `inject()` call.
+
+### Async providers
+
+A provider whose factory returns a promise can be injected only if it already
+exists; otherwise `inject()` throws `AsyncProviderInjectionError`. To make that
+rare, `bootstrap()` creates singletons in this order: value providers, then
+factory providers, then class providers. A class provider can therefore
+`inject()` an async-factory provider.
+
+An `onModuleInit` of an injected dependency may be async: it completes before
+the requester's own `onModuleInit` runs. A singleton whose async init fails is
+not left cached.
+
+### Cycles
+
+Any cycle that goes through `inject()` throws `CircularInjectionError` with the
+path, for example `A -> B -> A`.
+
+### Validation and tooling
+
+`inject()` dependencies are found at runtime, so compile-time graph validation
+does not see them and errors surface when the provider is created (for
+singletons, in `bootstrap()`). They are recorded as runtime edges
+(`inject: "runtime"`) in the module graph, so unloading a lazy module is
+protected against modules used via `inject()` the same way as for `@Inject`.
+
+The static type-checker and graph-analyzer do see `inject()` calls, including
+aliased imports. They report them with `location: "inject"` and include them
+in graphs and cycle detection. They do not see namespace calls
+(`core.inject()`) or factories declared in another place.
+
+### Testing
+
+`inject()` works with `Test.createModule(...).compile()`; see
+[@nexus-ioc/testing](../testing/README.md).
 
 ## get() vs resolve()
 
@@ -402,6 +525,8 @@ pair, so `moduleRef.get<X>(X)` needs no `await`.
   `InjectionToken<T>` are inferred.
 - `ProviderToken<T>` no longer accepts arbitrary functions: a plain function,
   or a class unrelated to `T` (`get<Foo>(Bar)`), is now a compile error.
+- A class with a `private` or `protected` constructor can no longer be used as
+  a token: use an `InjectionToken` instead.
 - `get()` no longer returns a promise: drop the `await` for singletons and use
   `await resolve()` for `Transient`, `Scoped` and lazy-mode providers.
 - `get()` now throws instead of returning `undefined` for unknown tokens. Pass

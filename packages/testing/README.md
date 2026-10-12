@@ -19,6 +19,7 @@
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [inject() with fakes](#inject-with-fakes)
 - [License](#license)
 - [Author](#author)
 - [Contributing](#contributing)
@@ -49,6 +50,41 @@ describe('AppModule', () => {
     const appService = appModule.get<AppService>(AppService);
     expect(appService).toBeInstanceOf(AppService);
   });
+});
+```
+
+### inject() with fakes
+
+`inject()` works in providers created by `Test.createModule(...).compile()`. A
+`{ provide: X, useValue: fake }` replacement is what `inject(X)` receives:
+
+```typescript
+import { Injectable, inject } from '@nexus-ioc/core';
+import { Test } from '@nexus-ioc/testing';
+
+@Injectable()
+class Mailer {
+  send(to: string) {}
+}
+
+@Injectable()
+class Notifier {
+  private readonly mailer = inject(Mailer);
+
+  notify(to: string) {
+    this.mailer.send(to);
+  }
+}
+
+it('uses the fake', async () => {
+  const fake = { send: vi.fn() };
+
+  const moduleRef = await Test.createModule({
+    providers: [Notifier, { provide: Mailer, useValue: fake }],
+  }).compile();
+
+  moduleRef.get<Notifier>(Notifier).notify('a@b.c');
+  expect(fake.send).toHaveBeenCalledWith('a@b.c');
 });
 ```
 

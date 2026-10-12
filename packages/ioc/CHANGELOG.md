@@ -16,9 +16,11 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 - The `InjectionToken` type is renamed to `ProviderToken<T>` with no alias; `InjectionToken` is now a class (see Features).
 - `get()`/`resolve()` infer the result type from the token. For string and symbol tokens the result is `unknown` unless you pass `<T>` or the expected type supplies it.
 - `ProviderToken<T>` no longer includes `Function`, and `Abstract<T>` is now an abstract construct signature (`abstract new (...args) => T`). A plain function, or a class unrelated to `T` (`get<Foo>(Bar)`), is a compile error instead of inferring `any`.
+- Classes with a `private` or `protected` constructor can no longer be used as tokens, because the container cannot construct them. Use an `InjectionToken` instead.
 
 ### Features
 
+- New `inject(token)`, `inject(token, { optional: true })` and `inject(token, options)` in `@nexus-ioc/core`, usable synchronously while the container creates a provider (field initializers, constructor, a factory before its first `await`). Outside that it throws `InjectionContextError`; cycles throw `CircularInjectionError`; an uncreated async-factory provider throws `AsyncProviderInjectionError`. Singletons are warmed as value, then factory, then class providers. `inject()` dependencies are runtime graph edges (they protect lazy-module unload), and the type-checker and graph-analyzer report them with `location: "inject"`. `ProviderNotFoundError` has an optional `requestedBy`.
 - New `InjectionToken<T>` class: `new InjectionToken<Config>("CONFIG")`. Tokens are compared by identity and work with `useValue`/`useFactory`/`useClass`, `@Inject`, `@Optional` and module `exports`. Error messages and graph labels use `toString()` (`InjectionToken CONFIG`).
 - `get()`/`resolve()` on `NexusApplication`, `ModuleRef`, `Test` and the `Test.compile()` result infer `T` from class tokens (including abstract classes) and `InjectionToken<T>`.
 - The type-checker and graph-analyzer treat an `InjectionToken` constant as one token across re-exports.
