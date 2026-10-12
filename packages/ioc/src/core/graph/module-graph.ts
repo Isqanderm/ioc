@@ -560,6 +560,8 @@ export class ModuleGraph implements ModuleGraphInterface {
 			if (existing === undefined) {
 				this._childDeclarations.set(key, analyzeModule.id);
 			} else if (existing !== analyzeModule.id) {
+				// defensive: a module is only added once, but never report itself
+
 				this.pushError({
 					type: "CHILD_DECLARED_TWICE",
 					child: child.name,
