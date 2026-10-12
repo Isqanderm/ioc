@@ -383,3 +383,192 @@ describe("inject() in class providers", () => {
 		expect(destroyed).toContain(mid);
 	});
 });
+
+describe("inject() and async onModuleInit across resolution trees", () => {
+	const tick = () => new Promise((resolve) => setTimeout(resolve, 5));
+
+	it("a concurrent requester waits for a singleton whose init another tree started", async () => {
+		const log: string[] = [];
+		@Injectable()
+		class S {
+			ready = false;
+			async onModuleInit() {
+				await tick();
+				this.ready = true;
+			}
+		}
+		@Injectable()
+		class A {
+			readonly s = inject(S);
+			onModuleInit() {
+				log.push(`A sees ready=${this.s.ready}`);
+			}
+		}
+		@Injectable()
+		class B {
+			readonly s = inject(S);
+			onModuleInit() {
+				log.push(`B sees ready=${this.s.ready}`);
+			}
+		}
+		@Module({ providers: [S, A, B] })
+		class M {}
+		const app = NexusApplication.create(M).lazy();
+		await app.bootstrap();
+		await Promise.all([app.resolve(A), app.resolve(B)]);
+		expect(log.sort()).toEqual(["A sees ready=true", "B sees ready=true"]);
+	});
+
+	it("resolve() of a singleton waits for its in-flight init started by inject()", async () => {
+		@Injectable()
+		class S {
+			ready = false;
+			async onModuleInit() {
+				await tick();
+				this.ready = true;
+			}
+		}
+		@Injectable()
+		class A {
+			readonly s = inject(S);
+		}
+		@Module({ providers: [S, A] })
+		class M {}
+		const app = NexusApplication.create(M).lazy();
+		await app.bootstrap();
+		const pendingA = app.resolve(A);
+		const s = await app.resolve(S);
+		expect(s.ready).toBe(true);
+		expect((await pendingA).s).toBe(s);
+	});
+
+	it("a requester in another tree is not cached holding a singleton whose init failed", async () => {
+		let n = 0;
+		@Injectable()
+		class S {
+			readonly id = ++n;
+			async onModuleInit() {
+				await tick();
+				if (this.id === 1) {
+					throw new Error("boom");
+				}
+			}
+		}
+		@Injectable()
+		class A {
+			readonly s = inject(S);
+		}
+		@Injectable()
+		class B {
+			readonly s = inject(S);
+		}
+		@Module({ providers: [S, A, B] })
+		class M {}
+		const app = NexusApplication.create(M).lazy();
+		await app.bootstrap();
+		const results = await Promise.allSettled([app.resolve(A), app.resolve(B)]);
+		expect(results.map((r) => r.status)).toEqual(["rejected", "rejected"]);
+		const b = await app.resolve(B);
+		const s = await app.resolve(S);
+		expect(s.id).toBe(2);
+		expect(b.s).toBe(s);
+	});
+
+	it("does not orphan the init of a singleton inject() created before the constructor threw", async () => {
+		let inits = 0;
+		@Injectable()
+		class S {
+			done = false;
+			async onModuleInit() {
+				await tick();
+				inits++;
+				this.done = true;
+			}
+		}
+		@Injectable()
+		class A {
+			readonly s = inject(S);
+			constructor() {
+				throw new Error("ctor");
+			}
+		}
+		@Module({ providers: [S, A] })
+		class M {}
+		const app = NexusApplication.create(M).lazy();
+		await app.bootstrap();
+		await expect(app.resolve(A)).rejects.toThrow("ctor");
+		const s = await app.resolve(S);
+		expect(s.done).toBe(true);
+		expect(inits).toBe(1);
+	});
+
+	it("evicts a singleton inject() created before the constructor threw when its init fails", async () => {
+		let n = 0;
+		@Injectable()
+		class S {
+			readonly id = ++n;
+			async onModuleInit() {
+				await tick();
+				if (this.id === 1) {
+					throw new Error("boom");
+				}
+			}
+		}
+		@Injectable()
+		class A {
+			readonly s = inject(S);
+			constructor() {
+				throw new Error("ctor");
+			}
+		}
+		@Module({ providers: [S, A] })
+		class M {}
+		const app = NexusApplication.create(M).lazy();
+		await app.bootstrap();
+		await expect(app.resolve(A)).rejects.toThrow("ctor");
+		await expect(app.resolve(S)).rejects.toThrow(/boom/);
+		const s = await app.resolve(S);
+		expect(s.id).toBe(2);
+	});
+});
+
+describe("inject() details", () => {
+	it("keeps the original error as cause when onModuleInit fails", async () => {
+		@Injectable()
+		class Dep {}
+		@Injectable()
+		class Late implements OnModuleInit {
+			onModuleInit() {
+				inject(Dep);
+			}
+		}
+		@Module({ providers: [Dep, Late] })
+		class M {}
+		const error = await NexusApplication.create(M)
+			.bootstrap()
+			.then(
+				() => undefined,
+				(e: unknown) => e,
+			);
+		expect(error).toBeInstanceOf(Error);
+		expect((error as Error).message).toMatch(
+			/Failed to initialize provider "Late": inject\(Dep\)/,
+		);
+		expect((error as { cause?: unknown }).cause).toBeInstanceOf(
+			InjectionContextError,
+		);
+	});
+
+	it("works in constructor parameter defaults", async () => {
+		@Injectable()
+		class Dep {}
+		@Injectable()
+		class A {
+			constructor(readonly dep: Dep = inject(Dep)) {}
+		}
+		@Module({ providers: [Dep, A] })
+		class M {}
+		const app = await NexusApplication.create(M).bootstrap();
+		expect(app.get(A).dep).toBe(app.get(Dep));
+	});
+});

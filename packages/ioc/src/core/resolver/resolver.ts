@@ -48,6 +48,13 @@ function isThenable(value: unknown): value is PromiseLike<unknown> {
 export class Resolver {
 	private readonly providersContainer = new ProvidersContainer();
 	private readonly initializationOrder: ProviderToken[] = [];
+	/**
+	 * Singletons created by inject() whose onModuleInit (or the wait on
+	 * inits queued before them) has not settled yet. Other resolution trees
+	 * that hit such a cached singleton wait on this promise, so they never
+	 * see it half-initialised or keep it after a failed init evicted it.
+	 */
+	private readonly inFlightInits = new Map<ProviderToken, Promise<unknown>>();
 
 	constructor(private readonly graph: ModuleGraphInterface) {}
 
@@ -75,6 +82,7 @@ export class Resolver {
 		}
 		this.providersContainer.clear();
 		this.initializationOrder.length = 0;
+		this.inFlightInits.clear();
 		if (errors.length > 0) {
 			throw new AggregateError(
 				errors,
@@ -101,6 +109,9 @@ export class Resolver {
 				await instance.onModuleDestroy();
 			}
 			this.providersContainer.delete(token);
+		}
+		for (const token of dead) {
+			this.inFlightInits.delete(token);
 		}
 
 		const survivors = this.initializationOrder.filter(
@@ -137,7 +148,14 @@ export class Resolver {
 
 		// For Singleton scope, check global cache first
 		if (scope === Scope.Singleton && this.providersContainer.has(token)) {
-			return this.providersContainer.get(token);
+			const cached = this.providersContainer.get(token);
+			const inFlight = this.inFlightInits.get(token);
+			if (inFlight) {
+				// Created by inject() in another tree; its init is still running.
+				// On failure it was evicted, so the error propagates.
+				await inFlight;
+			}
+			return cached;
 		}
 
 		// For Request and Singleton scopes, check resolve cache (within current resolution tree)
@@ -339,6 +357,11 @@ export class Resolver {
 			throw new CircularInjectionError([...ctx.path, token]);
 		}
 		if (node.scope === Scope.Singleton && this.providersContainer.has(token)) {
+			const inFlight = this.inFlightInits.get(token);
+			if (inFlight) {
+				// The requester's own init and eviction chain wait on it.
+				ctx.addPendingInit(inFlight);
+			}
 			return this.providersContainer.get(token);
 		}
 		if (node.scope !== Scope.Transient && ctx.cache.has(token)) {
@@ -427,18 +450,41 @@ export class Resolver {
 
 			this.commitInstance(node, instance, ctx);
 			if (pendingInit) {
-				// A failed init (own or earlier) must not leave a broken cached instance.
-				ctx.addPendingInit(
-					pendingInit.catch((error) => {
-						this.evictInstance(node, instance, ctx);
-						throw error;
-					}),
-				);
+				// A failed init (own or earlier) must not leave a broken cached
+				// instance. The eviction is chained here, not in a drain, so it
+				// also happens when the requester's constructor throws later.
+				const settled = pendingInit.catch((error) => {
+					this.evictInstance(node, instance, ctx);
+					throw error;
+				});
+				ctx.addPendingInit(settled);
+				this.trackInFlightInit(node.id, instance, settled);
 			}
 			return instance;
 		} finally {
 			ctx.leave(node.id);
 		}
+	}
+
+	/** Registers `init` as the in-flight init of a just-committed singleton. */
+	private trackInFlightInit(
+		token: ProviderToken,
+		instance: unknown,
+		init: Promise<unknown>,
+	): void {
+		if (
+			!this.providersContainer.has(token) ||
+			this.providersContainer.get(token) !== instance
+		) {
+			return; // not the global singleton (scoped, or lost a race)
+		}
+		this.inFlightInits.set(token, init);
+		const clear = () => {
+			if (this.inFlightInits.get(token) === init) {
+				this.inFlightInits.delete(token);
+			}
+		};
+		init.then(clear, clear);
 	}
 
 	/**
@@ -470,7 +516,9 @@ export class Resolver {
 				: ((provider as { provide?: ProviderToken }).provide?.toString() ??
 					"Unknown");
 		const errorMessage = `Failed to initialize provider "${providerName}": ${error instanceof Error ? error.message : String(error)}`;
-		const wrappedError = new Error(errorMessage);
+		const wrappedError: Error & { cause?: unknown } = new Error(errorMessage);
+		// Assigned rather than passed as ErrorOptions: the build targets ES2021.
+		wrappedError.cause = error;
 		if (error instanceof Error && error.stack) {
 			wrappedError.stack = `${wrappedError.stack}\nCaused by: ${error.stack}`;
 		}
