@@ -8,10 +8,8 @@ import {
 	Module as ModuleDecorator,
 	type ModuleMetadata,
 	ModuleRef,
-	NodeTypeEnum,
 	ProviderNotFoundError,
 	type ScannerPluginInterface,
-	Scope,
 	type Type,
 	type UnloadResult,
 } from "@nexus-ioc/core";
@@ -70,6 +68,11 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 	}
 
 	public get<T>(token: InjectionToken): T;
+	public get<T>(
+		token: InjectionToken,
+		options: { optional: true },
+	): T | undefined;
+	public get<T>(token: InjectionToken, options: { optional?: false }): T;
 	public get<T>(token: InjectionToken, options: GetOptions): T | undefined;
 	public get<T>(
 		token: InjectionToken,
@@ -90,6 +93,14 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 	public resolve<T>(token: InjectionToken): Promise<T>;
 	public resolve<T>(
 		token: InjectionToken,
+		options: { optional: true },
+	): Promise<T | undefined>;
+	public resolve<T>(
+		token: InjectionToken,
+		options: { optional?: false },
+	): Promise<T>;
+	public resolve<T>(
+		token: InjectionToken,
 		options: GetOptions,
 	): Promise<T | undefined>;
 	public async resolve<T>(
@@ -108,20 +119,6 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 		return this.container.resolve<T>(token);
 	}
 
-	/** Pre-instantiates the singleton providers named by `tokens`. */
-	private async warmUpSingletons(tokens: Iterable<InjectionToken>) {
-		for (const token of tokens) {
-			const node = this.container.graph.getNode(token);
-			if (
-				node &&
-				node.type === NodeTypeEnum.PROVIDER &&
-				node.scope === Scope.Singleton
-			) {
-				await this.container.resolve(token);
-			}
-		}
-	}
-
 	/**
 	 * Loads a lazy module into the testing container, like
 	 * `NexusApplication.load()`. Also backs the injectable `LazyModuleLoader`.
@@ -132,7 +129,7 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 		}
 
 		const segment = await this.container.load(lazyModule);
-		await this.warmUpSingletons(segment.providerTokens);
+		await this.container.instantiateSingletons(segment.providerTokens);
 		return new ModuleRef(this.container, segment);
 	}
 
@@ -166,7 +163,9 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 			await scannerPlugin.scan(this.container.graph);
 		}
 
-		await this.warmUpSingletons(this.container.graph.nodes.keys());
+		await this.container.instantiateSingletons(
+			this.container.graph.nodes.keys(),
+		);
 
 		return this._moduleContainer;
 	}

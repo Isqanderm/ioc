@@ -1,20 +1,19 @@
+import { ContainerNotCompiledError } from "@nexus-ioc/shared";
 import {
 	BootstrapError,
 	ContainerClosedError,
 	ProviderNotFoundError,
 } from "../errors";
-import {
-	type BootstrapOptions,
-	type GetOptions,
-	type HashUtilInterface,
-	type InjectionToken,
-	type LazyModule,
-	type NexusApplicationInterface,
-	NodeTypeEnum,
-	type ScannerPluginInterface,
-	Scope,
-	type Type,
-	type UnloadResult,
+import type {
+	BootstrapOptions,
+	GetOptions,
+	HashUtilInterface,
+	InjectionToken,
+	LazyModule,
+	NexusApplicationInterface,
+	ScannerPluginInterface,
+	Type,
+	UnloadResult,
 } from "../interfaces";
 import { HashUtil } from "../utils/hash-utils";
 import { createInternalModule, LazyModuleLoader } from "./lazy-module-loader";
@@ -134,16 +133,7 @@ export class NexusApplication implements NexusApplicationInterface {
 		if (this.isAsyncContainer) {
 			return;
 		}
-		for (const token of tokens) {
-			const node = this.container.graph.getNode(token);
-			if (
-				node &&
-				node.type === NodeTypeEnum.PROVIDER &&
-				node.scope === Scope.Singleton
-			) {
-				await this.container.resolve(token);
-			}
-		}
+		await this.container.instantiateSingletons(tokens);
 	}
 
 	/**
@@ -170,6 +160,9 @@ export class NexusApplication implements NexusApplicationInterface {
 	 */
 	public close(): Promise<void> {
 		if (!this.closePromise) {
+			// Mark the container closed before draining, so module refs are
+			// rejected during the drain window too.
+			this.container.markClosed();
 			this.closePromise = this.drainAndClose().finally(() => {
 				this._parentContainer = null;
 			});
@@ -178,8 +171,9 @@ export class NexusApplication implements NexusApplicationInterface {
 	}
 
 	/**
-	 * Waits for in-flight `load()` calls (including their singleton warm-up)
-	 * so nothing is instantiated after the destroy pass, then closes.
+	 * Waits for in-flight `load()` calls (including their singleton warm-up,
+	 * which bypasses the closed guard) so nothing is instantiated after the
+	 * destroy pass, then tears the container down.
 	 */
 	private async drainAndClose(): Promise<void> {
 		await Promise.allSettled([...this.pendingLoads]);
@@ -194,6 +188,13 @@ export class NexusApplication implements NexusApplicationInterface {
 	private assertOpen(): void {
 		if (this.closePromise) {
 			throw new ContainerClosedError();
+		}
+	}
+
+	private assertUsable(): void {
+		this.assertOpen();
+		if (!this.container.isCompiled) {
+			throw new ContainerNotCompiledError();
 		}
 	}
 
@@ -233,6 +234,7 @@ export class NexusApplication implements NexusApplicationInterface {
 	 * @template T - The type of the provider
 	 * @param token - The injection token (class, string, or symbol)
 	 * @param options - `optional: true` returns undefined instead of throwing when no provider exists
+	 * @throws {ContainerNotCompiledError} If called before bootstrap()
 	 * @throws {ProviderNotFoundError} If no provider has this token (unless optional)
 	 * @throws {ProviderScopeError} If the provider is Transient or Scoped; use resolve()
 	 * @throws {ProviderNotInstantiatedError} If the singleton is not created yet (lazy mode); use resolve()
@@ -245,12 +247,17 @@ export class NexusApplication implements NexusApplicationInterface {
 	 * ```
 	 */
 	public get<T>(token: InjectionToken): T;
+	public get<T>(
+		token: InjectionToken,
+		options: { optional: true },
+	): T | undefined;
+	public get<T>(token: InjectionToken, options: { optional?: false }): T;
 	public get<T>(token: InjectionToken, options: GetOptions): T | undefined;
 	public get<T>(
 		token: InjectionToken,
 		options: GetOptions = {},
 	): T | undefined {
-		this.assertOpen();
+		this.assertUsable();
 		if (this.container.hasProvider(token)) {
 			return this.container.get<T>(token);
 		}
@@ -270,6 +277,7 @@ export class NexusApplication implements NexusApplicationInterface {
 	 *
 	 * @param token - The injection token (class, string, or symbol)
 	 * @param options - `optional: true` returns undefined instead of rejecting when no provider exists
+	 * @throws {ContainerNotCompiledError} If called before bootstrap()
 	 * @throws {ProviderNotFoundError} If no provider has this token (unless optional)
 	 *
 	 * @example
@@ -280,13 +288,21 @@ export class NexusApplication implements NexusApplicationInterface {
 	public resolve<T>(token: InjectionToken): Promise<T>;
 	public resolve<T>(
 		token: InjectionToken,
+		options: { optional: true },
+	): Promise<T | undefined>;
+	public resolve<T>(
+		token: InjectionToken,
+		options: { optional?: false },
+	): Promise<T>;
+	public resolve<T>(
+		token: InjectionToken,
 		options: GetOptions,
 	): Promise<T | undefined>;
 	public async resolve<T>(
 		token: InjectionToken,
 		options: GetOptions = {},
 	): Promise<T | undefined> {
-		this.assertOpen();
+		this.assertUsable();
 		if (this.container.hasProvider(token)) {
 			return this.container.resolve<T>(token);
 		}

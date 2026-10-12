@@ -1,4 +1,5 @@
 import type { DynamicModule } from "./dynamic-module.interface";
+import type { GetOptions } from "./get-options.interface";
 import type { GraphError } from "./graph-error.interface";
 import type { InjectionToken } from "./injection-token.interface";
 import type { LazyModule } from "./lazy-module.interface";
@@ -14,6 +15,27 @@ export interface ModuleContainerInterface {
 	lazyImports: LazyModule[];
 	providers: Provider[];
 	exports: (InjectionToken | Module)[];
-	get<T>(token: InjectionToken): Promise<T | undefined>;
+	/**
+	 * Synchronously returns an already-created singleton.
+	 * Throws `ProviderNotFoundError` for an unknown token unless `optional`.
+	 */
+	get<T>(token: InjectionToken): T;
+	get<T>(token: InjectionToken, options: { optional: true }): T | undefined;
+	get<T>(token: InjectionToken, options: { optional?: false }): T;
+	get<T>(token: InjectionToken, options: GetOptions): T | undefined;
+	/**
+	 * Resolves a provider asynchronously, creating it according to its scope.
+	 * Rejects with `ProviderNotFoundError` for an unknown token unless `optional`.
+	 */
+	resolve<T>(token: InjectionToken): Promise<T>;
+	resolve<T>(
+		token: InjectionToken,
+		options: { optional: true },
+	): Promise<T | undefined>;
+	resolve<T>(token: InjectionToken, options: { optional?: false }): Promise<T>;
+	resolve<T>(
+		token: InjectionToken,
+		options: GetOptions,
+	): Promise<T | undefined>;
 	errors: GraphError[];
 }

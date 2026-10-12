@@ -147,6 +147,39 @@ describe("ModuleRef after close", () => {
 		await expect(ref.resolve(Svc)).rejects.toThrow(ContainerClosedError);
 	});
 
+	it("ref.get/ref.resolve are rejected as soon as close() starts", async () => {
+		const { app, ref } = await setup();
+		const closing = app.close();
+		expect(() => ref.get(Svc)).toThrow(ContainerClosedError);
+		await expect(ref.resolve(Svc)).rejects.toThrow(ContainerClosedError);
+		await closing;
+	});
+
+	it("ref.get/ref.resolve are rejected while an in-flight load drains", async () => {
+		@Injectable()
+		class Slow {}
+		@Module({ providers: [Slow] })
+		class SlowModule {}
+		let release!: () => void;
+		const gate = new Promise<void>((r) => {
+			release = r;
+		});
+		const { app, ref } = await setup();
+		const loading = app.load(
+			lazy(async () => {
+				await gate;
+				return SlowModule;
+			}),
+		);
+		const closing = app.close();
+		await Promise.resolve();
+		expect(() => ref.get(Svc)).toThrow(ContainerClosedError);
+		await expect(ref.resolve(Svc)).rejects.toThrow(ContainerClosedError);
+		release();
+		await expect(loading).resolves.toBeDefined();
+		await closing;
+	});
+
 	it("unload after close rejects with ContainerClosedError", async () => {
 		const { app, ref } = await setup();
 		await app.close();

@@ -49,8 +49,10 @@ describe("Providers", () => {
 				],
 			}).compile();
 
-			const instance1 = await container.get<TransientService>(TransientService);
-			const instance2 = await container.get<TransientService>(TransientService);
+			const instance1 =
+				await container.resolve<TransientService>(TransientService);
+			const instance2 =
+				await container.resolve<TransientService>(TransientService);
 
 			// Transient scope should create new instances
 			expect(instance1?.id).not.toBe(instance2?.id);
@@ -294,10 +296,10 @@ describe("Providers", () => {
 				],
 			}).compile();
 
-			const instance1 = await container.get<{ id: number }>(
+			const instance1 = await container.resolve<{ id: number }>(
 				"TRANSIENT_FACTORY",
 			);
-			const instance2 = await container.get<{ id: number }>(
+			const instance2 = await container.resolve<{ id: number }>(
 				"TRANSIENT_FACTORY",
 			);
 

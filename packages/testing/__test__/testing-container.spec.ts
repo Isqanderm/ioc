@@ -141,8 +141,10 @@ describe("TestingContainer (Test class)", () => {
 				providers: [ExistingService],
 			}).compile();
 
-			const service =
-				await testingModule.get<NonExistentService>(NonExistentService);
+			const service = testingModule.get<NonExistentService>(
+				NonExistentService,
+				{ optional: true },
+			);
 			expect(service).toBeUndefined();
 		});
 

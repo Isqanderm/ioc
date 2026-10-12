@@ -1,4 +1,6 @@
 import "reflect-metadata";
+import { ContainerNotCompiledError } from "@nexus-ioc/shared";
+import { expectTypeOf } from "vitest";
 import {
 	Injectable,
 	Module,
@@ -97,6 +99,48 @@ describe("NexusApplication.get (sync) / resolve (async)", () => {
 		await expect(
 			app.resolve("missing", { optional: true }),
 		).resolves.toBeUndefined();
+	});
+
+	it("get/resolve before bootstrap throw ContainerNotCompiledError", async () => {
+		const app = NexusApplication.create(AppModule);
+		expect(() => app.get(SingletonService)).toThrow(ContainerNotCompiledError);
+		expect(() => app.get("missing", { optional: true })).toThrow(
+			ContainerNotCompiledError,
+		);
+		await expect(app.resolve(SingletonService)).rejects.toThrow(
+			ContainerNotCompiledError,
+		);
+	});
+
+	it("get/resolve before bootstrap do not fall back to the parent", async () => {
+		@Module({ providers: [{ provide: "p", useValue: 1 }] })
+		class ParentModule {}
+		const parent = await NexusApplication.create(ParentModule).bootstrap();
+		const child = NexusApplication.create(AppModule).setParent(parent);
+		expect(() => child.get("p")).toThrow(ContainerNotCompiledError);
+		await expect(child.resolve("p")).rejects.toThrow(ContainerNotCompiledError);
+	});
+
+	it("narrows the return type only for optional: true", async () => {
+		const app = await NexusApplication.create(AppModule).bootstrap();
+		expectTypeOf(
+			app.get<SingletonService>(SingletonService),
+		).toEqualTypeOf<SingletonService>();
+		expectTypeOf(
+			app.get<SingletonService>(SingletonService, {}),
+		).toEqualTypeOf<SingletonService>();
+		expectTypeOf(
+			app.get<SingletonService>(SingletonService, { optional: false }),
+		).toEqualTypeOf<SingletonService>();
+		expectTypeOf(
+			app.get<SingletonService>(SingletonService, { optional: true }),
+		).toEqualTypeOf<SingletonService | undefined>();
+		expectTypeOf(
+			app.resolve<SingletonService>(SingletonService, {}),
+		).toEqualTypeOf<Promise<SingletonService>>();
+		expectTypeOf(
+			app.resolve<SingletonService>(SingletonService, { optional: true }),
+		).toEqualTypeOf<Promise<SingletonService | undefined>>();
 	});
 
 	describe("parent fallback", () => {

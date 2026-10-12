@@ -130,8 +130,10 @@ describe("Memory Leak Detection", () => {
 			// Create and destroy containers multiple times
 			const iterations = 100;
 			for (let i = 0; i < iterations; i++) {
-				const container = await Test.createModule(TestModule).compile();
-				await container.get(TestService);
+				const container = await Test.createModule({
+					imports: [TestModule],
+				}).compile();
+				await container.resolve(TestService);
 				// Container goes out of scope here
 			}
 
@@ -208,12 +210,14 @@ describe("Memory Leak Detection", () => {
 			})
 			class TransientModule {}
 
-			const container = await Test.createModule(TransientModule).compile();
+			const container = await Test.createModule({
+				imports: [TransientModule],
+			}).compile();
 			const weakRefs: WeakRef<TransientService>[] = [];
 
 			// Create many transient instances
 			for (let i = 0; i < 100; i++) {
-				const instance = await container.get(TransientService);
+				const instance = await container.resolve(TransientService);
 				if (instance) {
 					weakRefs.push(new WeakRef(instance));
 				}
@@ -279,8 +283,10 @@ describe("Memory Leak Detection", () => {
 
 			// Create multiple request contexts
 			for (let i = 0; i < 50; i++) {
-				const container = await Test.createModule(RequestModule).compile();
-				const instance = await container.get(RequestService);
+				const container = await Test.createModule({
+					imports: [RequestModule],
+				}).compile();
+				const instance = await container.resolve(RequestService);
 				if (instance) {
 					weakRefs.push(new WeakRef(instance));
 				}
@@ -325,9 +331,11 @@ describe("Memory Leak Detection", () => {
 			// Create and destroy containers with circular dependencies
 			const iterations = 50;
 			for (let i = 0; i < iterations; i++) {
-				const container = await Test.createModule(CircularModule).compile();
-				await container.get(ServiceA);
-				await container.get("ServiceB");
+				const container = await Test.createModule({
+					imports: [CircularModule],
+				}).compile();
+				await container.resolve(ServiceA);
+				await container.resolve("ServiceB");
 			}
 
 			await performGCCycles();
@@ -366,8 +374,10 @@ describe("Memory Leak Detection", () => {
 			const weakRefs: WeakRef<CircularA>[] = [];
 
 			for (let i = 0; i < 30; i++) {
-				const container = await Test.createModule(ProxyModule).compile();
-				const instance = await container.get(CircularA);
+				const container = await Test.createModule({
+					imports: [ProxyModule],
+				}).compile();
+				const instance = await container.resolve(CircularA);
 				if (instance) {
 					weakRefs.push(new WeakRef(instance));
 				}
@@ -451,8 +461,10 @@ describe("Memory Leak Detection", () => {
 			class ClosureModule {}
 
 			for (let i = 0; i < 50; i++) {
-				const container = await Test.createModule(ClosureModule).compile();
-				const instance = await container.get(HookService);
+				const container = await Test.createModule({
+					imports: [ClosureModule],
+				}).compile();
+				const instance = await container.resolve(HookService);
 				if (instance) {
 					weakRefs.push(new WeakRef(instance));
 				}
@@ -507,9 +519,11 @@ describe("Memory Leak Detection", () => {
 				})
 				class DynamicConfigModule {}
 
-				const container =
-					await Test.createModule(DynamicConfigModule).compile();
-				const instance = await container.get<ConfigService>("CONFIG_SERVICE");
+				const container = await Test.createModule({
+					imports: [DynamicConfigModule],
+				}).compile();
+				const instance =
+					await container.resolve<ConfigService>("CONFIG_SERVICE");
 				if (instance) {
 					expect(instance.getApiKey()).toBe(`key-${i}`);
 				}
@@ -550,8 +564,10 @@ describe("Memory Leak Detection", () => {
 				})
 				class FeatureModule {}
 
-				const container = await Test.createModule(FeatureModule).compile();
-				const instance = await container.get(`FEATURE_${i}`);
+				const container = await Test.createModule({
+					imports: [FeatureModule],
+				}).compile();
+				const instance = await container.resolve(`FEATURE_${i}`);
 				if (instance && typeof instance === "object") {
 					weakRefs.push(new WeakRef(instance));
 				}
@@ -605,11 +621,13 @@ describe("Memory Leak Detection", () => {
 			// Create and destroy container multiple times
 			const iterations = 10;
 			for (let i = 0; i < iterations; i++) {
-				const container = await Test.createModule(LargeModule).compile();
+				const container = await Test.createModule({
+					imports: [LargeModule],
+				}).compile();
 				// Resolve some providers
-				await container.get("SERVICE_0");
-				await container.get("SERVICE_250");
-				await container.get("SERVICE_499");
+				await container.resolve("SERVICE_0");
+				await container.resolve("SERVICE_250");
+				await container.resolve("SERVICE_499");
 			}
 
 			await performGCCycles();
@@ -639,22 +657,22 @@ describe("Memory Leak Detection", () => {
 
 			@Injectable()
 			class ServiceD {
-				constructor(public e: ServiceE) {}
+				constructor(@Inject(ServiceE) public e: ServiceE) {}
 			}
 
 			@Injectable()
 			class ServiceC {
-				constructor(public d: ServiceD) {}
+				constructor(@Inject(ServiceD) public d: ServiceD) {}
 			}
 
 			@Injectable()
 			class ServiceB {
-				constructor(public c: ServiceC) {}
+				constructor(@Inject(ServiceC) public c: ServiceC) {}
 			}
 
 			@Injectable()
 			class ServiceA {
-				constructor(public b: ServiceB) {}
+				constructor(@Inject(ServiceB) public b: ServiceB) {}
 			}
 
 			@Module({
@@ -667,8 +685,10 @@ describe("Memory Leak Detection", () => {
 
 			const iterations = 200;
 			for (let i = 0; i < iterations; i++) {
-				const container = await Test.createModule(DeepModule).compile();
-				const instance = await container.get(ServiceA);
+				const container = await Test.createModule({
+					imports: [DeepModule],
+				}).compile();
+				const instance = await container.resolve(ServiceA);
 				// Verify deep chain is resolved
 				if (instance) {
 					expect(instance.b).toBeDefined();
@@ -723,11 +743,13 @@ describe("Memory Leak Detection", () => {
 
 			const iterations = 100;
 			for (let i = 0; i < iterations; i++) {
-				const container = await Test.createModule(MixedScopeModule).compile();
+				const container = await Test.createModule({
+					imports: [MixedScopeModule],
+				}).compile();
 				// Resolve multiple times to test caching
-				await container.get(TransientService);
-				await container.get(TransientService);
-				await container.get(RequestService);
+				await container.resolve(TransientService);
+				await container.resolve(TransientService);
+				await container.resolve(RequestService);
 			}
 
 			await performGCCycles();
@@ -764,7 +786,7 @@ describe("Memory Leak Detection", () => {
 
 			@Injectable()
 			class UserRepository {
-				constructor(public db: DatabaseService) {}
+				constructor(@Inject(DatabaseService) public db: DatabaseService) {}
 			}
 
 			@Module({
@@ -776,7 +798,7 @@ describe("Memory Leak Detection", () => {
 
 			@Injectable()
 			class UserService {
-				constructor(public repo: UserRepository) {}
+				constructor(@Inject(UserRepository) public repo: UserRepository) {}
 			}
 
 			@Module({
@@ -790,8 +812,10 @@ describe("Memory Leak Detection", () => {
 
 			const iterations = 100;
 			for (let i = 0; i < iterations; i++) {
-				const container = await Test.createModule(AppModule).compile();
-				const service = await container.get(UserService);
+				const container = await Test.createModule({
+					imports: [AppModule],
+				}).compile();
+				const service = await container.resolve(UserService);
 				if (service) {
 					expect(service.repo).toBeDefined();
 					expect(service.repo.db).toBeDefined();
@@ -840,8 +864,10 @@ describe("Memory Leak Detection", () => {
 				})
 				class FactoryModule {}
 
-				const container = await Test.createModule(FactoryModule).compile();
-				const instance = await container.get("FACTORY_SERVICE");
+				const container = await Test.createModule({
+					imports: [FactoryModule],
+				}).compile();
+				const instance = await container.resolve("FACTORY_SERVICE");
 				if (
 					instance &&
 					typeof instance === "object" &&

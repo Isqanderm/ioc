@@ -197,6 +197,33 @@ export class Container implements ContainerInterface {
 	}
 
 	/**
+	 * Pre-instantiates every singleton provider named by `tokens` (other
+	 * tokens are skipped). Uses the resolver directly, without the closed
+	 * guard, so a load that was already in flight when `close()` started can
+	 * still finish its warm-up; those singletons are destroyed by the
+	 * teardown that follows.
+	 *
+	 * @throws {ContainerNotCompiledError} If run() has not been called yet
+	 */
+	public async instantiateSingletons(
+		tokens: Iterable<InjectionToken>,
+	): Promise<void> {
+		if (!this._graph || !this.moduleGraphResolver) {
+			throw new ContainerNotCompiledError();
+		}
+		for (const token of tokens) {
+			const node = this._graph.getNode(token);
+			if (
+				node &&
+				node.type === NodeTypeEnum.PROVIDER &&
+				node.scope === Scope.Singleton
+			) {
+				await this.moduleGraphResolver.resolveProvider(token);
+			}
+		}
+	}
+
+	/**
 	 * Initializes and runs the container with the specified root module.
 	 *
 	 * This method:
@@ -427,6 +454,11 @@ export class Container implements ContainerInterface {
 		return this.graph.errors;
 	}
 
+	/** Whether run() has built the graph, so get()/resolve() can be used. */
+	public get isCompiled(): boolean {
+		return this._graph !== null && this.moduleGraphResolver !== null;
+	}
+
 	/** Whether the container has been closed (or is closing). */
 	public get isClosed(): boolean {
 		return this.closed;
@@ -439,12 +471,25 @@ export class Container implements ContainerInterface {
 	}
 
 	/**
-	 * Closes the container and cleans up resources.
+	 * Synchronously marks the container closed: every later public
+	 * `get`/`resolve`/`load`/`unload` call throws `ContainerClosedError`.
+	 * Work already in flight (a load past its guard, its singleton warm-up)
+	 * is not interrupted. `close()` calls this too; callers that need the
+	 * flag set before they drain their own work call it first.
+	 */
+	public markClosed(): void {
+		this.closed = true;
+	}
+
+	/**
+	 * Closes the container and cleans up resources: marks it closed, waits
+	 * for in-flight segment loads, then destroys every created provider on
+	 * the compile queue.
 	 *
 	 * @returns A promise that resolves when the container is closed
 	 */
 	public async close(): Promise<void> {
-		this.closed = true;
+		this.markClosed();
 		await Promise.all(
 			[...this.segments.values()].map((segment) =>
 				segment.catch(() => undefined),
