@@ -11,6 +11,9 @@
 export class InjectionToken<T> {
 	/** Phantom member: carries T for type inference; never set at runtime. */
 	declare readonly __type?: T;
+	/** Nominal brand: structural look-alikes are not InjectionTokens. */
+	// biome-ignore lint/suspicious/noConfusingVoidType: phantom brand, never set at runtime
+	private declare readonly __brand: void;
 
 	constructor(public readonly description: string) {}
 

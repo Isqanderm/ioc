@@ -8,6 +8,4 @@ export type ProviderToken<T = any> =
 	| symbol
 	| Type<T>
 	| Abstract<T>
-	| InjectionToken<T>
-	// biome-ignore lint/complexity/noBannedTypes: Function type needed for provider token
-	| Function;
+	| InjectionToken<T>;
