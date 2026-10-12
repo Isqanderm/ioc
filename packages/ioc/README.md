@@ -151,12 +151,15 @@ class ApiModule {}
 ```typescript
 const config = app.get(CONFIG); // Config
 const api = app.get(ApiClient); // ApiClient
-const raw = app.get('CONFIG'); // unknown
-const typed = app.get<Config>('CONFIG'); // Config
+const raw = app.get('API_URL'); // unknown
+const url = app.get<string>('API_URL'); // string
 ```
 
 Class tokens, including abstract classes, and `InjectionToken<T>` are
-inferred. String and symbol tokens give `unknown` unless you pass `<T>`.
+inferred. String and symbol tokens give `unknown` unless you pass `<T>` or the
+expected type supplies it (`const url: string = app.get('API_URL')`).
+`useValue` and `useFactory` results are not type-checked against the token's
+`T`, so make sure the provided value matches it.
 
 ## get() vs resolve()
 
@@ -395,8 +398,10 @@ pair, so `moduleRef.get<X>(X)` needs no `await`.
   a class (see [Tokens](#tokens)). There is no alias for the old type, so
   replace type-level uses of `InjectionToken` with `ProviderToken`.
 - `get('string')` and `get(symbol)` now return `unknown` unless you pass `<T>`
-  (`get<Config>('CONFIG')`). Class tokens and `InjectionToken<T>` are
-  inferred.
+  (`get<string>('API_URL')`) or the expected type supplies it. Class tokens and
+  `InjectionToken<T>` are inferred.
+- `ProviderToken<T>` no longer accepts arbitrary functions: a plain function,
+  or a class unrelated to `T` (`get<Foo>(Bar)`), is now a compile error.
 - `get()` no longer returns a promise: drop the `await` for singletons and use
   `await resolve()` for `Transient`, `Scoped` and lazy-mode providers.
 - `get()` now throws instead of returning `undefined` for unknown tokens. Pass

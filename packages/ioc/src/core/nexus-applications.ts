@@ -232,7 +232,7 @@ export class NexusApplication implements NexusApplicationInterface {
 	 * locally, never by the parent.
 	 *
 	 * @template T - The type of the provider
-	 * @param token - The injection token (class, string, or symbol)
+	 * @param token - The provider token: class, InjectionToken, string or symbol
 	 * @param options - `optional: true` returns undefined instead of throwing when no provider exists
 	 * @throws {ContainerNotCompiledError} If called before bootstrap()
 	 * @throws {ProviderNotFoundError} If no provider has this token (unless optional)
@@ -275,7 +275,7 @@ export class NexusApplication implements NexusApplicationInterface {
 	 * (Transient and Scoped providers are created per call). Falls back to the
 	 * parent application when the token is not a provider of this one.
 	 *
-	 * @param token - The injection token (class, string, or symbol)
+	 * @param token - The provider token: class, InjectionToken, string or symbol
 	 * @param options - `optional: true` returns undefined instead of rejecting when no provider exists
 	 * @throws {ContainerNotCompiledError} If called before bootstrap()
 	 * @throws {ProviderNotFoundError} If no provider has this token (unless optional)

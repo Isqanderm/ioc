@@ -13,10 +13,23 @@ export type { GetOptions } from "@nexus-ioc/shared";
 export interface NexusApplicationInterface extends ModulePluginInterface {
 	bootstrap(options?: BootstrapOptions): Promise<this>;
 	close(): Promise<void>;
+	/**
+	 * Returns an already created singleton. `T` is inferred from class and
+	 * `InjectionToken<T>` tokens; string and symbol tokens give `unknown`
+	 * unless `<T>` is passed or the expected type supplies it.
+	 *
+	 * @param token - The provider token: class, InjectionToken, string or symbol
+	 */
 	get<T>(token: ProviderToken<T>): T;
 	get<T>(token: ProviderToken<T>, options: { optional: true }): T | undefined;
 	get<T>(token: ProviderToken<T>, options: { optional?: false }): T;
 	get<T>(token: ProviderToken<T>, options: GetOptions): T | undefined;
+	/**
+	 * Resolves a provider, creating it on demand (Transient, Scoped, lazy
+	 * mode). `T` is inferred from the token as for `get()`.
+	 *
+	 * @param token - The provider token: class, InjectionToken, string or symbol
+	 */
 	resolve<T>(token: ProviderToken<T>): Promise<T>;
 	resolve<T>(
 		token: ProviderToken<T>,
