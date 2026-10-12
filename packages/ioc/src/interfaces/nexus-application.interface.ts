@@ -13,17 +13,23 @@ export type { GetOptions } from "@nexus-ioc/shared";
 export interface NexusApplicationInterface extends ModulePluginInterface {
 	bootstrap(options?: BootstrapOptions): Promise<this>;
 	close(): Promise<void>;
-	get<T>(token: ProviderToken): T;
-	get<T>(token: ProviderToken, options: { optional: true }): T | undefined;
-	get<T>(token: ProviderToken, options: { optional?: false }): T;
-	get<T>(token: ProviderToken, options: GetOptions): T | undefined;
-	resolve<T>(token: ProviderToken): Promise<T>;
+	get<T>(token: ProviderToken<T>): T;
+	get<T>(token: ProviderToken<T>, options: { optional: true }): T | undefined;
+	get<T>(token: ProviderToken<T>, options: { optional?: false }): T;
+	get<T>(token: ProviderToken<T>, options: GetOptions): T | undefined;
+	resolve<T>(token: ProviderToken<T>): Promise<T>;
 	resolve<T>(
-		token: ProviderToken,
+		token: ProviderToken<T>,
 		options: { optional: true },
 	): Promise<T | undefined>;
-	resolve<T>(token: ProviderToken, options: { optional?: false }): Promise<T>;
-	resolve<T>(token: ProviderToken, options: GetOptions): Promise<T | undefined>;
+	resolve<T>(
+		token: ProviderToken<T>,
+		options: { optional?: false },
+	): Promise<T>;
+	resolve<T>(
+		token: ProviderToken<T>,
+		options: GetOptions,
+	): Promise<T | undefined>;
 	load(lazyModule: LazyModule): Promise<ModuleRef>;
 	unload(ref: ModuleRef): Promise<UnloadResult>;
 	setParent(parentContainer: NexusApplicationInterface): this;

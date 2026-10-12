@@ -12,8 +12,8 @@ export interface ContainerBaseInterface {
 		newModule: Module,
 	): Promise<ModuleContainerInterface>;
 	getModule(module: Module): Promise<ModuleContainerInterface | undefined>;
-	get<T>(token: ProviderToken): T;
-	resolve<T>(token: ProviderToken): Promise<T>;
+	get<T>(token: ProviderToken<T>): T;
+	resolve<T>(token: ProviderToken<T>): Promise<T>;
 	hasProvider(token: ProviderToken): boolean;
 	errors: GraphError[];
 }

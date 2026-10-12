@@ -19,20 +19,26 @@ export interface ModuleContainerInterface {
 	 * Synchronously returns an already-created singleton.
 	 * Throws `ProviderNotFoundError` for an unknown token unless `optional`.
 	 */
-	get<T>(token: ProviderToken): T;
-	get<T>(token: ProviderToken, options: { optional: true }): T | undefined;
-	get<T>(token: ProviderToken, options: { optional?: false }): T;
-	get<T>(token: ProviderToken, options: GetOptions): T | undefined;
+	get<T>(token: ProviderToken<T>): T;
+	get<T>(token: ProviderToken<T>, options: { optional: true }): T | undefined;
+	get<T>(token: ProviderToken<T>, options: { optional?: false }): T;
+	get<T>(token: ProviderToken<T>, options: GetOptions): T | undefined;
 	/**
 	 * Resolves a provider asynchronously, creating it according to its scope.
 	 * Rejects with `ProviderNotFoundError` for an unknown token unless `optional`.
 	 */
-	resolve<T>(token: ProviderToken): Promise<T>;
+	resolve<T>(token: ProviderToken<T>): Promise<T>;
 	resolve<T>(
-		token: ProviderToken,
+		token: ProviderToken<T>,
 		options: { optional: true },
 	): Promise<T | undefined>;
-	resolve<T>(token: ProviderToken, options: { optional?: false }): Promise<T>;
-	resolve<T>(token: ProviderToken, options: GetOptions): Promise<T | undefined>;
+	resolve<T>(
+		token: ProviderToken<T>,
+		options: { optional?: false },
+	): Promise<T>;
+	resolve<T>(
+		token: ProviderToken<T>,
+		options: GetOptions,
+	): Promise<T | undefined>;
 	errors: GraphError[];
 }

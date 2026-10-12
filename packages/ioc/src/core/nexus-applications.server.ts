@@ -49,14 +49,17 @@ export class NexusApplicationServer implements NexusApplicationInterface {
 		return this;
 	}
 
-	public get<T>(token: ProviderToken): T;
+	public get<T>(token: ProviderToken<T>): T;
 	public get<T>(
-		token: ProviderToken,
+		token: ProviderToken<T>,
 		options: { optional: true },
 	): T | undefined;
-	public get<T>(token: ProviderToken, options: { optional?: false }): T;
-	public get<T>(token: ProviderToken, options: GetOptions): T | undefined;
-	public get<T>(token: ProviderToken, options: GetOptions = {}): T | undefined {
+	public get<T>(token: ProviderToken<T>, options: { optional?: false }): T;
+	public get<T>(token: ProviderToken<T>, options: GetOptions): T | undefined;
+	public get<T>(
+		token: ProviderToken<T>,
+		options: GetOptions = {},
+	): T | undefined {
 		this.assertUsable();
 		if (this.container.hasProvider(token)) {
 			return this.container.get<T>(token);
@@ -70,21 +73,21 @@ export class NexusApplicationServer implements NexusApplicationInterface {
 		throw new ProviderNotFoundError(token);
 	}
 
-	public resolve<T>(token: ProviderToken): Promise<T>;
+	public resolve<T>(token: ProviderToken<T>): Promise<T>;
 	public resolve<T>(
-		token: ProviderToken,
+		token: ProviderToken<T>,
 		options: { optional: true },
 	): Promise<T | undefined>;
 	public resolve<T>(
-		token: ProviderToken,
+		token: ProviderToken<T>,
 		options: { optional?: false },
 	): Promise<T>;
 	public resolve<T>(
-		token: ProviderToken,
+		token: ProviderToken<T>,
 		options: GetOptions,
 	): Promise<T | undefined>;
 	public async resolve<T>(
-		token: ProviderToken,
+		token: ProviderToken<T>,
 		options: GetOptions = {},
 	): Promise<T | undefined> {
 		this.assertUsable();

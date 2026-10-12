@@ -46,7 +46,7 @@ export class ModuleRef {
 	}
 
 	public get<T>(
-		token: ProviderToken,
+		token: ProviderToken<T>,
 		options: ModuleRefGetOptions = {},
 	): T | undefined {
 		if (!this.canSee(token, options)) {
@@ -56,7 +56,7 @@ export class ModuleRef {
 	}
 
 	public async resolve<T>(
-		token: ProviderToken,
+		token: ProviderToken<T>,
 		options: ModuleRefGetOptions = {},
 	): Promise<T | undefined> {
 		if (!this.canSee(token, options)) {

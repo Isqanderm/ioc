@@ -156,7 +156,7 @@ export class Container implements ContainerInterface {
 	 * const userService = container.get(UserService);
 	 * ```
 	 */
-	public get<T>(token: ProviderToken): T {
+	public get<T>(token: ProviderToken<T>): T {
 		this.assertOpen();
 		if (!this._graph || !this.moduleGraphResolver) {
 			throw new ContainerNotCompiledError();
@@ -185,7 +185,7 @@ export class Container implements ContainerInterface {
 	 * const userService = await container.resolve(UserService);
 	 * ```
 	 */
-	public async resolve<T>(token: ProviderToken): Promise<T> {
+	public async resolve<T>(token: ProviderToken<T>): Promise<T> {
 		this.assertOpen();
 		if (!this._graph || !this.moduleGraphResolver) {
 			throw new ContainerNotCompiledError();
