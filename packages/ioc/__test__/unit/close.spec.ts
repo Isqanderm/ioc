@@ -125,3 +125,32 @@ describe("NexusApplication.close", () => {
 		expect(order).toContain("lazy");
 	});
 });
+
+describe("ModuleRef after close", () => {
+	@Injectable()
+	class Svc {}
+	@Module({ providers: [Svc] })
+	class FeatureModule {}
+	@Module({ providers: [] })
+	class RootModule {}
+
+	async function setup() {
+		const app = await NexusApplication.create(RootModule).bootstrap();
+		const ref = await app.load(lazy(async () => FeatureModule));
+		return { app, ref };
+	}
+
+	it("ref.get throws and ref.resolve rejects with ContainerClosedError", async () => {
+		const { app, ref } = await setup();
+		await app.close();
+		expect(() => ref.get(Svc)).toThrow(ContainerClosedError);
+		await expect(ref.resolve(Svc)).rejects.toThrow(ContainerClosedError);
+	});
+
+	it("unload after close rejects with ContainerClosedError", async () => {
+		const { app, ref } = await setup();
+		await app.close();
+		await expect(ref.unload()).rejects.toThrow(ContainerClosedError);
+		await expect(app.unload(ref)).rejects.toThrow(ContainerClosedError);
+	});
+});

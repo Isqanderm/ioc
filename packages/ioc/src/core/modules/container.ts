@@ -1,6 +1,7 @@
 import "reflect-metadata";
 import { ContainerNotCompiledError } from "@nexus-ioc/shared";
 import {
+	ContainerClosedError,
 	LazyModuleGraphError,
 	LazyModuleLoadError,
 	ProviderNotFoundError,
@@ -50,6 +51,7 @@ export class Container implements ContainerInterface {
 
 	private _graph: ModuleGraphInterface | null = null;
 	private moduleGraphResolver: Resolver | null = null;
+	private closed = false;
 	private readonly segments = new Map<symbol, Promise<GraphSegment>>();
 	/**
 	 * Root module token of every currently loaded segment, by ref id. Used
@@ -155,6 +157,7 @@ export class Container implements ContainerInterface {
 	 * ```
 	 */
 	public get<T>(token: InjectionToken): T {
+		this.assertOpen();
 		if (!this._graph || !this.moduleGraphResolver) {
 			throw new ContainerNotCompiledError();
 		}
@@ -183,6 +186,7 @@ export class Container implements ContainerInterface {
 	 * ```
 	 */
 	public async resolve<T>(token: InjectionToken): Promise<T> {
+		this.assertOpen();
 		if (!this._graph || !this.moduleGraphResolver) {
 			throw new ContainerNotCompiledError();
 		}
@@ -245,6 +249,7 @@ export class Container implements ContainerInterface {
 	 * @throws {LazyModuleGraphError} If the loaded module fails to compile
 	 */
 	public async load(lazyModule: LazyModule): Promise<GraphSegment> {
+		this.assertOpen();
 		if (!this._graph) {
 			throw new ContainerNotCompiledError();
 		}
@@ -334,6 +339,7 @@ export class Container implements ContainerInterface {
 	 * must preserve that idempotency or this guarantee silently breaks.
 	 */
 	public async unload(lazyModule: LazyModule): Promise<UnloadResult> {
+		this.assertOpen();
 		if (!this._graph) {
 			throw new ContainerNotCompiledError();
 		}
@@ -426,7 +432,18 @@ export class Container implements ContainerInterface {
 	 *
 	 * @returns A promise that resolves when the container is closed
 	 */
+	public get isClosed(): boolean {
+		return this.closed;
+	}
+
+	private assertOpen(): void {
+		if (this.closed) {
+			throw new ContainerClosedError();
+		}
+	}
+
 	public async close(): Promise<void> {
+		this.closed = true;
 		await Promise.all(
 			[...this.segments.values()].map((segment) =>
 				segment.catch(() => undefined),
