@@ -24,17 +24,20 @@ class AppModule {}
 async function main() {
 	const app = await NexusApplication.create(AppModule).bootstrap();
 
-	const s1 = await app.get<SingletonService>(SingletonService);
-	const s2 = await app.get<SingletonService>(SingletonService);
-	console.log("Singleton same instance:", s1?.id === s2?.id); // true
+	// Singletons are created at bootstrap, so get() is synchronous.
+	const s1 = app.get<SingletonService>(SingletonService);
+	const s2 = app.get<SingletonService>(SingletonService);
+	console.log("Singleton same instance:", s1.id === s2.id); // true
 
-	const sc1 = await app.get<ScopedService>(ScopedService);
-	const sc2 = await app.get<ScopedService>(ScopedService);
-	console.log("Scoped same instance per get():", sc1?.id !== sc2?.id); // true
+	// Scoped and Transient providers are created on demand: use resolve().
+	// get() would throw ProviderScopeError for them.
+	const sc1 = await app.resolve<ScopedService>(ScopedService);
+	const sc2 = await app.resolve<ScopedService>(ScopedService);
+	console.log("Scoped new instance per resolve():", sc1.id !== sc2.id); // true
 
-	const t1 = await app.get<TransientService>(TransientService);
-	const t2 = await app.get<TransientService>(TransientService);
-	console.log("Transient always new:", t1?.id !== t2?.id); // true
+	const t1 = await app.resolve<TransientService>(TransientService);
+	const t2 = await app.resolve<TransientService>(TransientService);
+	console.log("Transient always new:", t1.id !== t2.id); // true
 
 	await app.close();
 }

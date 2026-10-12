@@ -22,21 +22,19 @@ async function bootstrap() {
 	console.log("Application started successfully!");
 
 	// Demonstrate optional dependencies
-	const optionalService = (await app.get(
+	const optionalService = app.get(
 		OptionalDependenciesService,
-	)) as OptionalDependenciesService;
+	) as OptionalDependenciesService;
 	console.log("Optional service status:", optionalService.getStatus());
 	optionalService.performOperation("test-data");
 
 	// Demonstrate global modules
-	const globalLogger = (await app.get(
-		GlobalLoggerService,
-	)) as GlobalLoggerService;
+	const globalLogger = app.get(GlobalLoggerService) as GlobalLoggerService;
 	globalLogger.log("Testing global logger service");
 
-	const featureService = (await app.get(
+	const featureService = app.get(
 		FeatureWithGlobalDepsService,
-	)) as FeatureWithGlobalDepsService;
+	) as FeatureWithGlobalDepsService;
 	const config = featureService.getConfiguration();
 	console.log("Configuration from global module:", config);
 
@@ -44,18 +42,18 @@ async function bootstrap() {
 	console.log("Fetched data:", data);
 
 	// Demonstrate property injection
-	const propertyService = (await app.get(
+	const propertyService = app.get(
 		PropertyInjectionService,
-	)) as PropertyInjectionService;
+	) as PropertyInjectionService;
 	console.log("\nProperty Injection Service:");
 	console.log(propertyService.getInjectionInfo());
 	const _fetchedData = await propertyService.fetchData();
 	// Do not log sensitive API key data
 	console.log("Fetched data: [REDACTED]");
 
-	const optionalPropertyService = (await app.get(
+	const optionalPropertyService = app.get(
 		OptionalPropertyInjectionService,
-	)) as OptionalPropertyInjectionService;
+	) as OptionalPropertyInjectionService;
 	console.log("\nOptional Property Injection Service:");
 	console.log(optionalPropertyService.getStatus());
 	const processedData = await optionalPropertyService.processData(

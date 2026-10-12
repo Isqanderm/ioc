@@ -31,8 +31,8 @@ describe("Resolver.destroy", () => {
 
 		const container = new Container(new HashUtil());
 		await container.run(AppModule);
-		await container.get(B);
-		await container.get(Kept);
+		await container.resolve(B);
+		await container.resolve(Kept);
 
 		// biome-ignore lint/complexity/useLiteralKeys: private field, test-only
 		const resolver = (
@@ -47,7 +47,7 @@ describe("Resolver.destroy", () => {
 		await resolver.destroy([A, B]);
 
 		expect(calls).toEqual(["B", "A"]);
-		expect(await container.get(Kept)).toBeInstanceOf(Kept);
+		expect(await container.resolve(Kept)).toBeInstanceOf(Kept);
 	});
 
 	it("skips a token that was never instantiated", async () => {

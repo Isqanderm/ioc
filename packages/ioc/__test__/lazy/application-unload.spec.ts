@@ -1,5 +1,11 @@
 import "reflect-metadata";
-import { Injectable, lazy, Module, NexusApplication } from "../../src";
+import {
+	Injectable,
+	lazy,
+	Module,
+	NexusApplication,
+	ProviderNotFoundError,
+} from "../../src";
 
 describe("NexusApplication.unload", () => {
 	it("unloads a loaded ref and lets a later load recreate its singletons", async () => {
@@ -23,7 +29,7 @@ describe("NexusApplication.unload", () => {
 		await app.unload(ref);
 
 		expect(destroyed).toHaveBeenCalledTimes(1);
-		expect(await app.get(FeatureService)).toBeUndefined();
+		expect(() => app.get(FeatureService)).toThrow(ProviderNotFoundError);
 
 		const newRef = await app.load(FeatureLazy);
 		expect(newRef).not.toBe(ref);

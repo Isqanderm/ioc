@@ -1,5 +1,5 @@
 import "reflect-metadata";
-import { Injectable, lazy, Module } from "../../src";
+import { Injectable, lazy, Module, ProviderNotFoundError } from "../../src";
 import { Container } from "../../src/core/modules/container";
 import { HashUtil } from "../../src/utils/hash-utils";
 
@@ -26,17 +26,19 @@ describe("Container.unload", () => {
 		const container = await ready();
 		const FeatureLazy = lazy(async () => FeatureModule);
 		await container.load(FeatureLazy);
-		const instance = await container.get(FeatureService);
+		const instance = await container.resolve(FeatureService);
 		expect(instance).toBeInstanceOf(FeatureService);
 
 		const result = await container.unload(FeatureLazy);
 
 		expect(result.destroyedProviders).toEqual([FeatureService]);
 		expect(destroyed).toHaveBeenCalledTimes(1);
-		expect(await container.get(FeatureService)).toBeUndefined();
+		await expect(container.resolve(FeatureService)).rejects.toThrow(
+			ProviderNotFoundError,
+		);
 
 		await container.load(FeatureLazy);
-		const recreated = await container.get(FeatureService);
+		const recreated = await container.resolve(FeatureService);
 		expect(recreated).toBeInstanceOf(FeatureService);
 		expect(recreated).not.toBe(instance);
 	});
@@ -67,11 +69,15 @@ describe("Container.unload", () => {
 		const container = await ready();
 		await container.load(OuterLazy);
 		await container.load(NestedLazy);
-		expect(await container.get(NestedService)).toBeInstanceOf(NestedService);
+		expect(await container.resolve(NestedService)).toBeInstanceOf(
+			NestedService,
+		);
 
 		await container.unload(OuterLazy);
 
-		expect(await container.get(NestedService)).toBeInstanceOf(NestedService);
+		expect(await container.resolve(NestedService)).toBeInstanceOf(
+			NestedService,
+		);
 	});
 
 	it("waits for an in-flight load of the same ref before unloading it", async () => {
@@ -90,6 +96,8 @@ describe("Container.unload", () => {
 
 		await expect(loadPromise).resolves.toBeDefined();
 		await expect(unloadPromise).resolves.toBeDefined();
-		expect(await container.get(FeatureService)).toBeUndefined();
+		await expect(container.resolve(FeatureService)).rejects.toThrow(
+			ProviderNotFoundError,
+		);
 	});
 });

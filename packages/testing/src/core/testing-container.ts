@@ -1,5 +1,6 @@
 import {
 	type DynamicModule,
+	type GetOptions,
 	type GraphError,
 	type InjectionToken,
 	type LazyModule,
@@ -7,6 +8,7 @@ import {
 	Module as ModuleDecorator,
 	type ModuleMetadata,
 	ModuleRef,
+	ProviderNotFoundError,
 	type ScannerPluginInterface,
 	type Type,
 	type UnloadResult,
@@ -65,12 +67,56 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 		return this.container.replaceModule(metatypeToReplace, newMetatype);
 	}
 
-	public get<T>(token: InjectionToken): Promise<T | undefined> {
+	public get<T>(token: InjectionToken): T;
+	public get<T>(
+		token: InjectionToken,
+		options: { optional: true },
+	): T | undefined;
+	public get<T>(token: InjectionToken, options: { optional?: false }): T;
+	public get<T>(token: InjectionToken, options: GetOptions): T | undefined;
+	public get<T>(
+		token: InjectionToken,
+		options: GetOptions = {},
+	): T | undefined {
 		if (!this.containerCompiled) {
 			throw new ContainerNotCompiledError();
 		}
-
+		if (!this.container.hasProvider(token)) {
+			if (options.optional) {
+				return undefined;
+			}
+			throw new ProviderNotFoundError(token);
+		}
 		return this.container.get<T>(token);
+	}
+
+	public resolve<T>(token: InjectionToken): Promise<T>;
+	public resolve<T>(
+		token: InjectionToken,
+		options: { optional: true },
+	): Promise<T | undefined>;
+	public resolve<T>(
+		token: InjectionToken,
+		options: { optional?: false },
+	): Promise<T>;
+	public resolve<T>(
+		token: InjectionToken,
+		options: GetOptions,
+	): Promise<T | undefined>;
+	public async resolve<T>(
+		token: InjectionToken,
+		options: GetOptions = {},
+	): Promise<T | undefined> {
+		if (!this.containerCompiled) {
+			throw new ContainerNotCompiledError();
+		}
+		if (!this.container.hasProvider(token)) {
+			if (options.optional) {
+				return undefined;
+			}
+			throw new ProviderNotFoundError(token);
+		}
+		return this.container.resolve<T>(token);
 	}
 
 	/**
@@ -82,7 +128,9 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 			throw new ContainerNotCompiledError();
 		}
 
-		return new ModuleRef(this.container, await this.container.load(lazyModule));
+		const segment = await this.container.load(lazyModule);
+		await this.container.instantiateSingletons(segment.providerTokens);
+		return new ModuleRef(this.container, segment);
 	}
 
 	/**
@@ -114,6 +162,10 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 		for (const scannerPlugin of this.scannerPlugins) {
 			await scannerPlugin.scan(this.container.graph);
 		}
+
+		await this.container.instantiateSingletons(
+			this.container.graph.nodes.keys(),
+		);
 
 		return this._moduleContainer;
 	}

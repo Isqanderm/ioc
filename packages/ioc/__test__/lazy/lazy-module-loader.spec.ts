@@ -8,6 +8,7 @@ import {
 	NexusApplication,
 	type Node,
 	NodeTypeEnum,
+	ProviderNotFoundError,
 } from "../../src";
 import type { AnalyzeModule } from "../../src/core/graph/analyze-module";
 
@@ -51,7 +52,7 @@ describe("LazyModuleLoader", () => {
 		const orders = await app.get<OrdersService>(OrdersService);
 		expect(orders).toBeDefined();
 		expect(await orders?.check(50)).toBe("ok");
-		expect(await app.get(FraudService)).toBeUndefined();
+		expect(() => app.get(FraudService)).toThrow(ProviderNotFoundError);
 		expect(await orders?.check(500)).toBe("review");
 		expect(await app.get(FraudService)).toBeInstanceOf(FraudService);
 		await app.close();

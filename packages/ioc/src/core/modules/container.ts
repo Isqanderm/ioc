@@ -1,6 +1,13 @@
 import "reflect-metadata";
 import { ContainerNotCompiledError } from "@nexus-ioc/shared";
-import { LazyModuleGraphError, LazyModuleLoadError } from "../../errors";
+import {
+	ContainerClosedError,
+	LazyModuleGraphError,
+	LazyModuleLoadError,
+	ProviderNotFoundError,
+	ProviderNotInstantiatedError,
+	ProviderScopeError,
+} from "../../errors";
 import type {
 	ContainerInterface,
 	DynamicModule,
@@ -13,7 +20,7 @@ import type {
 	Type,
 	UnloadResult,
 } from "../../interfaces";
-import { MODULE_WATERMARK } from "../../interfaces";
+import { MODULE_WATERMARK, NodeTypeEnum, Scope } from "../../interfaces";
 import { isDynamicModule } from "../../utils/helpers";
 import { ModuleGraph } from "../graph/module-graph";
 import { Resolver } from "../resolver/resolver";
@@ -33,7 +40,7 @@ import { ModulesContainer } from "./modules-container";
  * ```typescript
  * const container = new Container(hashUtils);
  * await container.run(AppModule);
- * const service = await container.get(MyService);
+ * const service = container.get(MyService);
  * ```
  */
 export class Container implements ContainerInterface {
@@ -44,6 +51,7 @@ export class Container implements ContainerInterface {
 
 	private _graph: ModuleGraphInterface | null = null;
 	private moduleGraphResolver: Resolver | null = null;
+	private closed = false;
 	private readonly segments = new Map<symbol, Promise<GraphSegment>>();
 	/**
 	 * Root module token of every currently loaded segment, by ref id. Used
@@ -129,26 +137,90 @@ export class Container implements ContainerInterface {
 	}
 
 	/**
-	 * Resolves and returns an instance of a provider by its injection token.
+	 * True iff the graph has a provider node for the token.
+	 */
+	public hasProvider(token: InjectionToken): boolean {
+		return this._graph?.getNode(token)?.type === NodeTypeEnum.PROVIDER;
+	}
+
+	/**
+	 * Synchronously returns an already-created singleton.
 	 *
-	 * This is the main method for retrieving dependencies from the container.
-	 * The instance is created according to its scope:
-	 * - Singleton: Same instance returned every time
-	 * - Request: New instance for each get() call
-	 * - Transient: New instance every time, even within the same dependency tree
-	 *
-	 * @template T - The type of the provider to resolve
-	 * @param token - The injection token (class, string, or symbol)
-	 * @returns A promise that resolves to the provider instance, or undefined if not found
+	 * @throws {ProviderNotFoundError} If no provider has this token
+	 * @throws {ProviderScopeError} If the provider is Transient or Scoped
+	 * @throws {ProviderNotInstantiatedError} If the singleton is not created yet
 	 *
 	 * @example
 	 * ```typescript
-	 * const userService = await container.get(UserService);
-	 * const config = await container.get('CONFIG');
+	 * await container.run(AppModule);
+	 * const userService = container.get(UserService);
 	 * ```
 	 */
-	public async get<T>(token: InjectionToken): Promise<T | undefined> {
-		return this.moduleGraphResolver?.resolveProvider<T>(token);
+	public get<T>(token: InjectionToken): T {
+		this.assertOpen();
+		if (!this._graph || !this.moduleGraphResolver) {
+			throw new ContainerNotCompiledError();
+		}
+		const node = this._graph.getNode(token);
+		if (!node || node.type !== NodeTypeEnum.PROVIDER) {
+			throw new ProviderNotFoundError(token);
+		}
+		if (node.scope !== Scope.Singleton) {
+			throw new ProviderScopeError(token, node.scope);
+		}
+		const cached = this.moduleGraphResolver.getInstantiated(token);
+		if (!cached.found) {
+			throw new ProviderNotInstantiatedError(token);
+		}
+		return cached.instance as T;
+	}
+
+	/**
+	 * Resolves an instance of a provider, creating it according to its scope.
+	 *
+	 * @throws {ProviderNotFoundError} If no provider has this token
+	 *
+	 * @example
+	 * ```typescript
+	 * const userService = await container.resolve(UserService);
+	 * ```
+	 */
+	public async resolve<T>(token: InjectionToken): Promise<T> {
+		this.assertOpen();
+		if (!this._graph || !this.moduleGraphResolver) {
+			throw new ContainerNotCompiledError();
+		}
+		if (!this.hasProvider(token)) {
+			throw new ProviderNotFoundError(token);
+		}
+		return (await this.moduleGraphResolver.resolveProvider<T>(token)) as T;
+	}
+
+	/**
+	 * Pre-instantiates every singleton provider named by `tokens` (other
+	 * tokens are skipped). Uses the resolver directly, without the closed
+	 * guard, so a load that was already in flight when `close()` started can
+	 * still finish its warm-up; those singletons are destroyed by the
+	 * teardown that follows.
+	 *
+	 * @throws {ContainerNotCompiledError} If run() has not been called yet
+	 */
+	public async instantiateSingletons(
+		tokens: Iterable<InjectionToken>,
+	): Promise<void> {
+		if (!this._graph || !this.moduleGraphResolver) {
+			throw new ContainerNotCompiledError();
+		}
+		for (const token of tokens) {
+			const node = this._graph.getNode(token);
+			if (
+				node &&
+				node.type === NodeTypeEnum.PROVIDER &&
+				node.scope === Scope.Singleton
+			) {
+				await this.moduleGraphResolver.resolveProvider(token);
+			}
+		}
 	}
 
 	/**
@@ -204,6 +276,7 @@ export class Container implements ContainerInterface {
 	 * @throws {LazyModuleGraphError} If the loaded module fails to compile
 	 */
 	public async load(lazyModule: LazyModule): Promise<GraphSegment> {
+		this.assertOpen();
 		if (!this._graph) {
 			throw new ContainerNotCompiledError();
 		}
@@ -293,6 +366,7 @@ export class Container implements ContainerInterface {
 	 * must preserve that idempotency or this guarantee silently breaks.
 	 */
 	public async unload(lazyModule: LazyModule): Promise<UnloadResult> {
+		this.assertOpen();
 		if (!this._graph) {
 			throw new ContainerNotCompiledError();
 		}
@@ -380,12 +454,49 @@ export class Container implements ContainerInterface {
 		return this.graph.errors;
 	}
 
+	/** Whether run() has built the graph, so get()/resolve() can be used. */
+	public get isCompiled(): boolean {
+		return this._graph !== null && this.moduleGraphResolver !== null;
+	}
+
+	/** Whether the container has been closed (or is closing). */
+	public get isClosed(): boolean {
+		return this.closed;
+	}
+
+	private assertOpen(): void {
+		if (this.closed) {
+			throw new ContainerClosedError();
+		}
+	}
+
 	/**
-	 * Closes the container and cleans up resources.
+	 * Synchronously marks the container closed: every later public
+	 * `get`/`resolve`/`load`/`unload` call throws `ContainerClosedError`.
+	 * Work already in flight (a load past its guard, its singleton warm-up)
+	 * is not interrupted. `close()` calls this too; callers that need the
+	 * flag set before they drain their own work call it first.
+	 */
+	public markClosed(): void {
+		this.closed = true;
+	}
+
+	/**
+	 * Closes the container and cleans up resources: marks it closed, waits
+	 * for in-flight segment loads, then destroys every created provider on
+	 * the compile queue.
 	 *
 	 * @returns A promise that resolves when the container is closed
 	 */
 	public async close(): Promise<void> {
-		await this.moduleGraphResolver?.close();
+		this.markClosed();
+		await Promise.all(
+			[...this.segments.values()].map((segment) =>
+				segment.catch(() => undefined),
+			),
+		);
+		await this.enqueueCompile(async () => {
+			await this.moduleGraphResolver?.close();
+		});
 	}
 }

@@ -20,7 +20,10 @@ Nexus IoC is a powerful and flexible Inversion of Control (IoC) container for Ty
 - [Features](#features)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [get() vs resolve()](#get-vs-resolve)
+- [Lifecycle and close()](#lifecycle-and-close)
 - [Lazy Modules](#lazy-modules)
+- [Migrating to the synchronous get()](#migrating-to-the-synchronous-get)
 - [Testing](#testing)
 - [License](#license)
 - [Author](#author)
@@ -96,6 +99,81 @@ bootstrap();
 
 ```
 
+`get()` is synchronous: singletons are already created when `bootstrap()`
+resolves.
+
+## get() vs resolve()
+
+- `app.get(token)` is synchronous and returns an already created singleton.
+- `await app.resolve(token)` creates the instance on demand. Use it for
+  `Transient` and `Scoped` providers and for providers in lazy mode.
+
+```typescript
+const singleton = app.get<AppService>(AppService);
+const transient = await app.resolve<TransientService>(TransientService);
+
+// Pass { optional: true } to get undefined instead of an error for an
+// unknown token.
+const maybe = app.get<AppService>(AppService, { optional: true });
+```
+
+`get()` throws:
+
+- `ProviderNotFoundError` — the token is not a provider in this container
+  (or its parent). With `{ optional: true }` it returns `undefined` instead.
+- `ProviderScopeError` — the provider is `Transient` or `Scoped`; use
+  `resolve()`.
+- `ProviderNotInstantiatedError` — the singleton has not been created yet
+  (`.lazy()` mode, or a lazy module that is not loaded); use `resolve()` or
+  `load()` first.
+- `ContainerClosedError` — the container is closed or closing.
+- `ContainerNotCompiledError` — `bootstrap()` has not run yet. The parent is
+  not consulted in this case.
+
+A token found in this container is always answered here; only unknown tokens
+are looked up in the parent (set with `setParent()`). Falsy `useValue` values
+(`undefined`, `null`, `0`, `false`) are returned as they are.
+
+`resolve()` takes the same `{ optional }` option. It throws
+`ProviderNotFoundError`, `ContainerClosedError` and
+`ContainerNotCompiledError` the same way.
+
+## Lifecycle and close()
+
+`onModuleInit` runs during `bootstrap()`. `await app.close()` runs
+`onModuleDestroy` on every provider in reverse creation order:
+
+```typescript
+@Injectable()
+class Connection implements OnModuleDestroy {
+  async onModuleDestroy() {
+    await this.socket.end();
+  }
+}
+
+await app.close();
+```
+
+- A hook that throws does not stop the others. After all of them have run,
+  `close()` throws one `AggregateError` with every failure.
+- `close()` is idempotent: it returns the same promise on every call, and a
+  failed close keeps returning the same rejected promise.
+- It first waits for in-flight lazy module loads. A lazy loader that never
+  settles makes `close()` hang.
+- From the moment `close()` is called (before the in-flight loads have
+  drained), `get`, `resolve`, `load` and `unload` throw
+  `ContainerClosedError`. A load that was already in flight still finishes,
+  and its singletons are destroyed with the rest.
+- A `ModuleRef` follows its own visibility rules first: for a token the
+  module can see, `ref.get()`/`ref.resolve()` throw `ContainerClosedError`
+  after `close()`; for a token it cannot see (or after `unload()`), they
+  keep returning `undefined`. `ref.unload()` after `close()` rejects with
+  `ContainerClosedError`.
+- `close()` detaches the parent and does not close child containers. A service
+  that subscribed to a parent service must unsubscribe in `onModuleDestroy`.
+- A `resolve()` that is still in flight when `close()` is called is not
+  awaited, so await your `resolve()` calls before closing.
+
 ## Lazy Modules
 
 Declare a module import as lazy to keep it out of the initial bundle. The
@@ -114,7 +192,7 @@ export class AppModule {}
 
 const app = await NexusApplication.create(AppModule).bootstrap();
 const ref = await app.load(FeatureLazy);
-const service = await ref.get<FeatureService>(FeatureService);
+const service = ref.get<FeatureService>(FeatureService);
 ```
 
 `lazy()` also takes a `name`, used in diagnostics, in error messages and, by
@@ -138,18 +216,21 @@ Rules:
 - A lazy module that registers a token another module already provides fails
   with `PROVIDER_TOKEN_CONFLICT` and is rolled back.
 
-### ModuleRef.get()
+### ModuleRef.get() and ModuleRef.resolve()
 
-`ModuleRef.get()` is strict by default: it sees the module's own providers and
-what its imports (and global modules) export to it, and returns `undefined`
+`ModuleRef.get()` is synchronous and `ModuleRef.resolve()` is async, with the
+same split as on the application: `get()` for singletons, `resolve()` for
+`Transient`, `Scoped` and lazy-mode providers. Both are strict by default: they see the module's own providers and
+what its imports (and global modules) export to them, and return `undefined`
 for every other token — including tokens that do exist elsewhere in the
 container. Pass `{ strict: false }` to look the token up in the whole
-container instead. Either way the result is `T | undefined`, so check it:
+container instead. Either way the result is `T | undefined`, so check it
+(`resolve()` returns `Promise<T | undefined>`):
 
 ```typescript
-const own = await ref.get<FeatureService>(FeatureService); // visible: instance
-const other = await ref.get<UnrelatedService>(UnrelatedService); // undefined
-const anywhere = await ref.get<UnrelatedService>(UnrelatedService, {
+const own = ref.get<FeatureService>(FeatureService); // visible: instance
+const other = ref.get<UnrelatedService>(UnrelatedService); // undefined
+const anywhere = ref.get<UnrelatedService>(UnrelatedService, {
   strict: false,
 });
 ```
@@ -175,7 +256,7 @@ class OrdersService {
 
   async check(order: Order) {
     const ref = await this.loader.load(FraudLazy);
-    const fraud = await ref.get<FraudService>(FraudService);
+    const fraud = ref.get<FraudService>(FraudService);
     return fraud?.check(order);
   }
 }
@@ -200,11 +281,12 @@ const { destroyedModules, destroyedProviders } = await app.unload(ref);
   a nested lazy module loaded from inside the one being unloaded, are all left
   running.
 - `onModuleDestroy` runs on affected singletons in reverse initialization
-  order. `ref.loaded` becomes `false`, and `ref.get()` resolves to `undefined`
-  for every token afterward — the ref does not come back to life; loading the
+  order. `ref.loaded` becomes `false`, and `ref.get()` and `ref.resolve()` return
+  `undefined` for every token afterward — the ref does not come back to life; loading the
   same `lazy()` ref again returns a new `ModuleRef`.
 - Unloading a ref that was never loaded, or unloading it twice, is a no-op:
-  `{ destroyedModules: [], destroyedProviders: [] }`.
+  `{ destroyedModules: [], destroyedProviders: [] }`. After `app.close()`,
+  unloading rejects with `ContainerClosedError`.
 - Not handled: an instance obtained via `app.get()` or `ref.get()` and held
   outside the container (for example in a closure) keeps working as a plain
   object after its module is destroyed — the same contract as an Angular
@@ -238,11 +320,41 @@ describe('AppModule', () => {
       providers: [AppService],
     }).compile();
 
-    const appService = await appModule.get<AppService>(AppService);
+    const appService = appModule.get<AppService>(AppService);
     expect(appService).toBeInstanceOf(AppService);
   });
 });
 ```
+
+`Test.compile()` instantiates all singletons and runs `onModuleInit`, so an
+error in `onModuleInit` or in a factory surfaces from `compile()`. `Test.get`
+is synchronous and `Test.resolve` is async, both with `{ optional }`. The
+module container that `compile()` returns has the same `get()` / `resolve()`
+pair, so `moduleRef.get<X>(X)` needs no `await`.
+`Test.load()` warms the loaded module.
+
+## Migrating to the synchronous get()
+
+- `get()` no longer returns a promise: drop the `await` for singletons and use
+  `await resolve()` for `Transient`, `Scoped` and lazy-mode providers.
+- `get()` now throws instead of returning `undefined` for unknown tokens. Pass
+  `{ optional: true }` to keep the old `undefined` result.
+- `ModuleRef.get()` is synchronous too; the async variant is
+  `ModuleRef.resolve()`.
+- `Test.compile()` now instantiates singletons and runs `onModuleInit`, so
+  errors from them surface from `compile()`.
+- The module container returned by `compile()` has a synchronous `get()` and
+  a new async `resolve()`. Its `get()` throws `ProviderNotFoundError` for an
+  unknown token instead of resolving to `undefined` (pass
+  `{ optional: true }`), and throws `ProviderScopeError` for `Transient` and
+  `Scoped` providers: use `await moduleRef.resolve(X)` for those.
+- `get()` and `resolve()` called before `bootstrap()` throw
+  `ContainerNotCompiledError` instead of `ProviderNotFoundError`.
+- `.lazy()` is deprecated: lazy modules (`lazy()` / `load()`) cover the
+  startup-time use case, and in `.lazy()` mode `get()` throws
+  `ProviderNotInstantiatedError`.
+- The CLI service-spec template now generates `moduleRef.get<X>(X)` without
+  `await`.
 
 ## License
 

@@ -18,7 +18,9 @@ export interface ModuleRefGetOptions {
 
 /**
  * Handle to a lazily loaded module. Providers physically live in the
- * application's single container; `get()` only scopes what is visible.
+ * application's single container; `get()` and `resolve()` only scope what is
+ * visible. `get()` is synchronous and returns already-created singletons;
+ * `resolve()` is async and creates transient/scoped/uncreated providers on demand.
  */
 export class ModuleRef {
 	private _loaded = true;
@@ -43,27 +45,41 @@ export class ModuleRef {
 		return this._loaded;
 	}
 
-	public async get<T>(
+	public get<T>(
+		token: InjectionToken,
+		options: ModuleRefGetOptions = {},
+	): T | undefined {
+		if (!this.canSee(token, options)) {
+			return undefined;
+		}
+		return this.container.get<T>(token);
+	}
+
+	public async resolve<T>(
 		token: InjectionToken,
 		options: ModuleRefGetOptions = {},
 	): Promise<T | undefined> {
-		if (!this._loaded) {
+		if (!this.canSee(token, options)) {
 			return undefined;
 		}
+		return this.container.resolve<T>(token);
+	}
 
+	private canSee(token: InjectionToken, options: ModuleRefGetOptions): boolean {
+		if (!this._loaded) {
+			return false;
+		}
+		if (!this.container.hasProvider(token)) {
+			return false;
+		}
 		const strict = options.strict ?? true;
-
-		if (
-			strict &&
-			!(await this.container.graph.isProviderExported(
+		return (
+			!strict ||
+			this.container.graph.isProviderVisible(
 				this.segment.moduleContainer,
 				token,
-			))
-		) {
-			return undefined;
-		}
-
-		return this.container.get<T>(token);
+			)
+		);
 	}
 
 	/**

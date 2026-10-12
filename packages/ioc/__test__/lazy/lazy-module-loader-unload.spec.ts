@@ -6,6 +6,7 @@ import {
 	lazy,
 	Module,
 	NexusApplication,
+	ProviderNotFoundError,
 } from "../../src";
 
 describe("LazyModuleLoader.unload", () => {
@@ -37,6 +38,6 @@ describe("LazyModuleLoader.unload", () => {
 		await orders?.loader.unload(ref as never);
 
 		expect(destroyed).toHaveBeenCalledTimes(1);
-		expect(await app.get(FeatureService)).toBeUndefined();
+		expect(() => app.get(FeatureService)).toThrow(ProviderNotFoundError);
 	});
 });

@@ -14,7 +14,7 @@ describe("ServiceSpecTemplate", () => {
 			expect(result).toContain("Test.createModule({");
 			expect(result).toContain("providers: [AuthService]");
 			expect(result).toContain(
-				"const authService = await moduleRef.get<AuthService>(AuthService)",
+				"const authService = moduleRef.get<AuthService>(AuthService)",
 			);
 			expect(result).toContain(
 				"expect(authService).toBeInstanceOf(AuthService)",
@@ -27,7 +27,7 @@ describe("ServiceSpecTemplate", () => {
 			expect(result1).toContain('import { UserService } from "./user.service"');
 			expect(result1).toContain("describe('UserService'");
 			expect(result1).toContain(
-				"const userService = await moduleRef.get<UserService>(UserService)",
+				"const userService = moduleRef.get<UserService>(UserService)",
 			);
 
 			const template2 = new ServiceSpecTemplate({ name: "Product" });
@@ -37,7 +37,7 @@ describe("ServiceSpecTemplate", () => {
 			);
 			expect(result2).toContain("describe('ProductService'");
 			expect(result2).toContain(
-				"const productService = await moduleRef.get<ProductService>(ProductService)",
+				"const productService = moduleRef.get<ProductService>(ProductService)",
 			);
 		});
 

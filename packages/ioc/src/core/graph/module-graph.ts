@@ -851,6 +851,14 @@ export class ModuleGraph implements ModuleGraphInterface {
 		moduleContainer: ModuleContainerInterface,
 		dependencyToken: InjectionToken,
 	): Promise<boolean> {
+		await moduleContainer.imports;
+		return this.isProviderVisible(moduleContainer, dependencyToken);
+	}
+
+	public isProviderVisible(
+		moduleContainer: ModuleContainerInterface,
+		dependencyToken: InjectionToken,
+	): boolean {
 		// check globals
 		for (const globalModule of this._globalModules.values()) {
 			if (
@@ -871,7 +879,10 @@ export class ModuleGraph implements ModuleGraphInterface {
 		}
 
 		// externals
-		const containerImports = await moduleContainer.imports;
+		const containerImports = moduleContainer.resolvedImports;
+		if (!containerImports) {
+			throw new Error("Module imports are not resolved yet");
+		}
 		const visitedModules = new Set<InjectionToken | Type>();
 		const queue = containerImports.flatMap(
 			(firstLevelContainer) => firstLevelContainer.exports,

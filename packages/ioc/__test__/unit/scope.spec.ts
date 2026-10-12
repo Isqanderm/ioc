@@ -121,9 +121,12 @@ describe("Scope Management", () => {
 				providers: [TransientService],
 			}).compile();
 
-			const instance1 = await container.get<TransientService>(TransientService);
-			const instance2 = await container.get<TransientService>(TransientService);
-			const instance3 = await container.get<TransientService>(TransientService);
+			const instance1 =
+				await container.resolve<TransientService>(TransientService);
+			const instance2 =
+				await container.resolve<TransientService>(TransientService);
+			const instance3 =
+				await container.resolve<TransientService>(TransientService);
 
 			expect(instance1?.id).not.toBe(instance2?.id);
 			expect(instance2?.id).not.toBe(instance3?.id);
@@ -177,8 +180,10 @@ describe("Scope Management", () => {
 				],
 			}).compile();
 
-			const instance1 = await container.get<ImplementationService>("SERVICE");
-			const instance2 = await container.get<ImplementationService>("SERVICE");
+			const instance1 =
+				await container.resolve<ImplementationService>("SERVICE");
+			const instance2 =
+				await container.resolve<ImplementationService>("SERVICE");
 
 			expect(instance1?.id).not.toBe(instance2?.id);
 		});
@@ -197,8 +202,8 @@ describe("Scope Management", () => {
 				],
 			}).compile();
 
-			const instance1 = await container.get<{ id: number }>("FACTORY");
-			const instance2 = await container.get<{ id: number }>("FACTORY");
+			const instance1 = await container.resolve<{ id: number }>("FACTORY");
+			const instance2 = await container.resolve<{ id: number }>("FACTORY");
 
 			expect(instance1?.id).toBe(1);
 			expect(instance2?.id).toBe(2); // Different instances
@@ -216,8 +221,8 @@ describe("Scope Management", () => {
 				providers: [RequestService],
 			}).compile();
 
-			const instance1 = await container.get<RequestService>(RequestService);
-			const instance2 = await container.get<RequestService>(RequestService);
+			const instance1 = await container.resolve<RequestService>(RequestService);
+			const instance2 = await container.resolve<RequestService>(RequestService);
 
 			// Request scope should create new instances for each request (each get() call)
 			expect(instance1?.id).not.toBe(instance2?.id);
@@ -239,8 +244,10 @@ describe("Scope Management", () => {
 				],
 			}).compile();
 
-			const instance1 = await container.get<ImplementationService>("SERVICE");
-			const instance2 = await container.get<ImplementationService>("SERVICE");
+			const instance1 =
+				await container.resolve<ImplementationService>("SERVICE");
+			const instance2 =
+				await container.resolve<ImplementationService>("SERVICE");
 
 			expect(instance1?.id).not.toBe(instance2?.id);
 		});
@@ -291,9 +298,9 @@ describe("Scope Management", () => {
 				await container.get<SingletonService>(SingletonService);
 
 			const transient1 =
-				await container.get<TransientService>(TransientService);
+				await container.resolve<TransientService>(TransientService);
 			const transient2 =
-				await container.get<TransientService>(TransientService);
+				await container.resolve<TransientService>(TransientService);
 
 			expect(singleton1?.id).toBe(singleton2?.id);
 			expect(transient1?.id).not.toBe(transient2?.id);
@@ -317,8 +324,8 @@ describe("Scope Management", () => {
 				providers: [SingletonService, TransientService],
 			}).compile();
 
-			const t1 = await container.get<TransientService>(TransientService);
-			const t2 = await container.get<TransientService>(TransientService);
+			const t1 = await container.resolve<TransientService>(TransientService);
+			const t2 = await container.resolve<TransientService>(TransientService);
 			const singleton = await container.get<SingletonService>(SingletonService);
 
 			expect(t1?.id).not.toBe(t2?.id);

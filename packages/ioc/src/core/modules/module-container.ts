@@ -1,7 +1,9 @@
 import "reflect-metadata";
+import { ProviderNotFoundError } from "../../errors";
 import type {
 	ContainerBaseInterface,
 	DynamicModule,
+	GetOptions,
 	InjectionToken,
 	LazyModule,
 	ModuleContainerInterface,
@@ -39,6 +41,12 @@ export class ModuleContainer implements ModuleContainerInterface {
 		return Reflect.getMetadata(MODULE_METADATA.IMPORTS, this.metatype) || [];
 	}
 
+	private _resolvedImports: ModuleContainerInterface[] | undefined;
+
+	public get resolvedImports(): ModuleContainerInterface[] | undefined {
+		return this._resolvedImports;
+	}
+
 	public get imports(): Promise<ModuleContainerInterface[]> {
 		const modules = this.declaredImports.filter(
 			(item): item is Type | DynamicModule => !isLazyModule(item),
@@ -50,6 +58,7 @@ export class ModuleContainer implements ModuleContainerInterface {
 				const imports = await Promise.all(
 					modules.map((item) => self.container.addModule(item)),
 				);
+				self._resolvedImports = imports;
 				resolved(imports);
 			}
 			run();
@@ -76,8 +85,63 @@ export class ModuleContainer implements ModuleContainerInterface {
 		return Reflect.getMetadata(MODULE_METADATA.EXPORTS, this.metatype) || [];
 	}
 
-	public get<T>(token: InjectionToken): Promise<T | undefined> {
-		return this.container.get(token);
+	/**
+	 * Synchronously returns an already-created singleton, with the same
+	 * contract as `Test.get()`.
+	 *
+	 * @throws {ProviderNotFoundError} If no provider has this token (unless optional)
+	 * @throws {ProviderScopeError} If the provider is Transient or Scoped; use resolve()
+	 * @throws {ProviderNotInstantiatedError} If the singleton is not created yet; use resolve()
+	 */
+	public get<T>(token: InjectionToken): T;
+	public get<T>(
+		token: InjectionToken,
+		options: { optional: true },
+	): T | undefined;
+	public get<T>(token: InjectionToken, options: { optional?: false }): T;
+	public get<T>(token: InjectionToken, options: GetOptions): T | undefined;
+	public get<T>(
+		token: InjectionToken,
+		options: GetOptions = {},
+	): T | undefined {
+		if (!this.container.hasProvider(token)) {
+			if (options.optional) {
+				return undefined;
+			}
+			throw new ProviderNotFoundError(token);
+		}
+		return this.container.get<T>(token);
+	}
+
+	/**
+	 * Resolves a provider asynchronously, creating it according to its scope.
+	 *
+	 * @throws {ProviderNotFoundError} If no provider has this token (unless optional)
+	 */
+	public resolve<T>(token: InjectionToken): Promise<T>;
+	public resolve<T>(
+		token: InjectionToken,
+		options: { optional: true },
+	): Promise<T | undefined>;
+	public resolve<T>(
+		token: InjectionToken,
+		options: { optional?: false },
+	): Promise<T>;
+	public resolve<T>(
+		token: InjectionToken,
+		options: GetOptions,
+	): Promise<T | undefined>;
+	public async resolve<T>(
+		token: InjectionToken,
+		options: GetOptions = {},
+	): Promise<T | undefined> {
+		if (!this.container.hasProvider(token)) {
+			if (options.optional) {
+				return undefined;
+			}
+			throw new ProviderNotFoundError(token);
+		}
+		return this.container.resolve<T>(token);
 	}
 
 	public get errors() {

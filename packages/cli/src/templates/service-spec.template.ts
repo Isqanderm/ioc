@@ -17,7 +17,7 @@ export class ServiceSpecTemplate {
           const moduleRef = await Test.createModule({
             providers: [${serviceName}]
           }).compile();
-          const ${variableServiceName} = await moduleRef.get<${serviceName}>(${serviceName});
+          const ${variableServiceName} = moduleRef.get<${serviceName}>(${serviceName});
       
           expect(${variableServiceName}).toBeInstanceOf(${serviceName});
         });

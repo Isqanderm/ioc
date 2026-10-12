@@ -30,15 +30,36 @@ export class Resolver {
 
 	constructor(private readonly graph: ModuleGraphInterface) {}
 
+	/** Cached singleton lookup; never creates. Uses has() so falsy values count. */
+	public getInstantiated(
+		token: InjectionToken,
+	): { found: true; instance: unknown } | { found: false } {
+		if (!this.providersContainer.has(token)) {
+			return { found: false };
+		}
+		return { found: true, instance: this.providersContainer.get(token) };
+	}
+
 	public async close(): Promise<void> {
+		const errors: unknown[] = [];
 		for (const token of [...this.initializationOrder].reverse()) {
 			const instance = this.providersContainer.get(token);
 			if (instance?.onModuleDestroy) {
-				await instance.onModuleDestroy();
+				try {
+					await instance.onModuleDestroy();
+				} catch (error) {
+					errors.push(error);
+				}
 			}
 		}
 		this.providersContainer.clear();
 		this.initializationOrder.length = 0;
+		if (errors.length > 0) {
+			throw new AggregateError(
+				errors,
+				"One or more onModuleDestroy hooks failed",
+			);
+		}
 	}
 
 	/**

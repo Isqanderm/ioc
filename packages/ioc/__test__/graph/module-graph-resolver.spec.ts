@@ -291,8 +291,8 @@ describe("GraphResolver", () => {
 				],
 			}).compile();
 
-			const instanceA = await container.get<ServiceA>("ServiceA");
-			const instanceB = await container.get<ServiceB>("ServiceB");
+			const instanceA = await container.resolve<ServiceA>("ServiceA");
+			const instanceB = await container.resolve<ServiceB>("ServiceB");
 
 			expect(instanceA?.serviceB.secret).toEqual("bar");
 			expect(instanceB?.serviceA.secret).toEqual("bar");
@@ -480,8 +480,8 @@ describe("GraphResolver", () => {
 				],
 			}).compile();
 
-			const instanceA = await container.get<ServiceA>("ServiceA");
-			const instanceB = await container.get<ServiceB>("ServiceB");
+			const instanceA = await container.resolve<ServiceA>("ServiceA");
+			const instanceB = await container.resolve<ServiceB>("ServiceB");
 			const instanceC = await container.get<ServiceC>(ServiceC);
 
 			expect(instanceA?.serviceC).toBeInstanceOf(ServiceC);

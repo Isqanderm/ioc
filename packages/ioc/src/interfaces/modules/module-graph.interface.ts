@@ -71,6 +71,10 @@ export interface ModuleGraphInterface {
 		lazyModule: LazyModule,
 		protectedRoots: Set<string>,
 	): UnloadResult;
+	isProviderVisible(
+		moduleContainer: ModuleContainerInterface,
+		token: InjectionToken,
+	): boolean;
 	isProviderExported(
 		moduleContainer: ModuleContainerInterface,
 		token: InjectionToken,
