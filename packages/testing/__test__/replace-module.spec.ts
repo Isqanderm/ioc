@@ -46,7 +46,7 @@ describe("Test.replaceModule before compile()", () => {
 	});
 
 	it("replaces a module imported only transitively", async () => {
-		@Module({ imports: [RealModule], exports: [DEP] })
+		@Module({ imports: [RealModule], exports: [RealModule] })
 		class FeatureModule {}
 
 		const t = Test.createModule({

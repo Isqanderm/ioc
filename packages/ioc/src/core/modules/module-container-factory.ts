@@ -18,8 +18,13 @@ export class ModuleContainerFactory implements ModuleContainerFactoryInterface {
 	public async create(
 		module: Type | DynamicModule,
 		container: ContainerBaseInterface,
+		resolveReplacement?: (module: Type) => Type,
 	): Promise<ModuleContainerInterface> {
-		const moduleContainer = new ModuleContainer(module, container);
+		const moduleContainer = new ModuleContainer(
+			module,
+			container,
+			resolveReplacement,
+		);
 
 		moduleContainer.token = await this.getModuleToken(module);
 

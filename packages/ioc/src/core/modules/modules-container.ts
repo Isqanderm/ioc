@@ -20,7 +20,8 @@ export class ModulesContainer implements ModulesContainerInterface {
 	 * Modules registered through `replaceModule`, keyed by the replaced class.
 	 * Every lookup of a replaced module (`addModule`, `getModule`) is redirected
 	 * to its replacement, even when the replaced module was not registered yet.
-	 * Modules that were not replaced are never affected.
+	 * Modules that were not replaced are never affected. This holds for
+	 * everything this container adds later too, lazy modules included.
 	 */
 	private readonly replacements = new Map<Type, Type>();
 	private readonly moduleTokenFactory = new ModuleTokenFactory(this.hashUtils);
@@ -113,6 +114,7 @@ export class ModulesContainer implements ModulesContainerInterface {
 		const moduleContainer = await this.moduleContainerFactory.create(
 			module,
 			this.container,
+			(exported) => this.applyReplacement(exported) as Type,
 		);
 
 		this.containers.set(moduleContainer.token, moduleContainer);

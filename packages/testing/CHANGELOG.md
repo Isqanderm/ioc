@@ -7,7 +7,7 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ### Fixed
 
-- `Test.replaceModule(Real, Fake)` called before `compile()` now replaces `Real` wherever it is imported (directly, transitively or as a `DynamicModule`); before, the real module was silently kept. Calling it after `compile()` throws `replaceModule must be called before compile()`. A `DynamicModule` of a replaced class is swapped for the plain replacement class.
+- `Test.replaceModule(Real, Fake)` called before `compile()` now replaces `Real` wherever it is imported (directly, transitively or as a `DynamicModule`); before, the real module was silently kept. Calling it after `compile()` throws `replaceModule must be called before compile()`. A `DynamicModule` of a replaced class is swapped for the plain replacement class. Replacements also apply to modules added later, lazy modules included, and to modules that re-export the replaced class.
 
 ## [0.6.1](https://github.com/Isqanderm/ioc/compare/@nexus-ioc/testing@0.6.0...@nexus-ioc/testing@0.6.1) (2025-10-17)
 

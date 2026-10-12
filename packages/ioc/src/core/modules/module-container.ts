@@ -10,7 +10,7 @@ import type {
 	ProviderToken,
 	Type,
 } from "../../interfaces";
-import { MODULE_METADATA } from "../../interfaces";
+import { MODULE_METADATA, MODULE_WATERMARK } from "../../interfaces";
 import { isDynamicModule } from "../../utils/helpers";
 import { isLazyModule } from "../../utils/lazy-module";
 
@@ -20,6 +20,8 @@ export class ModuleContainer implements ModuleContainerInterface {
 	constructor(
 		private readonly _metatype: Type | DynamicModule,
 		private readonly container: ContainerBaseInterface,
+		private readonly resolveReplacement: (module: Type) => Type = (module) =>
+			module,
 	) {}
 
 	public get token(): string {
@@ -90,11 +92,18 @@ export class ModuleContainer implements ModuleContainerInterface {
 	}
 
 	public get exports(): ProviderToken[] {
-		if (isDynamicModule(this.metatype)) {
-			return this.metatype.exports || [];
-		}
+		const exported: ProviderToken[] = isDynamicModule(this.metatype)
+			? this.metatype.exports || []
+			: Reflect.getMetadata(MODULE_METADATA.EXPORTS, this.metatype) || [];
 
-		return Reflect.getMetadata(MODULE_METADATA.EXPORTS, this.metatype) || [];
+		// A re-exported module class that was replaced (`replaceModule`) is
+		// exported as its replacement, which is the module registered instead.
+		return exported.map((token) =>
+			typeof token === "function" &&
+			Reflect.hasMetadata(MODULE_WATERMARK, token)
+				? this.resolveReplacement(token as Type)
+				: token,
+		);
 	}
 
 	/**
