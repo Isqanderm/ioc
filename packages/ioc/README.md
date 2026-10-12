@@ -161,9 +161,14 @@ await app.close();
 - It first waits for in-flight lazy module loads. A lazy loader that never
   settles makes `close()` hang.
 - From the moment `close()` is called (before the in-flight loads have
-  drained), `get`, `resolve`, `load` and `unload` (including through a
-  `ModuleRef`) throw `ContainerClosedError`. A load that was already in
-  flight still finishes, and its singletons are destroyed with the rest.
+  drained), `get`, `resolve`, `load` and `unload` throw
+  `ContainerClosedError`. A load that was already in flight still finishes,
+  and its singletons are destroyed with the rest.
+- A `ModuleRef` follows its own visibility rules first: for a token the
+  module can see, `ref.get()`/`ref.resolve()` throw `ContainerClosedError`
+  after `close()`; for a token it cannot see (or after `unload()`), they
+  keep returning `undefined`. `ref.unload()` after `close()` rejects with
+  `ContainerClosedError`.
 - `close()` detaches the parent and does not close child containers. A service
   that subscribed to a parent service must unsubscribe in `onModuleDestroy`.
 - A `resolve()` that is still in flight when `close()` is called is not
