@@ -365,8 +365,10 @@ export class ModuleGraph implements ModuleGraphInterface {
 		// edge references.
 		this.purgeModuleIndexes(moduleTokens);
 
-		// Runtime (inject()) edges are re-discovered on the next creation, so
-		// drop the ones a surviving provider holds to a destroyed provider.
+		// Defensive: a runtime (inject()) edge also records its source's module
+		// as a referrer of the target's module, so a provider that survives
+		// this unload should never hold one to a destroyed provider. Should it
+		// happen anyway, drop the edge; it is re-discovered on the next creation.
 		const destroyedProviders = new Set<ProviderToken>(providerTokens);
 		for (const [source, edges] of this._edges) {
 			if (destroyedProviders.has(source)) {
@@ -434,6 +436,10 @@ export class ModuleGraph implements ModuleGraphInterface {
 		source: ProviderToken,
 		target: ProviderToken,
 	): void {
+		// Recorded even when an edge already exists: a static edge to the same
+		// target (e.g. an @Optional one left unreached because the target was
+		// loaded later) never registered the referrer. Idempotent.
+		this.recordCrossModuleReferrer(source, target, true);
 		const exists = this.getEdge(source).some(
 			(edge) => edge.type === EdgeTypeEnum.DEPENDENCY && edge.target === target,
 		);
@@ -446,7 +452,6 @@ export class ModuleGraph implements ModuleGraphInterface {
 			target,
 			metadata: { inject: "runtime", unreached: false, isCircular: false },
 		});
-		this.recordCrossModuleReferrer(source, target, true);
 	}
 
 	public getNode(token: ProviderToken): Node | undefined {
@@ -1020,6 +1025,11 @@ export class ModuleGraph implements ModuleGraphInterface {
 			stack.add(nodeId);
 			path.push(nodeId);
 
+			// Runtime (inject()) edges are followed too. That is safe: one is
+			// recorded only after inject() returned its target, and a cycle
+			// through inject() throws CircularInjectionError during creation
+			// before the edge is recorded. So runtime edges only mirror
+			// dependencies that were actually created without a cycle.
 			const edges = this.getEdge(nodeId) || [];
 			for (const edge of edges) {
 				visit(edge.target, path, visited, stack);

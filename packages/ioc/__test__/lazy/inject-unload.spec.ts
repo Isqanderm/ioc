@@ -7,6 +7,8 @@ import {
 	inject,
 	lazy,
 	Module,
+	Optional,
+	Scope,
 } from "../../src";
 import { Container } from "../../src/core/modules/container";
 import { HashUtil } from "../../src/utils/hash-utils";
@@ -195,5 +197,37 @@ describe("inject() runtime graph edges", () => {
 		await container.unload(LazyA);
 		expect(destroyed).toHaveBeenCalledTimes(1);
 		expect(container.graph.getNode(SharedSvc)).toBeUndefined();
+	});
+
+	it("records the referrer even when a static edge to the same target already exists", async () => {
+		const destroyed = vi.fn();
+		@Injectable()
+		class GSvc {
+			onModuleDestroy() {
+				destroyed();
+			}
+		}
+		@Global()
+		@Module({ providers: [GSvc], exports: [GSvc] })
+		class GModule {}
+		@Injectable({ scope: Scope.Transient })
+		class T {
+			readonly g = inject(GSvc, { optional: true });
+			constructor(@Optional() @Inject(GSvc) readonly s?: GSvc) {}
+		}
+		@Module({ providers: [T] })
+		class AppModule {}
+
+		const container = new Container(new HashUtil());
+		await container.run(AppModule);
+		const ref = lazy(async () => GModule, { name: "G" });
+		await container.load(ref);
+		const t = await container.resolve(T);
+		expect(t.g).toBeInstanceOf(GSvc);
+
+		const result = await container.unload(ref);
+		expect(result.destroyedProviders).toEqual([]);
+		expect(destroyed).not.toHaveBeenCalled();
+		expect(await container.resolve(GSvc)).toBe(t.g);
 	});
 });
