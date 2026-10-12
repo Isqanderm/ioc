@@ -72,9 +72,10 @@ async function closeAll(apps: NexusApplication[]): Promise<unknown[]> {
  * ```
  */
 export class NexusApplication implements NexusApplicationInterface {
-	private hashUtil: HashUtilInterface = new HashUtil();
+	private readonly hashUtil: HashUtilInterface;
 	private isAsyncContainer = false;
-	private readonly container = new Container(this.hashUtil);
+	/** Built in the constructor, once `hashUtil` honours `options.hashFn`. */
+	private readonly container: Container;
 	private readonly scannerPlugins: ScannerPluginInterface[] = [];
 	private closePromise: Promise<void> | null = null;
 	/** The parent chain; set only for children made by `createChild()`. */
@@ -119,9 +120,11 @@ export class NexusApplication implements NexusApplicationInterface {
 		private readonly options?: { hashFn: new () => HashUtilInterface },
 		child?: ChildWiring,
 	) {
-		if (options?.hashFn && typeof options?.hashFn === "function") {
-			this.hashUtil = new options.hashFn();
-		}
+		this.hashUtil =
+			typeof options?.hashFn === "function"
+				? new options.hashFn()
+				: new HashUtil();
+		this.container = new Container(this.hashUtil);
 		this.link = child?.link ?? null;
 		this.onClosed = child?.onClosed ?? null;
 		this.declaredIn = child?.declaredIn ?? null;
