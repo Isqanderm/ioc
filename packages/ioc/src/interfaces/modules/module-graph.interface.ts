@@ -39,8 +39,21 @@ export type Edge = {
 		lazy?: boolean;
 		isCircular?: boolean;
 		unreached?: boolean;
+		/**
+		 * The dependency is satisfied by the parent container chain (a child
+		 * graph only); its target is not resolved in this graph.
+		 */
+		external?: boolean;
 	};
 };
+
+export interface ModuleGraphOptions {
+	/**
+	 * Whether the parent container chain can provide `token`. Consulted only
+	 * when a dependency is not visible locally.
+	 */
+	externalLookup?: (token: ProviderToken) => boolean;
+}
 
 /**
  * The part of the graph added by a single lazy module load.

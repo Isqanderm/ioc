@@ -8,6 +8,7 @@ import {
 	MODULE_WATERMARK,
 	type ModuleContainerInterface,
 	type ModuleGraphInterface,
+	type ModuleGraphOptions,
 	type Node,
 	NodeTypeEnum,
 	PROPERTY_DEPS_METADATA,
@@ -79,6 +80,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 	constructor(
 		private readonly _root: ModuleContainerInterface,
 		private readonly _internalRoots: ModuleContainerInterface[] = [],
+		private readonly options: ModuleGraphOptions = {},
 	) {}
 
 	public get nodes() {
@@ -275,7 +277,11 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 		for (const providerToken of this._moduleProviders.get(moduleToken) ?? []) {
 			for (const edge of this.getEdge(providerToken)) {
-				if (edge.type !== EdgeTypeEnum.DEPENDENCY || edge.metadata.unreached) {
+				if (
+					edge.type !== EdgeTypeEnum.DEPENDENCY ||
+					edge.metadata.unreached ||
+					edge.metadata.external
+				) {
 					continue;
 				}
 				const dependency = this._nodes.get(edge.target);
@@ -761,11 +767,13 @@ export class ModuleGraph implements ModuleGraphInterface {
 						dependency.param as unknown as ForwardRef
 					).forwardRef() as ProviderToken)
 				: getDependencyToken(dependency.param);
-			const isExported =
-				optionalDependency.includes(index) ||
-				(await this.isProviderExported(node.moduleContainer, dependencyToken));
+			const { reachable, external } = await this.reachDependency(
+				node.moduleContainer,
+				dependencyToken,
+				optionalDependency.includes(index),
+			);
 
-			if (!isExported) {
+			if (!reachable) {
 				this.pushError({
 					type: "UNREACHED_DEP_CONSTRUCTOR",
 					token: node.label,
@@ -779,7 +787,8 @@ export class ModuleGraph implements ModuleGraphInterface {
 				source: token,
 				target: dependencyToken,
 				metadata: {
-					unreached: !isExported,
+					unreached: !reachable,
+					...(external && { external: true }),
 					isCircular: false,
 					lazy: isLazy,
 					index: dependency.index,
@@ -788,7 +797,11 @@ export class ModuleGraph implements ModuleGraphInterface {
 			};
 
 			this.addEdge(token, newEdge);
-			this.recordCrossModuleReferrer(token, dependencyToken, isExported);
+			this.recordCrossModuleReferrer(
+				token,
+				dependencyToken,
+				reachable && !external,
+			);
 		}
 
 		const propertiesDependencies = this.getPropertiesDependencies(
@@ -800,11 +813,13 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 		for (const dependency of propertiesDependencies) {
 			const dependencyToken = getDependencyToken(dependency.type);
-			const isExported =
-				optionalProperties.includes(dependency.key) ||
-				(await this.isProviderExported(node.moduleContainer, dependencyToken));
+			const { reachable, external } = await this.reachDependency(
+				node.moduleContainer,
+				dependencyToken,
+				optionalProperties.includes(dependency.key),
+			);
 
-			if (!isExported) {
+			if (!reachable) {
 				this.pushError({
 					type: "UNREACHED_DEP_PROPERTY",
 					token: node.label,
@@ -818,7 +833,8 @@ export class ModuleGraph implements ModuleGraphInterface {
 				source: token,
 				target: dependencyToken,
 				metadata: {
-					unreached: !isExported,
+					unreached: !reachable,
+					...(external && { external: true }),
 					isCircular: false,
 					key: dependency.key,
 					inject: "property",
@@ -826,7 +842,11 @@ export class ModuleGraph implements ModuleGraphInterface {
 			};
 
 			this.addEdge(token, newEdge);
-			this.recordCrossModuleReferrer(token, dependencyToken, isExported);
+			this.recordCrossModuleReferrer(
+				token,
+				dependencyToken,
+				reachable && !external,
+			);
 		}
 	}
 
@@ -845,11 +865,13 @@ export class ModuleGraph implements ModuleGraphInterface {
 						dependency.param as unknown as ForwardRef
 					).forwardRef() as ProviderToken)
 				: getDependencyToken(dependency.param);
-			const isExported =
-				optionalDependency.includes(index) ||
-				(await this.isProviderExported(node.moduleContainer, dependencyToken));
+			const { reachable, external } = await this.reachDependency(
+				node.moduleContainer,
+				dependencyToken,
+				optionalDependency.includes(index),
+			);
 
-			if (!isExported) {
+			if (!reachable) {
 				this.pushError({
 					type: "UNREACHED_DEP_CONSTRUCTOR",
 					token: node.label,
@@ -863,7 +885,8 @@ export class ModuleGraph implements ModuleGraphInterface {
 				source: token,
 				target: dependencyToken,
 				metadata: {
-					unreached: !isExported,
+					unreached: !reachable,
+					...(external && { external: true }),
 					isCircular: false,
 					lazy: isLazy,
 					index: dependency.index,
@@ -872,7 +895,11 @@ export class ModuleGraph implements ModuleGraphInterface {
 			};
 
 			this.addEdge(token, newEdge);
-			this.recordCrossModuleReferrer(token, dependencyToken, isExported);
+			this.recordCrossModuleReferrer(
+				token,
+				dependencyToken,
+				reachable && !external,
+			);
 		}
 
 		const propertiesDependencies = this.getPropertiesDependencies(Class);
@@ -880,11 +907,13 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 		for (const dependency of propertiesDependencies) {
 			const dependencyToken = getDependencyToken(dependency.type);
-			const isExported =
-				optionalProperty.includes(dependency.key) ||
-				(await this.isProviderExported(node.moduleContainer, dependencyToken));
+			const { reachable, external } = await this.reachDependency(
+				node.moduleContainer,
+				dependencyToken,
+				optionalProperty.includes(dependency.key),
+			);
 
-			if (!isExported) {
+			if (!reachable) {
 				this.pushError({
 					type: "UNREACHED_DEP_PROPERTY",
 					token: node.label,
@@ -898,13 +927,18 @@ export class ModuleGraph implements ModuleGraphInterface {
 				source: token,
 				target: dependencyToken,
 				metadata: {
-					unreached: !isExported,
+					unreached: !reachable,
+					...(external && { external: true }),
 					isCircular: false,
 					key: dependency.key,
 					inject: "property",
 				},
 			});
-			this.recordCrossModuleReferrer(token, dependencyToken, isExported);
+			this.recordCrossModuleReferrer(
+				token,
+				dependencyToken,
+				reachable && !external,
+			);
 		}
 	}
 
@@ -921,12 +955,13 @@ export class ModuleGraph implements ModuleGraphInterface {
 				? ((dependency as ForwardRef).forwardRef() as ProviderToken)
 				: (dependency as ProviderToken);
 
-			const isExported = await this.isProviderExported(
+			const { reachable, external } = await this.reachDependency(
 				node.moduleContainer,
 				dependencyToken,
+				false,
 			);
 
-			if (!isExported) {
+			if (!reachable) {
 				this.pushError({
 					type: "UNREACHED_DEP_FACTORY",
 					token: node.label,
@@ -940,7 +975,8 @@ export class ModuleGraph implements ModuleGraphInterface {
 				source: token,
 				target: dependencyToken,
 				metadata: {
-					unreached: !isExported,
+					unreached: !reachable,
+					...(external && { external: true }),
 					isCircular: false,
 					lazy: isLazy,
 					index: index++,
@@ -949,8 +985,31 @@ export class ModuleGraph implements ModuleGraphInterface {
 			};
 
 			this.addEdge(token, factoryDependency);
-			this.recordCrossModuleReferrer(token, dependencyToken, isExported);
+			this.recordCrossModuleReferrer(
+				token,
+				dependencyToken,
+				reachable && !external,
+			);
 		}
+	}
+	/**
+	 * How a dependency of a provider declared in `moduleContainer` is
+	 * satisfied: locally (own module, imports, globals), by the parent
+	 * container chain, or not at all. Optional dependencies count as
+	 * satisfied; a parent that can provide one is still preferred.
+	 */
+	private async reachDependency(
+		moduleContainer: ModuleContainerInterface,
+		token: ProviderToken,
+		optional: boolean,
+	): Promise<{ reachable: boolean; external: boolean }> {
+		if (await this.isProviderExported(moduleContainer, token)) {
+			return { reachable: true, external: false };
+		}
+		if (this.options.externalLookup?.(token)) {
+			return { reachable: true, external: true };
+		}
+		return { reachable: optional, external: false };
 	}
 	// providers dependencies
 
@@ -1092,6 +1151,8 @@ export class ModuleGraph implements ModuleGraphInterface {
 			// dependencies that were actually created without a cycle.
 			const edges = this.getEdge(nodeId) || [];
 			for (const edge of edges) {
+				// An external edge ends here: its target lives in the parent chain.
+				if (edge.metadata.external) continue;
 				visit(edge.target, path, visited, stack);
 			}
 

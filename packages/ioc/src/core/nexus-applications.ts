@@ -299,9 +299,11 @@ export class NexusApplication implements NexusApplicationInterface {
 	 * ```
 	 */
 	public async bootstrap(options?: BootstrapOptions): Promise<this> {
-		await this.container.run(this.rootModule, [
-			createInternalModule(this.lazyModuleLoader),
-		]);
+		await this.container.run(
+			this.rootModule,
+			[createInternalModule(this.lazyModuleLoader)],
+			this.link ? { link: this.link } : {},
+		);
 
 		for (const scannerPlugin of this.scannerPlugins) {
 			await scannerPlugin.scan(this.container.graph);

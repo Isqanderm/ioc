@@ -16,6 +16,7 @@ import type {
 	LazyModule,
 	ModuleContainerInterface,
 	ModuleGraphInterface,
+	ParentLink,
 	ProviderToken,
 	Type,
 	UnloadResult,
@@ -51,6 +52,8 @@ export class Container implements ContainerInterface {
 
 	private _graph: ModuleGraphInterface | null = null;
 	private moduleGraphResolver: Resolver | null = null;
+	/** The parent chain of a child container; kept for runtime resolution. */
+	private link: ParentLink | null = null;
 	private closed = false;
 	private readonly segments = new Map<symbol, Promise<GraphSegment>>();
 	/**
@@ -237,6 +240,8 @@ export class Container implements ContainerInterface {
 	 * @param rootModule - The root module of the application
 	 * @param internalModules - Framework-provided global modules compiled before
 	 *   the user root, so their exports are visible to every user module
+	 * @param options.link - The parent chain of a child container. Dependencies
+	 *   not visible locally but provided by the link compile as external edges.
 	 * @returns A promise that resolves when initialization is complete
 	 * @throws {Error} If there are circular dependencies or missing providers
 	 *
@@ -250,13 +255,20 @@ export class Container implements ContainerInterface {
 	public async run(
 		rootModule: Type | DynamicModule,
 		internalModules: DynamicModule[] = [],
+		options: { link?: ParentLink } = {},
 	): Promise<void> {
 		const root = await this.modulesContainer.addModule(rootModule);
 		const internals = await Promise.all(
 			internalModules.map((module) => this.modulesContainer.addModule(module)),
 		);
 
-		this._graph = new ModuleGraph(root, internals);
+		this.link = options.link ?? null;
+		const link = this.link;
+		this._graph = new ModuleGraph(
+			root,
+			internals,
+			link ? { externalLookup: (token) => link.canProvide(token) } : {},
+		);
 
 		this.moduleGraphResolver = new Resolver(this._graph);
 
