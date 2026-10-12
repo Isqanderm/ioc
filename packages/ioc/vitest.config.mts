@@ -6,6 +6,18 @@ export default defineConfig({
 		environment: "node",
 		include: ["__test__/**/*.spec.ts"],
 		exclude: ["__test__/memory-leak.spec.ts"], // Memory leak tests run separately with --expose-gc
+		// Type assertions (expectTypeOf) are only checked by tsc. Any new spec that
+		// uses expectTypeOf MUST be added to typecheck.include here and to
+		// tsconfig.typecheck.jsonc, otherwise its type assertions protect nothing.
+		typecheck: {
+			enabled: true,
+			include: [
+				"__test__/unit/get-resolve.spec.ts",
+				"__test__/unit/token-inference.spec.ts",
+				"__test__/unit/injection-token.spec.ts",
+			],
+			tsconfig: "./tsconfig.typecheck.jsonc",
+		},
 		coverage: {
 			provider: "v8",
 			reporter: ["json", "json-summary", "text", "lcov", "clover", "html"],
