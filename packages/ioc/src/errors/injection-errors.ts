@@ -5,7 +5,7 @@ import { formatToken } from "./provider-errors";
 export class InjectionContextError extends Error {
 	constructor(public readonly token: ProviderToken) {
 		super(
-			`inject(${formatToken(token)}) was called outside of an injection context. inject() only works synchronously while the container creates a provider: in field initializers, constructor bodies and factory functions (before the first await).`,
+			`inject(${formatToken(token)}) was called outside of an injection context. inject() only works synchronously while the container creates a provider: in field initializers, constructor bodies and factory functions.`,
 		);
 		this.name = "InjectionContextError";
 		Object.setPrototypeOf(this, InjectionContextError.prototype);

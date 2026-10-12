@@ -17,6 +17,7 @@ export {
 	CircularInjectionError,
 	ContainerClosedError,
 	InjectionContextError,
+	InvalidScopeError,
 	LazyModuleGraphError,
 	LazyModuleLoadError,
 	ProviderNotFoundError,

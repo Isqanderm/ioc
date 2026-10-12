@@ -23,6 +23,35 @@ describe("async factories are rejected", () => {
 		expect(error).toBeInstanceOf(AsyncFactoryError);
 		expect(String(error.message)).toMatch(/InjectionToken DB/);
 		expect(String(error.message)).toMatch(/onModuleInit/);
+		expect(String(error.message)).toMatch(/object the factory returns/);
+	});
+
+	it("a non-promise thenable fails without its then() being called", async () => {
+		const then = vi.fn((resolve: (value: number) => void) => resolve(1));
+		@Module({
+			providers: [{ provide: DB, useFactory: () => ({ then }) }],
+		})
+		class M {}
+		await expect(NexusApplication.create(M).bootstrap()).rejects.toThrow(
+			AsyncFactoryError,
+		);
+		expect(then).not.toHaveBeenCalled();
+	});
+
+	it("inject() of a non-promise thenable fails without calling then()", async () => {
+		const then = vi.fn((resolve: (value: number) => void) => resolve(1));
+		@Injectable()
+		class Repo {
+			readonly db = inject(DB);
+		}
+		@Module({
+			providers: [Repo, { provide: DB, useFactory: () => ({ then }) }],
+		})
+		class M {}
+		await expect(NexusApplication.create(M).bootstrap()).rejects.toThrow(
+			AsyncFactoryError,
+		);
+		expect(then).not.toHaveBeenCalled();
 	});
 
 	it("lazy resolve fails the same way", async () => {

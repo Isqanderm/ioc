@@ -170,7 +170,7 @@ export class Resolver {
 	 * global cache and the destroy order. Nothing else is cached.
 	 */
 	private commitInstance(node: AnalyzeProvider, instance: unknown): void {
-		if (node.scope === Scope.Transient) {
+		if (node.scope !== Scope.Singleton) {
 			return;
 		}
 		// First writer wins if concurrent creations race for the same token.
@@ -444,8 +444,11 @@ export class Resolver {
 			provider.useFactory(...deps),
 		);
 		if (isThenable(result)) {
-			// Never leave the rejected promise unhandled.
-			result.then(undefined, () => {});
+			// Never leave a rejected promise unhandled. A foreign thenable's
+			// then() is user code with unknown effects, so it is not called.
+			if (result instanceof Promise) {
+				result.catch(() => {});
+			}
 			throw new AsyncFactoryError(node.id);
 		}
 		return result;

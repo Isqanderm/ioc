@@ -51,6 +51,20 @@ export class ProviderScopeError extends Error {
 	}
 }
 
+/** A provider declares a scope that is not a member of `Scope`. */
+export class InvalidScopeError extends Error {
+	constructor(
+		public readonly token: ProviderToken,
+		public readonly scope: unknown,
+	) {
+		super(
+			`Invalid scope ${String(scope)} for provider "${formatToken(token)}"; valid scopes are Singleton and Transient.`,
+		);
+		this.name = "InvalidScopeError";
+		Object.setPrototypeOf(this, InvalidScopeError.prototype);
+	}
+}
+
 /** The application was closed; it can no longer provide instances. */
 export class ContainerClosedError extends Error {
 	constructor() {
@@ -64,7 +78,7 @@ export class ContainerClosedError extends Error {
 export class AsyncFactoryError extends Error {
 	constructor(public readonly token: ProviderToken) {
 		super(
-			`Provider "${formatToken(token)}": useFactory must return the value synchronously; move async setup into onModuleInit of the provided class, or create the value before bootstrap and register it with useValue.`,
+			`Provider "${formatToken(token)}": useFactory must return the value synchronously; move async setup into an onModuleInit (of the provided class or of the object the factory returns), or create the value before bootstrap and register it with useValue.`,
 		);
 		this.name = "AsyncFactoryError";
 		Object.setPrototypeOf(this, AsyncFactoryError.prototype);

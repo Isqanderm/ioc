@@ -2,7 +2,7 @@ import "reflect-metadata";
 import { InjectionToken, inject, Module, NexusApplication } from "../../src";
 
 describe("inject() in factories", () => {
-	it("works in the synchronous part of useFactory", async () => {
+	it("works inside useFactory", async () => {
 		const BASE = new InjectionToken<string>("BASE");
 		const URL = new InjectionToken<string>("URL");
 		@Module({

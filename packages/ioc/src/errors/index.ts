@@ -11,6 +11,7 @@ export {
 	AsyncFactoryError,
 	ContainerClosedError,
 	formatToken,
+	InvalidScopeError,
 	ProviderNotFoundError,
 	ProviderNotInstantiatedError,
 	ProviderScopeError,

@@ -34,8 +34,7 @@ export function withInjectionContext<R>(
 /**
  * Returns the provider for `token` from the container that is currently
  * creating an instance. Callable only synchronously during creation: in
- * field initializers, constructor bodies and the synchronous part of a
- * factory.
+ * field initializers, constructor bodies and factory functions.
  *
  * @throws {InjectionContextError} When called outside of an injection context
  * @throws {ProviderNotFoundError} When the token is not visible to the requester and `optional` is not set
