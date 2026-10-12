@@ -186,6 +186,10 @@ export class ModuleGraph implements ModuleGraphInterface {
 					...(createdPlaceholder ? [lazyModule.id] : []),
 				]);
 			} else {
+				this.recordLateGlobalReferrers(
+					added.moduleTokens,
+					added.providerTokens,
+				);
 				(this._nodes.get(lazyModule.id) as AnalyzeLazyModule).markLoaded(
 					root.token,
 				);
@@ -202,6 +206,71 @@ export class ModuleGraph implements ModuleGraphInterface {
 			this._errorSink = previousSink;
 			// Even a rolled-back segment was briefly part of the graph.
 			this._version++;
+		}
+	}
+
+	/**
+	 * A static `DEPENDENCY` edge compiled before its target existed (an
+	 * `@Optional()` one, reachable but with no node) recorded no referrer.
+	 * When a segment adds a `@Global()` module exporting that target, the
+	 * edge now resolves to it, so record the referrer the edge would have
+	 * recorded had the target been there at compile time. The edge's own
+	 * `moduleDependencies` entry already appears once the target node
+	 * exists, so `purgeModuleIndexes` drops this referrer again when
+	 * either side unloads.
+	 *
+	 * Only a newly added global module can make an existing target visible
+	 * to an existing consumer (imports of a compiled module never change),
+	 * so the full edge scan runs only for a segment that adds one; any
+	 * other segment pays a loop over its own new module tokens. External
+	 * edges (resolved in a parent container), runtime edges (`inject()`,
+	 * which record their own referrer) and unreached ones are skipped.
+	 */
+	private recordLateGlobalReferrers(
+		addedModuleTokens: string[],
+		addedProviderTokens: ProviderToken[],
+	) {
+		const targets = new Set<ProviderToken>();
+		for (const moduleToken of addedModuleTokens) {
+			const globalModule = this._globalModules.get(moduleToken);
+			for (const exported of globalModule?.exports ?? []) {
+				if (this._nodes.get(exported)?.type === NodeTypeEnum.PROVIDER) {
+					targets.add(exported);
+				}
+			}
+		}
+		if (targets.size === 0) {
+			return;
+		}
+
+		const addedProviders = new Set<ProviderToken>(addedProviderTokens);
+		for (const [source, edges] of this._edges) {
+			if (addedProviders.has(source)) {
+				continue;
+			}
+			const consumer = this._nodes.get(source);
+			if (consumer?.type !== NodeTypeEnum.PROVIDER) {
+				continue;
+			}
+			for (const edge of edges) {
+				if (
+					edge.type !== EdgeTypeEnum.DEPENDENCY ||
+					!targets.has(edge.target) ||
+					edge.metadata.unreached ||
+					edge.metadata.external ||
+					edge.metadata.inject === "runtime"
+				) {
+					continue;
+				}
+				this.recordCrossModuleReferrer(
+					source,
+					edge.target,
+					this.isProviderVisible(
+						(consumer as AnalyzeProvider).moduleContainer,
+						edge.target,
+					),
+				);
+			}
 		}
 	}
 
