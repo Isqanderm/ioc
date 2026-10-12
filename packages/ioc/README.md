@@ -307,7 +307,10 @@ singletons, in `bootstrap()`). They are recorded as runtime edges
 protected against modules used via `inject()` the same way as for `@Inject`.
 One consequence: a provider of an always-loaded module (for example the root
 module) that `inject()`s from a loaded lazy `@Global()` module keeps that
-module loaded, so `unload()` of it becomes a no-op.
+module loaded, so `unload()` of it becomes a no-op. Static `@Optional()`
+dependencies follow the same visibility rule (`undefined` when the provider is
+invisible) and pin the module of a later-loaded provider the same way
+`inject()` does.
 
 The static type-checker and graph-analyzer do see `inject()` calls, including
 aliased imports. They report them with `location: "inject"` and include them

@@ -23,6 +23,11 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 - `NexusApplication.setParent()`, `getParent()` and the parent fallback they enabled are removed. The only way to get a child container is `parent.createChild(...)`. Migrate `NexusApplication.create(X).setParent(app).bootstrap()` by declaring `X` in `children` of the module that owns it and calling `await app.createChild(X)`. A child now sees what its declaring module sees in the parent, not the whole parent.
 - `close()` now closes the live child containers first (newest first, their errors join the `AggregateError`); it no longer leaves them running. Unloading a lazy module closes the children declared by the modules it destroys, and `UnloadResult` has a new `closedChildren` count.
 
+### Changed
+
+- An `@Optional()` static dependency is injected only when its provider is visible from the consumer's module (own providers, imports, or a `@Global()` module). A provider in a module the consumer cannot see, whether present at bootstrap or loaded later, used to be injected anyway; it is now `undefined`, as with `inject(token, { optional: true })`.
+- New public `Edge.metadata.lateBound` field: marks a static `@Optional()` edge whose target did not exist (or was not visible) when it was compiled. It is injected only while the target exists and is visible, and then pins the target's module on unload.
+
 ### Features
 
 - New `@Module({ children })` and `app.createChild(child, { providers })`: child containers with their own singletons and lifetime, created from a class, a `DynamicModule` (`ProfileModule.forProfile(id)`) or a `lazy()` ref declared in `children`. A child sees what its declaring module sees in the parent, recursively; its own providers win. `@Inject` of a parent Transient gives a new parent-created instance, and `inject()` of one throws `ProviderScopeError`. A child may be declared by one module only (`CHILD_DECLARED_TWICE` otherwise). New errors: `ChildModuleNotDeclaredError`; `createChild` also throws `ContainerNotCompiledError`, `ContainerClosedError` and `LazyModuleLoadError`. See the README section "Child containers".
@@ -35,9 +40,8 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ### Fixed
 
-- `Container.replaceModule(Old, New)` is remembered, so it also replaces `Old` when `Old` is not registered yet (it used to store `New` as an orphan). Later `addModule`/`getModule` of `Old`, or of a `DynamicModule` of `Old`, resolve to `New`; chains are followed and cycles stop. A module that re-exports a replaced module class exports the replacement, and replacements apply to everything that container adds later, lazy modules included.
+- `Container.replaceModule(Old, New)` is remembered, so it also replaces `Old` when `Old` is not registered yet (it used to store `New` as an orphan). Later `addModule`/`getModule` of `Old`, or of a `DynamicModule` of `Old`, resolve to `New`; chains are followed and cycles stop. A module that re-exports a replaced module class exports the replacement, and replacements apply to everything that container adds later, lazy modules included. Call it before `run()`/`bootstrap()`: replacing after `run()` and then loading a lazy module that imports the original fails with a duplicate-token error.
 - Unloading a lazy module no longer destroys a provider that an eager or earlier-loaded consumer holds through a static `@Optional() @Inject()` edge compiled before the provider was visible to it. Loading the module that makes it visible now records the consumer's module as a referrer, so the provider's module stays alive until the consumer's module unloads, as with `inject()`. The result no longer depends on load order.
-- Behaviour change: an `@Optional()` static dependency is injected only when its provider is visible from the consumer's module (own providers, imports, or a `@Global()` module). A provider in a module the consumer cannot see, whether present at bootstrap or loaded later, used to be injected anyway; it now stays `undefined`, as with `inject(token, { optional: true })`.
 - A `@Global()` module that re-exports a module class (`@Global() @Module({ imports: [Inner], exports: [Inner] })`) now exposes `Inner`'s exports to every module, as a direct export does.
 
 ### Notes

@@ -1,5 +1,11 @@
 import "reflect-metadata";
-import { Inject, Injectable, InjectionToken, Module } from "@nexus-ioc/core";
+import {
+	Inject,
+	Injectable,
+	InjectionToken,
+	lazy,
+	Module,
+} from "@nexus-ioc/core";
 import { Test } from "../src/core/testing-container";
 
 const DEP = new InjectionToken<{ name: string }>("DEP");
@@ -102,6 +108,23 @@ describe("Test.replaceModule before compile()", () => {
 		await t2.replaceModule(RealModule, FakeModule);
 		await t2.replaceModule(FakeModule, RealModule);
 		await expect(t2.compile()).resolves.toBeDefined();
+	});
+
+	it("applies replacements to a lazily loaded module", async () => {
+		@Module({
+			imports: [RealModule],
+			providers: [Consumer],
+			exports: [Consumer],
+		})
+		class LazyFeature {}
+		const lazyRef = lazy(async () => LazyFeature, { name: "LazyFeature" });
+
+		const t = Test.createModule({ providers: [] });
+		await t.replaceModule(RealModule, FakeModule);
+		await t.compile();
+
+		const mref = await t.load(lazyRef);
+		expect((await mref.resolve(Consumer)).dep.name).toBe("fake");
 	});
 
 	it("throws when called after compile()", async () => {

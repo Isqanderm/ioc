@@ -232,6 +232,11 @@ export class ModuleGraph implements ModuleGraphInterface {
 	 * or a new `@Global()` module exposing it (compiled modules' imports
 	 * never change). Only a segment adding a global module rechecks every
 	 * indexed target; the index holds only late-bound edges, so it is small.
+	 *
+	 * Once bound, an edge keeps the target's module pinned for the consumer
+	 * module's lifetime, even after the global module that exposed it
+	 * unloads. This is deliberately safe: instances created meanwhile may
+	 * still hold the target.
 	 */
 	private bindLateEdges(
 		addedModuleTokens: string[],
