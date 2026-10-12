@@ -1,7 +1,11 @@
 import * as path from "node:path";
 import * as ts from "typescript/lib/tsserverlibrary";
 import { describe, expect, it } from "vitest";
-import { createNexusAnalyzer } from "../src";
+import {
+	createNexusAnalyzer,
+	createNexusApplicationAnalyzer,
+	createNexusApplicationGraphBuilder,
+} from "../src";
 
 const SOURCE = `
 import {
@@ -793,8 +797,9 @@ export const CONFIG = new InjectionToken<{ url: string }>("CONFIG");
 					"/app/app.module.ts",
 					`import { Module } from "@nexus-ioc/core";
 import { CONFIG } from "./index";
+import { Svc } from "./svc";
 
-@Module({ providers: [{ provide: CONFIG, useValue: { url: "x" } }] })
+@Module({ providers: [Svc, { provide: CONFIG, useValue: { url: "x" } }] })
 export class AppModule {}
 `,
 				],
@@ -819,7 +824,7 @@ export class Svc {
 		const appModule = analyzer.getClass(getClass(moduleFile, "AppModule"));
 		const svc = analyzer.getClass(getClass(svcFile, "Svc"));
 
-		const providerToken = appModule.module?.providers[0].provide;
+		const providerToken = appModule.module?.providers[1].provide;
 		const dependencyToken = svc.dependencies[0].token;
 		expect(providerToken?.kind).toBe("reference");
 		expect(dependencyToken?.kind).toBe("reference");
@@ -832,6 +837,22 @@ export class Svc {
 		expect(providerToken.symbol.getName()).toBe("CONFIG");
 		expect(dependencyToken.id).toBe(providerToken.id);
 		expect(dependencyToken.id).toContain("/app/tokens.ts:");
+
+		const application = createNexusApplicationAnalyzer(analyzer).analyze(
+			getClass(moduleFile, "AppModule"),
+		);
+		const graph =
+			createNexusApplicationGraphBuilder(analyzer).build(application);
+		expect(graph.unresolved).toEqual([]);
+		const edge = graph.resolved.find(
+			(entry) => entry.class.name === "Svc" && entry.dependencyName === "cfg",
+		);
+		expect(edge).toBeDefined();
+		const provide = edge?.provider.provide;
+		expect(provide?.kind).toBe("reference");
+		if (provide?.kind === "reference") {
+			expect(provide.symbol.getName()).toBe("CONFIG");
+		}
 	});
 
 	it("gives different ids to two InjectionTokens with the same description", () => {
