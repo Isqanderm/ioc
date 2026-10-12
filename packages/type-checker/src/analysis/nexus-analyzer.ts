@@ -5,6 +5,7 @@ import type {
 	NexusDecoratorKind,
 	NexusDependency,
 	NexusModule,
+	NexusModuleChild,
 	NexusModuleExport,
 	NexusModuleImport,
 	NexusProvider,
@@ -19,6 +20,7 @@ export type {
 	NexusDecoratorKind,
 	NexusDependency,
 	NexusModule,
+	NexusModuleChild,
 	NexusModuleExport,
 	NexusModuleImport,
 	NexusProvider,
@@ -49,6 +51,24 @@ export interface NexusAnalyzerOptions {
 	 * recognition. Defaults to {@link DEFAULT_NEXUS_CORE_PACKAGES}.
 	 */
 	corePackageNames?: readonly string[];
+}
+
+/** Diagnostic set on a `NexusModuleChild` whose `lazy()` loader is not one
+ * of the statically recognised shapes. */
+export const LAZY_CHILD_UNRESOLVED_DIAGNOSTIC =
+	"Child module of lazy() could not be resolved statically";
+
+const SHORT_CIRCUIT_OPERATORS: ReadonlySet<ts.SyntaxKind> = new Set([
+	ts.SyntaxKind.AmpersandAmpersandToken,
+	ts.SyntaxKind.BarBarToken,
+	ts.SyntaxKind.QuestionQuestionToken,
+	ts.SyntaxKind.AmpersandAmpersandEqualsToken,
+	ts.SyntaxKind.BarBarEqualsToken,
+	ts.SyntaxKind.QuestionQuestionEqualsToken,
+]);
+
+function nodeSet(...nodes: (ts.Node | undefined)[]): ReadonlySet<ts.Node> {
+	return new Set(nodes.filter((node): node is ts.Node => node !== undefined));
 }
 
 /** Shared semantic model used by Nexus IDE, lint and compiler tooling. */
@@ -165,6 +185,13 @@ export class NexusAnalyzer {
 				return;
 			}
 
+			if (
+				declaration.initializer &&
+				this.collectInjectCalls(declaration.initializer).length > 0
+			) {
+				return;
+			}
+
 			const inferred = this.resolveUndeclaredDependencyType(declaration);
 			if (!inferred) return;
 
@@ -189,7 +216,218 @@ export class NexusAnalyzer {
 			}
 		}
 
+		dependencies.push(...this.getInjectFunctionDependencies(node));
+
 		return { dependencies, undeclaredDependencies };
+	}
+
+	/**
+	 * `inject()` calls that run while the container creates an instance of
+	 * this class: instance field initializers, constructor parameter defaults
+	 * and the constructor body. Methods, accessors, static fields and nested
+	 * functions/classes run later (outside the injection context) and are not
+	 * reported. Appended after the `@Inject` dependencies, so the output for
+	 * a class without `inject()` calls is unchanged.
+	 */
+	private getInjectFunctionDependencies(
+		node: ts.ClassDeclaration,
+	): NexusDependency[] {
+		const dependencies: NexusDependency[] = [];
+		const add = (root: ts.Node, name: string) => {
+			for (const call of this.collectInjectCalls(root)) {
+				dependencies.push(this.toInjectDependency(call, name));
+			}
+		};
+
+		for (const member of node.members) {
+			if (
+				ts.isPropertyDeclaration(member) &&
+				member.initializer &&
+				!this.isStatic(member)
+			) {
+				add(member.initializer, member.name.getText());
+			}
+			if (ts.isConstructorDeclaration(member)) {
+				for (const parameter of member.parameters) {
+					if (parameter.initializer) {
+						add(parameter.initializer, parameter.name.getText());
+					}
+				}
+				if (member.body) add(member.body, "constructor");
+			}
+		}
+
+		return dependencies;
+	}
+
+	private toInjectDependency(
+		call: ts.CallExpression,
+		name: string,
+	): NexusDependency {
+		return {
+			location: "inject",
+			name,
+			token: this.resolveToken(call.arguments[0]),
+			optional: this.isOptionalInjectCall(call),
+			source: this.getSourceSpan(call),
+		};
+	}
+
+	/** `true` only for a literal `{ optional: true }` second argument. */
+	private isOptionalInjectCall(call: ts.CallExpression): boolean {
+		const options = call.arguments[1];
+		if (!options || !ts.isObjectLiteralExpression(options)) return false;
+		const optional = this.findProperty(options, "optional");
+		return optional?.initializer.kind === ts.SyntaxKind.TrueKeyword;
+	}
+
+	private isStatic(member: ts.ClassElement): boolean {
+		return (
+			ts.canHaveModifiers(member) &&
+			(ts.getModifiers(member) ?? []).some(
+				(modifier) => modifier.kind === ts.SyntaxKind.StaticKeyword,
+			)
+		);
+	}
+
+	/**
+	 * Collects the `inject()` calls (from the Nexus core package) that run
+	 * synchronously when `root` is evaluated, in evaluation order.
+	 *
+	 * - Nested functions, accessors, methods and class bodies are skipped:
+	 *   they run later, outside the injection context. Immediately invoked
+	 *   functions are skipped too (a documented simplification).
+	 * - The walk stops at the first `await` that is reached unconditionally
+	 *   (not inside an `if`/`switch` branch, loop body, `catch`/`finally`,
+	 *   `?:` branch or the right side of `&&`/`||`/`??`): everything after it
+	 *   runs once the injection context is gone. The awaited operand itself is
+	 *   still walked, since it is evaluated before the suspension. An `await`
+	 *   inside a conditional construct does not stop the walk, so calls after
+	 *   it are reported (they run synchronously when the branch is not taken).
+	 */
+	private collectInjectCalls(root: ts.Node): ts.CallExpression[] {
+		const calls: ts.CallExpression[] = [];
+		let stopped = false;
+
+		const visit = (node: ts.Node, conditional: boolean): void => {
+			if (stopped) return;
+			if (
+				ts.isFunctionLike(node) ||
+				ts.isClassLike(node) ||
+				ts.isClassStaticBlockDeclaration(node)
+			) {
+				return;
+			}
+
+			if (ts.isAwaitExpression(node)) {
+				visit(node.expression, conditional);
+				if (!conditional) stopped = true;
+				return;
+			}
+
+			if (ts.isForOfStatement(node) && node.awaitModifier) {
+				visit(node.initializer, conditional);
+				visit(node.expression, conditional);
+				if (!conditional) stopped = true;
+				visit(node.statement, true);
+				return;
+			}
+
+			if (ts.isCallExpression(node) && this.isInjectCall(node)) {
+				ts.forEachChild(node, (child) => visit(child, conditional));
+				if (!stopped) calls.push(node);
+				return;
+			}
+
+			const conditionalChildren = this.getConditionalChildren(node);
+			ts.forEachChild(node, (child) =>
+				visit(child, conditional || conditionalChildren.has(child)),
+			);
+		};
+
+		visit(root, false);
+		return calls;
+	}
+
+	/** Children of `node` that may not be evaluated (or not exactly once)
+	 * when `node` itself is. */
+	private getConditionalChildren(node: ts.Node): ReadonlySet<ts.Node> {
+		if (ts.isIfStatement(node)) {
+			return nodeSet(node.thenStatement, node.elseStatement);
+		}
+		if (ts.isConditionalExpression(node)) {
+			return nodeSet(node.whenTrue, node.whenFalse);
+		}
+		if (
+			ts.isBinaryExpression(node) &&
+			SHORT_CIRCUIT_OPERATORS.has(node.operatorToken.kind)
+		) {
+			return nodeSet(node.right);
+		}
+		if (ts.isForStatement(node)) {
+			return nodeSet(node.condition, node.incrementor, node.statement);
+		}
+		if (
+			ts.isForOfStatement(node) ||
+			ts.isForInStatement(node) ||
+			ts.isWhileStatement(node)
+		) {
+			return nodeSet(node.statement);
+		}
+		if (ts.isDoStatement(node)) {
+			// The body runs at least once; the condition only after it.
+			return nodeSet(node.expression);
+		}
+		if (ts.isSwitchStatement(node)) {
+			return nodeSet(node.caseBlock);
+		}
+		if (ts.isTryStatement(node)) {
+			return nodeSet(node.catchClause, node.finallyBlock);
+		}
+		return nodeSet();
+	}
+
+	private isInjectCall(call: ts.CallExpression): boolean {
+		if (!ts.isIdentifier(call.expression) || call.arguments.length === 0) {
+			return false;
+		}
+		const symbol = this.checker.getSymbolAtLocation(call.expression);
+		if (!symbol || !this.isImportedFromNexusCore(symbol)) return false;
+		return this.resolveAlias(symbol)?.getName() === "inject";
+	}
+
+	/**
+	 * Like {@link isNexusCoreSymbol}, but follows the alias chain one hop at a
+	 * time, so a binding re-exported from the core package by a local barrel
+	 * (`export { inject } from "@nexus-ioc/core"`) is recognised too.
+	 */
+	private isImportedFromNexusCore(symbol: ts.Symbol): boolean {
+		let current: ts.Symbol | undefined = symbol;
+		const visited = new Set<ts.Symbol>();
+		while (current && !visited.has(current)) {
+			visited.add(current);
+			if ((current.flags & ts.SymbolFlags.Alias) === 0) return false;
+			for (const declaration of current.declarations ?? []) {
+				const specifier = this.findModuleSpecifier(declaration);
+				if (specifier && this.corePackageNames.has(specifier)) return true;
+			}
+			current = this.checker.getImmediateAliasedSymbol(current);
+		}
+		return false;
+	}
+
+	private findModuleSpecifier(node: ts.Node): string | undefined {
+		let current: ts.Node | undefined = node;
+		while (current) {
+			if (ts.isImportDeclaration(current) || ts.isExportDeclaration(current)) {
+				return current.moduleSpecifier &&
+					ts.isStringLiteral(current.moduleSpecifier)
+					? current.moduleSpecifier.text
+					: undefined;
+			}
+			current = current.parent;
+		}
+		return undefined;
 	}
 
 	/**
@@ -241,7 +479,181 @@ export class NexusAnalyzer {
 			providers: this.getModuleProviders(node),
 			imports: this.getModuleImports(metadata),
 			exports: this.getModuleExports(metadata),
+			children: this.getModuleChildren(metadata),
 		};
+	}
+
+	/**
+	 * Parses `@Module({ children })`. A class reference resolves like an
+	 * `imports` entry. A `lazy()` ref (written inline, or a `const` holding
+	 * one) resolves through its loader when the loader has one of the two
+	 * recognised shapes:
+	 *
+	 * - `lazy(() => import("./x").then((m) => m.X))`
+	 * - `lazy(async () => (await import("./x")).X)`
+	 *
+	 * Any other loader yields `module: undefined` plus
+	 * {@link LAZY_CHILD_UNRESOLVED_DIAGNOSTIC}; it never throws.
+	 */
+	private getModuleChildren(
+		metadata: ts.ObjectLiteralExpression,
+	): NexusModuleChild[] {
+		const array = this.getObjectLiteralArrayProperty(metadata, "children");
+		if (!array) return [];
+
+		return array.elements.map((element) => {
+			const source = this.getSourceSpan(element);
+			const lazyCall = this.findLazyCall(element);
+			if (!lazyCall) {
+				return {
+					module: this.resolveToken(element),
+					isLazy: false,
+					source,
+				};
+			}
+
+			const module = this.resolveLazyChildModule(lazyCall);
+			return module
+				? { module, isLazy: true, source }
+				: {
+						module: undefined,
+						isLazy: true,
+						source,
+						diagnostic: LAZY_CHILD_UNRESOLVED_DIAGNOSTIC,
+					};
+		});
+	}
+
+	/** The `lazy(...)` call a `children` entry stands for: the entry itself,
+	 * or the initializer of the `const` it names. */
+	private findLazyCall(
+		expression: ts.Expression,
+	): ts.CallExpression | undefined {
+		const node = this.skipParentheses(expression);
+		if (ts.isCallExpression(node)) {
+			return this.isLazyCall(node) ? node : undefined;
+		}
+		if (!ts.isIdentifier(node)) return undefined;
+
+		const symbol = this.resolveAlias(this.checker.getSymbolAtLocation(node));
+		const declaration = symbol?.valueDeclaration;
+		if (
+			!declaration ||
+			!ts.isVariableDeclaration(declaration) ||
+			!declaration.initializer
+		) {
+			return undefined;
+		}
+
+		const initializer = this.skipParentheses(declaration.initializer);
+		return ts.isCallExpression(initializer) && this.isLazyCall(initializer)
+			? initializer
+			: undefined;
+	}
+
+	private isLazyCall(call: ts.CallExpression): boolean {
+		if (!ts.isIdentifier(call.expression)) return false;
+		const symbol = this.checker.getSymbolAtLocation(call.expression);
+		if (!symbol || !this.isImportedFromNexusCore(symbol)) return false;
+		return this.resolveAlias(symbol)?.getName() === "lazy";
+	}
+
+	private resolveLazyChildModule(
+		call: ts.CallExpression,
+	): NexusToken | undefined {
+		const loader = call.arguments[0];
+		if (
+			!loader ||
+			!(ts.isArrowFunction(loader) || ts.isFunctionExpression(loader))
+		) {
+			return undefined;
+		}
+
+		const result = this.getReturnedExpression(loader);
+		const propertyName = result && this.getLazyExportName(result);
+		if (!propertyName) return undefined;
+
+		const symbol = this.resolveAlias(
+			this.checker.getSymbolAtLocation(propertyName),
+		);
+		const isClass = symbol?.declarations?.some((declaration) =>
+			ts.isClassDeclaration(declaration),
+		);
+		return symbol && isClass
+			? this.buildReferenceToken(symbol, this.getSourceSpan(propertyName))
+			: undefined;
+	}
+
+	/**
+	 * The property name `X` of a recognised loader result:
+	 * `import("…").then((m) => m.X)` or `(await import("…")).X`.
+	 */
+	private getLazyExportName(
+		expression: ts.Expression,
+	): ts.Identifier | undefined {
+		const node = this.skipParentheses(expression);
+
+		if (ts.isPropertyAccessExpression(node)) {
+			const target = this.skipParentheses(node.expression);
+			return ts.isAwaitExpression(target) &&
+				this.isDynamicImport(this.skipParentheses(target.expression)) &&
+				ts.isIdentifier(node.name)
+				? node.name
+				: undefined;
+		}
+
+		if (
+			!ts.isCallExpression(node) ||
+			!ts.isPropertyAccessExpression(node.expression) ||
+			node.expression.name.text !== "then" ||
+			!this.isDynamicImport(this.skipParentheses(node.expression.expression))
+		) {
+			return undefined;
+		}
+
+		const callback = node.arguments[0];
+		if (
+			!callback ||
+			!(ts.isArrowFunction(callback) || ts.isFunctionExpression(callback))
+		) {
+			return undefined;
+		}
+		const parameter = callback.parameters[0];
+		if (!parameter || !ts.isIdentifier(parameter.name)) return undefined;
+
+		const returned = this.getReturnedExpression(callback);
+		if (!returned) return undefined;
+		const access = this.skipParentheses(returned);
+		return ts.isPropertyAccessExpression(access) &&
+			ts.isIdentifier(access.expression) &&
+			access.expression.text === parameter.name.text &&
+			ts.isIdentifier(access.name)
+			? access.name
+			: undefined;
+	}
+
+	private isDynamicImport(node: ts.Expression): boolean {
+		return (
+			ts.isCallExpression(node) &&
+			node.expression.kind === ts.SyntaxKind.ImportKeyword
+		);
+	}
+
+	/** An arrow's expression body, or the expression of a body that is a
+	 * single `return` statement. */
+	private getReturnedExpression(
+		fn: ts.ArrowFunction | ts.FunctionExpression,
+	): ts.Expression | undefined {
+		if (!ts.isBlock(fn.body)) return fn.body;
+		if (fn.body.statements.length !== 1) return undefined;
+		const [statement] = fn.body.statements;
+		return ts.isReturnStatement(statement) ? statement.expression : undefined;
+	}
+
+	private skipParentheses(expression: ts.Expression): ts.Expression {
+		let current = expression;
+		while (ts.isParenthesizedExpression(current)) current = current.expression;
+		return current;
 	}
 
 	private getModuleImports(
@@ -392,7 +804,7 @@ export class NexusAnalyzer {
 
 	private getObjectLiteralArrayProperty(
 		metadata: ts.ObjectLiteralExpression,
-		name: "providers" | "imports" | "exports",
+		name: "providers" | "imports" | "exports" | "children",
 	): ts.ArrayLiteralExpression | undefined {
 		const property = this.findProperty(metadata, name);
 		return property && ts.isArrayLiteralExpression(property.initializer)
@@ -487,10 +899,33 @@ export class NexusAnalyzer {
 						)
 					: [];
 
+			const factoryBody = useFactoryProperty.initializer;
+			if (
+				ts.isArrowFunction(factoryBody) ||
+				ts.isFunctionExpression(factoryBody)
+			) {
+				factoryInject.push(...this.getFactoryInjectCalls(factoryBody));
+			}
+
 			return [{ kind: "useFactory", provide, factoryInject, scope, source }];
 		}
 
 		return [];
+	}
+
+	/** Tokens of the `inject()` calls a `useFactory` function makes before
+	 * its first unconditional `await` (parameter defaults, then the body). */
+	private getFactoryInjectCalls(
+		factory: ts.ArrowFunction | ts.FunctionExpression,
+	): NexusToken[] {
+		const calls: ts.CallExpression[] = [];
+		for (const parameter of factory.parameters) {
+			if (parameter.initializer) {
+				calls.push(...this.collectInjectCalls(parameter.initializer));
+			}
+		}
+		calls.push(...this.collectInjectCalls(factory.body));
+		return calls.map((call) => this.resolveToken(call.arguments[0]));
 	}
 
 	private getInjectTokenExpression(

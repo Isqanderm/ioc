@@ -2,8 +2,8 @@ import "reflect-metadata";
 import {
 	INJECT_WATERMARK,
 	PROPERTY_DEPS_METADATA,
+	type ProviderToken,
 	SELF_DECLARED_DEPS_METADATA,
-	type Type,
 } from "../interfaces";
 import type { ForwardRef } from "../utils/forward-ref";
 
@@ -11,21 +11,24 @@ import type { ForwardRef } from "../utils/forward-ref";
  * Explicitly specifies the injection token for a constructor parameter or property.
  *
  * This decorator is used when:
- * - You need to inject a provider by a string or symbol token
+ * - You need to inject a provider by an InjectionToken, string or symbol token
  * - TypeScript's reflection cannot determine the type (e.g., interfaces, circular dependencies)
  * - You want to inject a different implementation than the declared type
  *
- * @param token - The injection token (class, string, or symbol)
+ * @param token - The provider token: class, InjectionToken, string or symbol, or a `forwardRef()`
  * @returns A decorator that can be applied to constructor parameters or properties
  * @throws {Error} If the token is undefined (often due to circular dependencies)
  *
  * @example
  * ```typescript
+ * // InjectionToken: a typed token for a value that has no class
+ * const DATABASE_CONFIG = new InjectionToken<DatabaseConfig>('DATABASE_CONFIG');
+ *
  * // Constructor parameter injection
  * @Injectable()
  * class UserService {
  *   constructor(
- *     @Inject('DATABASE_CONFIG') private config: DatabaseConfig,
+ *     @Inject(DATABASE_CONFIG) private config: DatabaseConfig,
  *     @Inject(Logger) private logger: Logger
  *   ) {}
  * }
@@ -47,7 +50,7 @@ import type { ForwardRef } from "../utils/forward-ref";
  * ```
  */
 export function Inject(
-	token: Type | symbol | string | ForwardRef,
+	token: ProviderToken | ForwardRef,
 ): PropertyDecorator & ParameterDecorator {
 	return (
 		target: object,

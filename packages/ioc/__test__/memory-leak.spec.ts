@@ -1,7 +1,17 @@
 import "reflect-metadata";
 import { Test } from "@nexus-ioc/testing";
 import { beforeEach, describe, expect, it } from "vitest";
-import { Inject, Injectable, Module, Scope } from "../src";
+import {
+	type DynamicModule,
+	Global,
+	Inject,
+	Injectable,
+	InjectionToken,
+	lazy,
+	Module,
+	NexusApplication,
+	Scope,
+} from "../src";
 
 /**
  * Memory Leak Detection Test Suite for @nexus-ioc/core
@@ -9,7 +19,7 @@ import { Inject, Injectable, Module, Scope } from "../src";
  * This test suite checks for memory leaks in the IoC container by:
  * 1. Measuring heap memory before and after operations
  * 2. Using WeakRef to verify objects are garbage collected
- * 3. Testing different scopes (Singleton, Request, Transient)
+ * 3. Testing different scopes (Singleton, Transient)
  * 4. Stress testing with many iterations
  *
  * Run with: npm run test:memory
@@ -268,8 +278,8 @@ describe("Memory Leak Detection", () => {
 			console.log("   Instance alive after GC: ✅");
 		});
 
-		it("should cleanup Request scope after resolution", async () => {
-			@Injectable({ scope: Scope.Scoped })
+		it("should cleanup Transient scope after resolution", async () => {
+			@Injectable({ scope: Scope.Transient })
 			class RequestService {
 				id = Math.random();
 			}
@@ -299,8 +309,8 @@ describe("Memory Leak Detection", () => {
 				(ref) => ref.deref() !== undefined,
 			).length;
 
-			console.log("\n🔄 Request Scope Test:");
-			console.log("   Created: 50 request contexts");
+			console.log("\n🔄 Transient Scope Test:");
+			console.log("   Created: 50 contexts");
 			console.log(`   After GC: ${aliveAfterGC} alive`);
 
 			// Request scope instances should be collected
@@ -720,7 +730,7 @@ describe("Memory Leak Detection", () => {
 				id = Math.random();
 			}
 
-			@Injectable({ scope: Scope.Scoped })
+			@Injectable({ scope: Scope.Transient })
 			class RequestService {
 				constructor(public singleton: SingletonService) {}
 			}
@@ -891,6 +901,115 @@ describe("Memory Leak Detection", () => {
 
 			// Allow higher threshold for factory closures (15%)
 			expect(Math.abs(growthRatio)).toBeLessThan(0.15);
+		});
+	});
+
+	describe("child containers", () => {
+		const PROFILE_ID = new InjectionToken<string>("PROFILE_ID");
+
+		@Injectable()
+		class EventBus {
+			private readonly listeners = new Set<() => void>();
+			on(listener: () => void): () => void {
+				this.listeners.add(listener);
+				return () => this.listeners.delete(listener);
+			}
+			listenerCount(): number {
+				return this.listeners.size;
+			}
+		}
+
+		@Injectable()
+		class ProfileStore {
+			private readonly off: () => void;
+			constructor(
+				@Inject(EventBus) bus: EventBus,
+				@Inject(PROFILE_ID) readonly id: string,
+			) {
+				this.off = bus.on(() => this.id);
+			}
+			onModuleDestroy() {
+				this.off();
+			}
+		}
+
+		@Module({ providers: [ProfileStore] })
+		class ProfileModule {
+			static forProfile(id: string): DynamicModule {
+				return {
+					module: ProfileModule,
+					providers: [ProfileStore, { provide: PROFILE_ID, useValue: id }],
+				};
+			}
+		}
+
+		async function expectCollected(refs: WeakRef<object>[]) {
+			await performGCCycles(5);
+			const alive = refs.filter((ref) => ref.deref() !== undefined);
+			console.log(
+				`\n   child containers: ${refs.length - alive.length}/${refs.length} collected`,
+			);
+			expect(alive).toHaveLength(0);
+		}
+
+		it("200 createChild/close cycles retain no children", async () => {
+			@Module({ providers: [EventBus], children: [ProfileModule] })
+			class AppModule {}
+			const app = await NexusApplication.create(AppModule).bootstrap();
+			const refs: WeakRef<object>[] = [];
+			// One function per cycle, so no suspended frame of this test keeps
+			// the last child in a register.
+			const cycle = async (i: number) => {
+				const child = await app.createChild(
+					ProfileModule.forProfile(String(i)),
+				);
+				refs.push(new WeakRef(child), new WeakRef(child.get(ProfileStore)));
+				await child.close();
+			};
+			for (let i = 0; i < 200; i++) {
+				await cycle(i);
+			}
+			await expectCollected(refs);
+			expect(app.get(EventBus).listenerCount()).toBe(0);
+			await app.close();
+		});
+
+		it("children closed by the parent's cascade or by an unload are not retained", async () => {
+			@Module({ children: [ProfileModule] })
+			class FeatureModule {}
+			const featureLazy = lazy(async () => FeatureModule);
+			@Global()
+			@Module({ providers: [EventBus], exports: [EventBus] })
+			class BusModule {}
+			@Module({ imports: [BusModule] })
+			class AppModule {}
+			const app = await NexusApplication.create(AppModule).bootstrap();
+			const refs: WeakRef<object>[] = [];
+			const track = async (parent: NexusApplication, id: string) => {
+				const child = await parent.createChild(ProfileModule.forProfile(id));
+				refs.push(new WeakRef(child), new WeakRef(child.get(ProfileStore)));
+			};
+			for (let round = 0; round < 20; round++) {
+				const ref = await app.load(featureLazy);
+				for (let i = 0; i < 10; i++) {
+					await track(app, `${round}-${i}`);
+				}
+				expect((await app.unload(ref)).closedChildren).toBe(10);
+			}
+			expect(app.get(EventBus).listenerCount()).toBe(0);
+
+			@Module({ providers: [EventBus], children: [ProfileModule] })
+			class CascadeModule {}
+			const cascade = await NexusApplication.create(CascadeModule).bootstrap();
+			for (let i = 0; i < 50; i++) {
+				await track(cascade, String(i));
+			}
+			const bus = cascade.get(EventBus);
+			await cascade.close();
+			expect(bus.listenerCount()).toBe(0);
+
+			await expectCollected(refs);
+			await app.close();
 		});
 	});
 

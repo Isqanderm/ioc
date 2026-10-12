@@ -2,6 +2,7 @@ import "reflect-metadata";
 import { ContainerNotCompiledError } from "@nexus-ioc/shared";
 import { expectTypeOf } from "vitest";
 import {
+	ContainerClosedError,
 	Injectable,
 	Module,
 	NexusApplication,
@@ -18,19 +19,15 @@ describe("NexusApplication.get (sync) / resolve (async)", () => {
 	@Injectable({ scope: Scope.Transient })
 	class TransientService {}
 
-	@Injectable({ scope: Scope.Scoped })
-	class ScopedService {}
-
 	@Module({
 		providers: [
 			SingletonService,
 			TransientService,
-			ScopedService,
 			{ provide: "undef", useValue: undefined },
 			{ provide: "null", useValue: null },
 			{ provide: "zero", useValue: 0 },
 			{ provide: "false", useValue: false },
-			{ provide: "async", useFactory: async () => "async-value" },
+			{ provide: "factory", useFactory: () => "factory-value" },
 		],
 	})
 	class AppModule {}
@@ -43,9 +40,9 @@ describe("NexusApplication.get (sync) / resolve (async)", () => {
 		expect(app.get(SingletonService)).toBe(result);
 	});
 
-	it("returns async-factory singletons synchronously after bootstrap", async () => {
+	it("returns factory singletons synchronously after bootstrap", async () => {
 		const app = await NexusApplication.create(AppModule).bootstrap();
-		expect(app.get("async")).toBe("async-value");
+		expect(app.get("factory")).toBe("factory-value");
 	});
 
 	it.each([
@@ -69,10 +66,9 @@ describe("NexusApplication.get (sync) / resolve (async)", () => {
 		expect(app.get("missing", { optional: true })).toBeUndefined();
 	});
 
-	it("throws ProviderScopeError for Transient and Scoped", async () => {
+	it("throws ProviderScopeError for Transient", async () => {
 		const app = await NexusApplication.create(AppModule).bootstrap();
 		expect(() => app.get(TransientService)).toThrow(ProviderScopeError);
-		expect(() => app.get(ScopedService)).toThrow(ProviderScopeError);
 		expect(() => app.get(TransientService)).toThrow(/resolve\(\)/);
 	});
 
@@ -112,13 +108,25 @@ describe("NexusApplication.get (sync) / resolve (async)", () => {
 		);
 	});
 
-	it("get/resolve before bootstrap do not fall back to the parent", async () => {
-		@Module({ providers: [{ provide: "p", useValue: 1 }] })
+	it("get/resolve check their own state before falling back to the parent", async () => {
+		@Module({ providers: [] })
+		class ChildModule {}
+		@Module({
+			providers: [{ provide: "p", useValue: 1 }],
+			children: [ChildModule],
+		})
 		class ParentModule {}
+		// A parent that is not bootstrapped cannot create children at all.
+		await expect(
+			NexusApplication.create(ParentModule).createChild(ChildModule),
+		).rejects.toThrow(ContainerNotCompiledError);
+		// A closed child throws instead of answering from its open parent.
 		const parent = await NexusApplication.create(ParentModule).bootstrap();
-		const child = NexusApplication.create(AppModule).setParent(parent);
-		expect(() => child.get("p")).toThrow(ContainerNotCompiledError);
-		await expect(child.resolve("p")).rejects.toThrow(ContainerNotCompiledError);
+		const child = await parent.createChild(ChildModule);
+		await child.close();
+		expect(() => child.get("p")).toThrow(ContainerClosedError);
+		await expect(child.resolve("p")).rejects.toThrow(ContainerClosedError);
+		expect(parent.get("p")).toBe(1);
 	});
 
 	it("narrows the return type only for optional: true", async () => {
@@ -144,9 +152,6 @@ describe("NexusApplication.get (sync) / resolve (async)", () => {
 	});
 
 	describe("parent fallback", () => {
-		@Module({ providers: [{ provide: "shared", useValue: "from-parent" }] })
-		class ParentModule {}
-
 		@Module({ providers: [] })
 		class EmptyChildModule {}
 
@@ -161,28 +166,28 @@ describe("NexusApplication.get (sync) / resolve (async)", () => {
 		})
 		class ShadowingChildModule {}
 
+		@Module({
+			providers: [{ provide: "shared", useValue: "from-parent" }],
+			children: [EmptyChildModule, ShadowingChildModule],
+		})
+		class ParentModule {}
+
 		it("get falls back to the parent for unknown tokens", async () => {
 			const parent = await NexusApplication.create(ParentModule).bootstrap();
-			const child = await NexusApplication.create(EmptyChildModule)
-				.setParent(parent)
-				.bootstrap();
+			const child = await parent.createChild(EmptyChildModule);
 			expect(child.get("shared")).toBe("from-parent");
 			await expect(child.resolve("shared")).resolves.toBe("from-parent");
 		});
 
 		it("get does not fall back when the token exists locally", async () => {
 			const parent = await NexusApplication.create(ParentModule).bootstrap();
-			const child = await NexusApplication.create(ShadowingChildModule)
-				.setParent(parent)
-				.bootstrap();
+			const child = await parent.createChild(ShadowingChildModule);
 			expect(() => child.get("shared")).toThrow(ProviderScopeError);
 		});
 
 		it("optional propagates through the parent chain", async () => {
 			const parent = await NexusApplication.create(ParentModule).bootstrap();
-			const child = await NexusApplication.create(EmptyChildModule)
-				.setParent(parent)
-				.bootstrap();
+			const child = await parent.createChild(EmptyChildModule);
 			expect(child.get("nope", { optional: true })).toBeUndefined();
 			expect(() => child.get("nope")).toThrow(ProviderNotFoundError);
 		});

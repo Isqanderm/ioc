@@ -42,6 +42,7 @@ export const getSemanticDiagnosticsActions = (
 
 	const diagnostic: ts.Diagnostic[] = [];
 	const injectableClasses = InjectableParser.execute(sourceFile);
+	const childScopes = createChildScopeLookup(tsNsLs, typeChecker);
 
 	if (!injectableClasses.length) {
 		return originalDiagnostic;
@@ -213,6 +214,13 @@ export const getSemanticDiagnosticsActions = (
 						}
 					}
 
+					// A module in a child scope falls back to the declaring module's visibility
+					if (!found) {
+						found =
+							findInChildScopeParents(module, injectToken, childScopes) !==
+							undefined;
+					}
+
 					if (!found) {
 						diagnostic.push({
 							file: sourceFile,
@@ -376,6 +384,15 @@ export const getSemanticDiagnosticsActions = (
 					}
 				}
 
+				// A module in a child scope falls back to the declaring module's visibility
+				if (!dependencyDeclare) {
+					dependencyDeclare = findInChildScopeParents(
+						referenceModule,
+						param.name,
+						childScopes,
+					);
+				}
+
 				// Skip error reporting for optional dependencies
 				if (!dependencyDeclare && !param.isOptional) {
 					diagnostic.push({
@@ -518,6 +535,239 @@ export const getSemanticDiagnosticsActions = (
 
 	return [...originalDiagnostic, ...diagnostic];
 };
+
+/** Every `@Module` declared in the program's own (non-declaration,
+ * non-`node_modules`) source files. */
+function findProjectModules(
+	tsNsLs: NsLanguageService,
+	typeChecker: ts.TypeChecker,
+): ModuleDeclaration[] {
+	const program = tsNsLs.tsLS.getProgram();
+	if (!program) {
+		return [];
+	}
+
+	const result: ModuleDeclaration[] = [];
+	for (const sourceFile of program.getSourceFiles()) {
+		if (
+			sourceFile.isDeclarationFile ||
+			sourceFile.fileName.includes("node_modules")
+		) {
+			continue;
+		}
+
+		const modules = ModulesParser.execute(sourceFile);
+		result.push(...ModuleParser.execute(modules, typeChecker, tsNsLs));
+	}
+
+	return result;
+}
+
+/** Whether `identifier` names the class `module` was parsed from. */
+function refersToModule(
+	identifier: ts.Identifier,
+	module: ModuleDeclaration,
+	typeChecker: ts.TypeChecker,
+): boolean {
+	let symbol = typeChecker.getSymbolAtLocation(identifier);
+	if (symbol && (symbol.flags & ts.SymbolFlags.Alias) !== 0) {
+		symbol = typeChecker.getAliasedSymbol(symbol);
+	}
+	return (
+		symbol?.declarations?.some(
+			(declaration) =>
+				declaration.getSourceFile().fileName === module.sourceFile.fileName &&
+				declaration.getStart() === module.start,
+		) ?? false
+	);
+}
+
+function matchesToken(
+	token: ts.Expression,
+	candidate: ProviderType | ExportType,
+	typeChecker: ts.TypeChecker,
+	tsNsLs: NsLanguageService,
+): boolean {
+	if (ts.isStringLiteral(token)) {
+		const text = token.text;
+		if ("provide" in candidate) {
+			return (
+				candidate.provideType !== "class" &&
+				candidate.provide.getText().replaceAll('"', "").replaceAll("'", "") ===
+					text
+			);
+		}
+		return candidate.name?.replaceAll('"', "").replaceAll("'", "") === text;
+	}
+
+	return (
+		ts.isIdentifier(token) &&
+		checkTypesHelper(candidate.declaration, token, typeChecker, tsNsLs)
+	);
+}
+
+/** `token` among `module`'s own providers or its imports' exports. */
+function findInModuleVisibility(
+	module: ModuleDeclaration,
+	token: ts.Expression,
+	projectModules: readonly ModuleDeclaration[],
+	tsNsLs: NsLanguageService,
+	typeChecker: ts.TypeChecker,
+): ProviderType | ExportType | undefined {
+	const own = module.providers.find((provider) =>
+		matchesToken(token, provider, typeChecker, tsNsLs),
+	);
+	if (own) return own;
+
+	for (const importEntry of module.imports) {
+		if (!ts.isIdentifier(importEntry.declaration)) continue;
+		const declaration = importEntry.declaration;
+
+		for (const importedModule of projectModules) {
+			if (!refersToModule(declaration, importedModule, typeChecker)) continue;
+			const exported = importedModule.exports.find((entry) =>
+				matchesToken(token, entry, typeChecker, tsNsLs),
+			);
+			if (exported) return exported;
+		}
+	}
+
+	return undefined;
+}
+
+/** Lookups shared by one `getSemanticDiagnosticsActions` call; the
+ * project's module list is parsed at most once per call. */
+type ChildScopeLookup = {
+	tsNsLs: NsLanguageService;
+	typeChecker: ts.TypeChecker;
+	modules: () => readonly ModuleDeclaration[];
+};
+
+function createChildScopeLookup(
+	tsNsLs: NsLanguageService,
+	typeChecker: ts.TypeChecker,
+): ChildScopeLookup {
+	let modules: ModuleDeclaration[] | undefined;
+	return {
+		tsNsLs,
+		typeChecker,
+		modules: () => {
+			modules ??= findProjectModules(tsNsLs, typeChecker);
+			return modules;
+		},
+	};
+}
+
+function moduleKey(module: ModuleDeclaration): string {
+	return `${module.sourceFile.fileName}:${module.start}`;
+}
+
+/** Modules whose `@Module({ children })` lists `module`. */
+function findDeclaringModules(
+	module: ModuleDeclaration,
+	lookup: ChildScopeLookup,
+): ModuleDeclaration[] {
+	return lookup
+		.modules()
+		.filter((candidate) =>
+			candidate.children.some((child) =>
+				refersToModule(child.declaration, module, lookup.typeChecker),
+			),
+		);
+}
+
+/**
+ * The declared child roots whose module tree `module` belongs to: `module`
+ * itself if some module lists it in `children`, plus the child roots of
+ * every module that imports it. `undefined` when `module` is also reachable
+ * outside any child scope: it has no importer and is not a declared child
+ * (a top-level module such as the app root), or one of its importers is in
+ * that situation.
+ *
+ * Known limitation: the legacy language service has no application entry
+ * point, so "reachable outside a child scope" means "imported (directly or
+ * transitively) by some module that is not itself inside a child scope",
+ * even if that importer is never reached from the real root. In that case
+ * the fallback is not applied and the diagnostic is kept, never hidden.
+ */
+function findChildScopeRoots(
+	module: ModuleDeclaration,
+	lookup: ChildScopeLookup,
+	visiting: Set<string> = new Set(),
+): ModuleDeclaration[] | undefined {
+	const key = moduleKey(module);
+	if (visiting.has(key)) return [];
+	visiting.add(key);
+
+	const isDeclaredChild = findDeclaringModules(module, lookup).length > 0;
+	const importers = lookup
+		.modules()
+		.filter((candidate) =>
+			candidate.imports.some(
+				(entry) =>
+					ts.isIdentifier(entry.declaration) &&
+					refersToModule(entry.declaration, module, lookup.typeChecker),
+			),
+		);
+	if (!isDeclaredChild && importers.length === 0) return undefined;
+
+	const roots = isDeclaredChild ? [module] : [];
+	for (const importer of importers) {
+		const importerRoots = findChildScopeRoots(importer, lookup, visiting);
+		if (importerRoots === undefined) return undefined;
+		roots.push(...importerRoots);
+	}
+
+	return roots.length > 0 ? roots : undefined;
+}
+
+/**
+ * A module inside a child scope (a module listed in some `@Module({ children
+ * })`, or any module reachable from one through imports) falls back to
+ * what the declaring module sees in the parent: its own providers and its
+ * imports' exports (global modules are already searched by the caller),
+ * recursing up the chain of declaring modules. The token must be found for
+ * every child scope the module belongs to. Returns `undefined` for a module
+ * that is not (only) inside child scopes, so diagnostics for ordinary
+ * modules are unchanged.
+ */
+function findInChildScopeParents(
+	module: ModuleDeclaration,
+	token: ts.Expression,
+	lookup: ChildScopeLookup,
+	visitedRoots: ReadonlySet<string> = new Set(),
+): ProviderType | ExportType | undefined {
+	const roots = findChildScopeRoots(module, lookup);
+	if (!roots) return undefined;
+
+	let found: ProviderType | ExportType | undefined;
+	const seen = new Set<string>();
+	for (const root of roots) {
+		const key = moduleKey(root);
+		if (seen.has(key)) continue;
+		seen.add(key);
+		if (visitedRoots.has(key)) return undefined;
+		const path = new Set(visitedRoots).add(key);
+
+		let rootFound: ProviderType | ExportType | undefined;
+		for (const declaringModule of findDeclaringModules(root, lookup)) {
+			rootFound =
+				findInModuleVisibility(
+					declaringModule,
+					token,
+					lookup.modules(),
+					lookup.tsNsLs,
+					lookup.typeChecker,
+				) ?? findInChildScopeParents(declaringModule, token, lookup, path);
+			if (rootFound) break;
+		}
+
+		if (!rootFound) return undefined;
+		found ??= rootFound;
+	}
+
+	return found;
+}
 
 /**
  * Finds all global modules in the project

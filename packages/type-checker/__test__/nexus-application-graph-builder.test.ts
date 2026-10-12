@@ -437,3 +437,303 @@ describe("NexusApplicationGraphBuilder", () => {
 		expect(graph.unresolved).toEqual([]);
 	});
 });
+
+describe("child scopes declared via children", () => {
+	const HTTP = `import { Injectable, Module } from "@nexus-ioc/core";
+
+@Injectable()
+export class Http {}
+
+@Module({ providers: [Http], exports: [Http] })
+export class HttpModule {}
+`;
+	const SECRET = `import { Injectable, Module } from "@nexus-ioc/core";
+
+@Injectable()
+export class Secret {}
+
+@Module({ providers: [Secret] })
+export class SecretModule {}
+`;
+	const PROFILE = `import { inject, Inject, Injectable, Module } from "@nexus-ioc/core";
+import { Http } from "./http.module";
+import { Secret } from "./secret.module";
+
+@Injectable()
+export class Local {}
+
+@Injectable()
+export class ProfileStore {
+  readonly viaInject = inject(Http);
+  readonly local = inject(Local);
+  constructor(
+    @Inject(Http) readonly http: Http,
+    @Inject(Secret) readonly secret: Secret,
+  ) {}
+}
+
+@Module({ providers: [ProfileStore, Local] })
+export class ProfileModule {}
+`;
+
+	function analyzeApp(appSource: string, extra: [string, string][] = []) {
+		const files = new Map<string, string>([
+			["/app/app.module.ts", appSource],
+			["/app/http.module.ts", HTTP],
+			["/app/secret.module.ts", SECRET],
+			["/app/profile.module.ts", PROFILE],
+			...extra,
+		]);
+		const { program, entryPoint } = createProgram(
+			"/app/app.module.ts",
+			"AppModule",
+			files,
+		);
+		const analyzer = createNexusAnalyzer(program);
+		const application =
+			createNexusApplicationAnalyzer(analyzer).analyze(entryPoint);
+		const graph =
+			createNexusApplicationGraphBuilder(analyzer).build(application);
+		const idOf = (name: string) => {
+			const found = application.classes.find((item) => item.name === name);
+			if (!found) throw new Error(`${name} not in application`);
+			return found.id;
+		};
+		const resolvedOf = (className: string, dependencyName: string) =>
+			graph.resolved.filter(
+				(item) =>
+					item.class.name === className &&
+					item.dependencyName === dependencyName,
+			);
+		const unresolvedOf = (className: string) =>
+			graph.unresolved
+				.filter((item) => item.class.name === className)
+				.map((item) => item.dependencyName);
+		return { application, graph, idOf, resolvedOf, unresolvedOf };
+	}
+
+	const APP = `import { Module } from "@nexus-ioc/core";
+import { HttpModule } from "./http.module";
+import { SecretModule } from "./secret.module";
+import { ProfileModule } from "./profile.module";
+
+@Module({ imports: [HttpModule, SecretModule], children: [ProfileModule] })
+export class AppModule {}
+`;
+
+	it("gives an app without children exactly one root scope and no fromParentScope edges", () => {
+		const { program, entryPoint } = createProgram(
+			"/app/app.module.ts",
+			"AppModule",
+			MULTI_MODULE_FILES,
+		);
+		const analyzer = createNexusAnalyzer(program);
+		const application =
+			createNexusApplicationAnalyzer(analyzer).analyze(entryPoint);
+		const graph =
+			createNexusApplicationGraphBuilder(analyzer).build(application);
+
+		expect(application.scopes).toHaveLength(1);
+		expect(application.scopes[0]).toEqual({
+			rootId: application.classes[0].id,
+			classIds: application.classes.map((item) => item.id),
+		});
+		expect(graph.resolved.length).toBeGreaterThan(0);
+		expect(graph.resolved.every((item) => item.fromParentScope === false)).toBe(
+			true,
+		);
+	});
+
+	it("creates a child scope declared in AppModule", () => {
+		const { application, idOf } = analyzeApp(APP);
+
+		expect(application.scopes).toHaveLength(2);
+		const [root, child] = application.scopes;
+		expect(root.rootId).toBe(idOf("AppModule"));
+		expect(root.declaredInId).toBeUndefined();
+		expect(root.parentRootId).toBeUndefined();
+		expect(root.classIds).not.toContain(idOf("ProfileStore"));
+		expect(child.rootId).toBe(idOf("ProfileModule"));
+		expect(child.declaredInId).toBe(idOf("AppModule"));
+		expect(child.parentRootId).toBe(idOf("AppModule"));
+		expect(child.classIds).toContain(idOf("ProfileStore"));
+		expect(child.classIds).toContain(idOf("Local"));
+	});
+
+	it("resolves a parent-provided @Inject and inject() dependency with fromParentScope", () => {
+		const { resolvedOf } = analyzeApp(APP);
+
+		const [http] = resolvedOf("ProfileStore", "http");
+		expect(http?.fromParentScope).toBe(true);
+		expect(http?.providingModule.name).toBe("HttpModule");
+
+		const [viaInject] = resolvedOf("ProfileStore", "viaInject");
+		expect(viaInject?.fromParentScope).toBe(true);
+		expect(viaInject?.providingModule.name).toBe("HttpModule");
+
+		const [local] = resolvedOf("ProfileStore", "local");
+		expect(local?.fromParentScope).toBe(false);
+		expect(local?.providingModule.name).toBe("ProfileModule");
+	});
+
+	it("keeps a provider the declaring module cannot see unresolved", () => {
+		const { unresolvedOf } = analyzeApp(APP);
+		expect(unresolvedOf("ProfileStore")).toEqual(["secret"]);
+	});
+
+	it("resolves the same way for a lazy() child", () => {
+		const { application, resolvedOf, unresolvedOf, idOf } =
+			analyzeApp(`import { lazy, Module } from "@nexus-ioc/core";
+import { HttpModule } from "./http.module";
+import { SecretModule } from "./secret.module";
+
+@Module({
+  imports: [HttpModule, SecretModule],
+  children: [lazy(() => import("./profile.module").then((m) => m.ProfileModule))],
+})
+export class AppModule {}
+`);
+		expect(application.scopes.map((scope) => scope.rootId)).toEqual([
+			idOf("AppModule"),
+			idOf("ProfileModule"),
+		]);
+		expect(resolvedOf("ProfileStore", "http")[0]?.fromParentScope).toBe(true);
+		expect(unresolvedOf("ProfileStore")).toEqual(["secret"]);
+	});
+
+	it("lets a child's own provider win over the parent's", () => {
+		const { resolvedOf } = analyzeApp(APP, [
+			[
+				"/app/profile.module.ts",
+				`import { Inject, Injectable, Module } from "@nexus-ioc/core";
+import { Http } from "./http.module";
+
+@Injectable()
+export class ProfileStore {
+  constructor(@Inject(Http) readonly http: Http) {}
+}
+
+@Module({ providers: [ProfileStore, { provide: Http, useValue: {} }] })
+export class ProfileModule {}
+`,
+			],
+		]);
+		const [http] = resolvedOf("ProfileStore", "http");
+		expect(http?.fromParentScope).toBe(false);
+		expect(http?.providingModule.name).toBe("ProfileModule");
+	});
+
+	it("falls back to the declaring module's visibility, not the root's", () => {
+		const { application, resolvedOf, unresolvedOf, idOf } = analyzeApp(
+			`import { Injectable, Module } from "@nexus-ioc/core";
+import { FeatureModule } from "./feature.module";
+
+@Injectable()
+export class RootOnly {}
+
+@Module({ imports: [FeatureModule], providers: [RootOnly] })
+export class AppModule {}
+`,
+			[
+				[
+					"/app/feature.module.ts",
+					`import { Injectable, Module } from "@nexus-ioc/core";
+import { HttpModule } from "./http.module";
+import { ProfileModule } from "./profile.module";
+
+@Injectable()
+export class FeatureOwn {}
+
+@Module({ imports: [HttpModule], providers: [FeatureOwn], children: [ProfileModule] })
+export class FeatureModule {}
+`,
+				],
+				[
+					"/app/profile.module.ts",
+					`import { Inject, Injectable, Module } from "@nexus-ioc/core";
+import { Http } from "./http.module";
+import { FeatureOwn } from "./feature.module";
+import { RootOnly } from "./app.module";
+
+@Injectable()
+export class ProfileStore {
+  constructor(
+    @Inject(Http) readonly http: Http,
+    @Inject(FeatureOwn) readonly own: FeatureOwn,
+    @Inject(RootOnly) readonly rootOnly: RootOnly,
+  ) {}
+}
+
+@Module({ providers: [ProfileStore] })
+export class ProfileModule {}
+`,
+				],
+			],
+		);
+		const child = application.scopes[1];
+		expect(child.declaredInId).toBe(idOf("FeatureModule"));
+		expect(child.parentRootId).toBe(idOf("AppModule"));
+		expect(resolvedOf("ProfileStore", "http")[0]?.fromParentScope).toBe(true);
+		expect(resolvedOf("ProfileStore", "own")[0]?.providingModule.name).toBe(
+			"FeatureModule",
+		);
+		expect(unresolvedOf("ProfileStore")).toEqual(["rootOnly"]);
+	});
+
+	it("recurses up the chain for a grandchild scope", () => {
+		const { application, resolvedOf, idOf } = analyzeApp(APP, [
+			[
+				"/app/profile.module.ts",
+				`import { Injectable, Module } from "@nexus-ioc/core";
+import { SettingsModule } from "./settings.module";
+
+@Injectable()
+export class Local {}
+
+@Module({ providers: [Local], children: [SettingsModule] })
+export class ProfileModule {}
+`,
+			],
+			[
+				"/app/settings.module.ts",
+				`import { Inject, Injectable, Module } from "@nexus-ioc/core";
+import { Http } from "./http.module";
+import { Local } from "./profile.module";
+
+@Injectable()
+export class SettingsStore {
+  constructor(
+    @Inject(Http) readonly http: Http,
+    @Inject(Local) readonly local: Local,
+  ) {}
+}
+
+@Module({ providers: [SettingsStore] })
+export class SettingsModule {}
+`,
+			],
+		]);
+		expect(application.scopes).toHaveLength(3);
+		const grandchild = application.scopes[2];
+		expect(grandchild.rootId).toBe(idOf("SettingsModule"));
+		expect(grandchild.declaredInId).toBe(idOf("ProfileModule"));
+		expect(grandchild.parentRootId).toBe(idOf("ProfileModule"));
+		expect(resolvedOf("SettingsStore", "http")[0]?.providingModule.name).toBe(
+			"HttpModule",
+		);
+		expect(resolvedOf("SettingsStore", "http")[0]?.fromParentScope).toBe(true);
+		expect(resolvedOf("SettingsStore", "local")[0]?.fromParentScope).toBe(true);
+	});
+
+	it("does not crash on an unresolvable lazy child and adds no scope for it", () => {
+		const { application } =
+			analyzeApp(`import { lazy, Module } from "@nexus-ioc/core";
+
+declare function load(): Promise<any>;
+
+@Module({ children: [lazy(() => load())] })
+export class AppModule {}
+`);
+		expect(application.scopes).toHaveLength(1);
+	});
+});

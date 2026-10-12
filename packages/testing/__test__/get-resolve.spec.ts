@@ -1,6 +1,7 @@
 import "reflect-metadata";
 import {
 	Injectable,
+	InjectionToken,
 	lazy,
 	Module,
 	type OnModuleInit,
@@ -145,5 +146,35 @@ describe("compile() result (ModuleContainer) get / resolve", () => {
 		const rejected = moduleRef.resolve<string>("nope");
 		await expect(rejected).rejects.toThrow(ProviderNotFoundError);
 		expectTypeOf(rejected).toEqualTypeOf<Promise<string>>();
+	});
+});
+
+describe("InjectionToken inference on the testing API", () => {
+	interface Config {
+		url: string;
+	}
+	const CONFIG = new InjectionToken<Config>("CONFIG");
+
+	it("Test.get / Test.resolve infer T from the token", async () => {
+		const container = Test.createModule({
+			providers: [{ provide: CONFIG, useValue: { url: "u" } }],
+		});
+		await container.compile();
+		expectTypeOf(container.get(CONFIG)).toEqualTypeOf<Config>();
+		expectTypeOf(container.get(CONFIG, { optional: true })).toEqualTypeOf<
+			Config | undefined
+		>();
+		expectTypeOf(container.resolve(CONFIG)).toEqualTypeOf<Promise<Config>>();
+		expect(container.get(CONFIG).url).toBe("u");
+		await expect(container.resolve(CONFIG)).resolves.toEqual({ url: "u" });
+	});
+
+	it("compile() result get / resolve infer T from the token", async () => {
+		const moduleRef = await Test.createModule({
+			providers: [{ provide: CONFIG, useValue: { url: "m" } }],
+		}).compile();
+		expectTypeOf(moduleRef.get(CONFIG)).toEqualTypeOf<Config>();
+		expectTypeOf(moduleRef.resolve(CONFIG)).toEqualTypeOf<Promise<Config>>();
+		expect(moduleRef.get(CONFIG).url).toBe("m");
 	});
 });

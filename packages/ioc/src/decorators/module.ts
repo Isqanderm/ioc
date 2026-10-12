@@ -19,6 +19,7 @@ import {
  * @param metadata.imports - Modules whose exported providers should be available in this module
  * @param metadata.providers - Providers that belong to this module
  * @param metadata.exports - Providers or modules to export (make available to importing modules)
+ * @param metadata.children - Modules (or lazy refs) that may be created as child containers; not compiled into this graph
  * @returns A class decorator
  * @throws {Error} If invalid metadata keys are provided
  *
@@ -66,6 +67,11 @@ export function Module(metadata: ModuleMetadata): ClassDecorator {
 		Reflect.defineMetadata(
 			MODULE_METADATA.PROVIDERS,
 			metadata.providers || [],
+			target,
+		);
+		Reflect.defineMetadata(
+			MODULE_METADATA.CHILDREN,
+			metadata.children || [],
 			target,
 		);
 	};

@@ -56,7 +56,7 @@ export interface GraphAnalyzerConfig {
 	deepModuleThreshold?: number;
 
 	/**
-	 * Analyze provider scopes and detect scope mismatches
+	 * Report provider scopes (Singleton or Transient)
 	 * @default false
 	 */
 	checkScope?: boolean;

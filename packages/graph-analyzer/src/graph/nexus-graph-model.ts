@@ -14,6 +14,15 @@ export interface GraphProviderDependency {
 	 * public JSON. Analyzers must match dependencies by this, not `token`. */
 	tokenId?: string;
 	optional: boolean;
+	/** Set (to `true`) only when the provider lives in a child scope and the
+	 * dependency is provided by an ancestor scope instead of its own.
+	 *
+	 * Approximate: "provided" means some module of the scope registers the
+	 * token, not that the token is visible to the provider's module under
+	 * imports/exports rules (this model has no `ts.Program` to apply them).
+	 * For the visibility-correct answer use `@nexus-ioc/type-checker`'s
+	 * `NexusResolvedDependency.fromParentScope`. */
+	crossScope?: boolean;
 }
 
 /** A constructor parameter or property whose type resolves to a class but
@@ -78,6 +87,24 @@ export interface GraphModuleNode {
 	/** Tokens this module exports. */
 	exports: GraphModuleReference[];
 	providers: GraphProviderNode[];
+	/** `rootId` of the (first) scope this module belongs to. Present only
+	 * when the application has child scopes (`NexusGraphModel.scopes`). */
+	scope?: string;
+	/** Statically resolved `@Module({ children })` entries. Present only when
+	 * non-empty. Children are not imports: they open a child scope. */
+	children?: GraphModuleReference[];
+}
+
+/** A container scope: the application root, or a child module's scope.
+ * Mirrors `@nexus-ioc/type-checker`'s `NexusScope`, restricted to modules. */
+export interface GraphScope {
+	rootId: string;
+	/** Module id that declares this child scope; absent for the root scope. */
+	declaredInId?: string;
+	/** Parent scope's `rootId`; absent for the root scope. */
+	parentRootId?: string;
+	/** Ids of the modules in this scope, in discovery order. */
+	moduleIds: string[];
 }
 
 export interface NexusGraphModel {
@@ -85,4 +112,8 @@ export interface NexusGraphModel {
 	/** Keyed by `GraphModuleNode.id`, not `name` — two modules named alike in
 	 * different files never collide here. */
 	modules: Map<string, GraphModuleNode>;
+	/** Root scope first, then each child scope. Present only when the
+	 * application declares at least one child scope via `children`; a
+	 * single-scope application leaves it `undefined`. */
+	scopes?: GraphScope[];
 }

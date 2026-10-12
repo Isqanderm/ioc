@@ -3,21 +3,22 @@ import {
 	EdgeTypeEnum,
 	type GraphError,
 	type GraphSegment,
-	type InjectionToken,
 	type LazyModule,
 	MODULE_TOKEN_WATERMARK,
 	MODULE_WATERMARK,
 	type ModuleContainerInterface,
 	type ModuleGraphInterface,
+	type ModuleGraphOptions,
 	type Node,
 	NodeTypeEnum,
 	PROPERTY_DEPS_METADATA,
 	PROPERTY_OPTIONAL_DEPS_METADATA,
 	type Provider,
+	type ProviderToken,
 	SELF_DECLARED_DEPS_METADATA,
 	SELF_DECLARED_OPTIONAL_DEPS_METADATA,
+	type SegmentUnloadResult,
 	type Type,
-	type UnloadResult,
 } from "../../interfaces";
 import type { ForwardRef } from "../../utils/forward-ref";
 import { isForwardRef } from "../../utils/forward-ref";
@@ -27,6 +28,7 @@ import {
 	getProviderToken,
 	isModule,
 } from "../../utils/helpers";
+import { isLazyModule } from "../../utils/lazy-module";
 import { AnalyzeLazyModule } from "./analyze-lazy-module";
 import { AnalyzeModule } from "./analyze-module";
 import type { AnalyzeProvider } from "./analyze-provider";
@@ -41,19 +43,19 @@ import type { AnalyzeFunctionProvider } from "./providers/analyze-function-provi
 import { ProviderFactory } from "./providers/provider-factory";
 
 /**
- * Helper function to safely convert InjectionToken to string for error messages
+ * Helper function to safely convert ProviderToken to string for error messages
  */
-function tokenToString(token: InjectionToken): string {
+function tokenToString(token: ProviderToken): string {
 	return typeof token === "function" ? token.name : String(token);
 }
 
 export class ModuleGraph implements ModuleGraphInterface {
-	private _nodes: Map<InjectionToken, Node> = new Map();
-	private _edges: Map<InjectionToken, Edge[]> = new Map();
-	private _globalModules: Map<InjectionToken, ModuleContainerInterface> =
+	private _nodes: Map<ProviderToken, Node> = new Map();
+	private _edges: Map<ProviderToken, Edge[]> = new Map();
+	private _globalModules: Map<ProviderToken, ModuleContainerInterface> =
 		new Map();
 	/** Module token -> its own declared provider tokens. */
-	private readonly _moduleProviders: Map<string, Set<InjectionToken>> =
+	private readonly _moduleProviders: Map<string, Set<ProviderToken>> =
 		new Map();
 	/**
 	 * Module token -> the other module tokens that need it alive: every
@@ -62,6 +64,26 @@ export class ModuleGraph implements ModuleGraphInterface {
 	 * through a `@Global()` module) on one of its providers.
 	 */
 	private readonly _moduleReferrers: Map<string, Set<string>> = new Map();
+	/**
+	 * Late-bound edge index: target token -> source provider token -> whether
+	 * the edge is bound. A `lateBound` edge is an `@Optional()` static edge
+	 * whose target was not visible from the source's module when it was
+	 * compiled (it may not have existed yet). The resolver injects its target
+	 * only while the target exists and is visible. "Bound" means that held
+	 * when a segment added the target (or a global module exposing it), so
+	 * the source's module was recorded as a referrer of the target's module;
+	 * only a bound edge counts in `moduleDependencies`, which keeps the
+	 * referrer purge symmetric with the recording.
+	 */
+	private readonly _lateBound = new Map<
+		ProviderToken,
+		Map<ProviderToken, boolean>
+	>();
+	/**
+	 * Child declaration index: the child's module class (or the `LazyModule.id`
+	 * symbol of a lazy ref) -> the token of the one module declaring it.
+	 */
+	private readonly _childDeclarations = new Map<Type | symbol, string>();
 	private readonly _errors: GraphError[] = [];
 	/**
 	 * While a segment compiles, its errors are collected here instead of in
@@ -69,10 +91,13 @@ export class ModuleGraph implements ModuleGraphInterface {
 	 * eager graph or of another segment.
 	 */
 	private _errorSink: GraphError[] | null = null;
+	/** See `version`. */
+	private _version = 0;
 
 	constructor(
 		private readonly _root: ModuleContainerInterface,
 		private readonly _internalRoots: ModuleContainerInterface[] = [],
+		private readonly options: ModuleGraphOptions = {},
 	) {}
 
 	public get nodes() {
@@ -95,6 +120,15 @@ export class ModuleGraph implements ModuleGraphInterface {
 		return this._internalRoots.map((root) => root.token);
 	}
 
+	/**
+	 * Bumped whenever `compile`, `compileSegment` or `unloadSegment` may have
+	 * changed which providers exist or which modules see them. A cache of
+	 * `isProviderVisible` results is valid while this number is unchanged.
+	 */
+	public get version(): number {
+		return this._version;
+	}
+
 	/** Records a graph error in the active sink, or in the shared list. */
 	private pushError(error: GraphError) {
 		(this._errorSink ?? this._errors).push(error);
@@ -107,7 +141,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 	 */
 	public async compile() {
 		const moduleTokens: string[] = [];
-		const providerTokens: InjectionToken[] = [];
+		const providerTokens: ProviderToken[] = [];
 
 		for (const root of [...this._internalRoots, this._root]) {
 			const added = await this.addModules(root, false);
@@ -119,6 +153,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 		await this.addDependencies(providerTokens);
 		await this.detectCircularDependencies(providerTokens);
 		await this.detectCircularImports(moduleTokens);
+		this._version++;
 	}
 
 	/**
@@ -166,6 +201,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 					...(createdPlaceholder ? [lazyModule.id] : []),
 				]);
 			} else {
+				this.bindLateEdges(added.moduleTokens, added.providerTokens);
 				(this._nodes.get(lazyModule.id) as AnalyzeLazyModule).markLoaded(
 					root.token,
 				);
@@ -180,6 +216,89 @@ export class ModuleGraph implements ModuleGraphInterface {
 			};
 		} finally {
 			this._errorSink = previousSink;
+			// Even a rolled-back segment was briefly part of the graph.
+			this._version++;
+		}
+	}
+
+	/**
+	 * Binds the late-bound edges (see `_lateBound`) whose target this
+	 * segment made visible to the edge's source, recording the referrer the
+	 * resolver's injection now implies. The same visibility check as the
+	 * resolver's, so bookkeeping and injection always agree.
+	 *
+	 * Only two things can make a late-bound target visible to an existing
+	 * source: the target's node being added (looked up per added provider)
+	 * or a new `@Global()` module exposing it (compiled modules' imports
+	 * never change). Only a segment adding a global module rechecks every
+	 * indexed target; the index holds only late-bound edges, so it is small.
+	 *
+	 * Once bound, an edge keeps the target's module pinned for the consumer
+	 * module's lifetime, even after the global module that exposed it
+	 * unloads. This is deliberately safe: instances created meanwhile may
+	 * still hold the target.
+	 */
+	private bindLateEdges(
+		addedModuleTokens: string[],
+		addedProviderTokens: ProviderToken[],
+	) {
+		if (this._lateBound.size === 0) {
+			return;
+		}
+		const addsGlobal = addedModuleTokens.some((token) =>
+			this._globalModules.has(token),
+		);
+		const targets = addsGlobal
+			? [...this._lateBound.keys()]
+			: addedProviderTokens.filter((token) => this._lateBound.has(token));
+
+		for (const target of targets) {
+			if (this._nodes.get(target)?.type !== NodeTypeEnum.PROVIDER) {
+				continue;
+			}
+			const sources = this._lateBound.get(target) as Map<
+				ProviderToken,
+				boolean
+			>;
+			for (const [source, bound] of sources) {
+				const consumer = this._nodes.get(source);
+				if (bound || consumer?.type !== NodeTypeEnum.PROVIDER) {
+					continue;
+				}
+				if (
+					this.isProviderVisible(
+						(consumer as AnalyzeProvider).moduleContainer,
+						target,
+					)
+				) {
+					sources.set(source, true);
+					this.recordCrossModuleReferrer(source, target, true);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Drops removed sources from the late-bound index and unbinds edges
+	 * whose target was removed (a later load of the target binds them
+	 * again). Runs after `purgeModuleIndexes`, which reads the bound state.
+	 */
+	private purgeLateBound(tokens: ProviderToken[]) {
+		if (this._lateBound.size === 0) {
+			return;
+		}
+		const removed = new Set<ProviderToken>(tokens);
+		for (const [target, sources] of this._lateBound) {
+			for (const [source, bound] of sources) {
+				if (removed.has(source)) {
+					sources.delete(source);
+				} else if (bound && removed.has(target)) {
+					sources.set(source, false);
+				}
+			}
+			if (sources.size === 0) {
+				this._lateBound.delete(target);
+			}
 		}
 	}
 
@@ -194,8 +313,9 @@ export class ModuleGraph implements ModuleGraphInterface {
 	 * `rescueCandidates` for a live outside referrer of a module reused by a
 	 * different, successful segment.
 	 */
-	private removeTokens(tokens: InjectionToken[]) {
+	private removeTokens(tokens: ProviderToken[]) {
 		this.purgeModuleIndexes(tokens);
+		this.purgeLateBound(tokens);
 
 		for (const token of tokens) {
 			this._nodes.delete(token);
@@ -216,7 +336,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 	public unloadSegment(
 		lazyModule: LazyModule,
 		protectedRoots: Set<string>,
-	): UnloadResult {
+	): SegmentUnloadResult {
 		const placeholder = this._nodes.get(lazyModule.id) as
 			| AnalyzeLazyModule
 			| undefined;
@@ -236,7 +356,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 		const alive = this.rescueCandidates(candidates);
 
 		const destroyedModules: string[] = [];
-		const destroyedProviders: InjectionToken[] = [];
+		const destroyedProviders: ProviderToken[] = [];
 
 		for (const moduleToken of candidates) {
 			if (alive.has(moduleToken)) {
@@ -251,6 +371,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 		this.removeModuleTokens(destroyedModules, destroyedProviders);
 		placeholder.markUnloaded();
+		this._version++;
 
 		return { destroyedModules, destroyedProviders };
 	}
@@ -269,7 +390,13 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 		for (const providerToken of this._moduleProviders.get(moduleToken) ?? []) {
 			for (const edge of this.getEdge(providerToken)) {
-				if (edge.type !== EdgeTypeEnum.DEPENDENCY || edge.metadata.unreached) {
+				if (
+					edge.type !== EdgeTypeEnum.DEPENDENCY ||
+					edge.metadata.unreached ||
+					edge.metadata.external ||
+					(edge.metadata.lateBound &&
+						this._lateBound.get(edge.target)?.get(providerToken) !== true)
+				) {
 					continue;
 				}
 				const dependency = this._nodes.get(edge.target);
@@ -347,7 +474,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 	private removeModuleTokens(
 		moduleTokens: string[],
-		providerTokens: InjectionToken[],
+		providerTokens: ProviderToken[],
 	) {
 		// Drop stale referrer entries, and the modules' own index entries,
 		// before deleting the edges they were derived from, so a module that
@@ -364,6 +491,35 @@ export class ModuleGraph implements ModuleGraphInterface {
 		// consumers (like `graph-analyzer`) can still see these as orphaned
 		// edge references.
 		this.purgeModuleIndexes(moduleTokens);
+		this.purgeLateBound(providerTokens);
+
+		// Defensive: a runtime (inject()) edge also records its source's module
+		// as a referrer of the target's module, so a provider that survives
+		// this unload should never hold one to a destroyed provider. Should it
+		// happen anyway, drop the edge; it is re-discovered on the next creation.
+		const destroyedProviders = new Set<ProviderToken>(providerTokens);
+		for (const [source, edges] of this._edges) {
+			if (destroyedProviders.has(source)) {
+				continue;
+			}
+			if (
+				edges.some(
+					(e) =>
+						e.metadata.inject === "runtime" && destroyedProviders.has(e.target),
+				)
+			) {
+				this._edges.set(
+					source,
+					edges.filter(
+						(e) =>
+							!(
+								e.metadata.inject === "runtime" &&
+								destroyedProviders.has(e.target)
+							),
+					),
+				);
+			}
+		}
 
 		for (const providerToken of providerTokens) {
 			this._nodes.delete(providerToken);
@@ -391,10 +547,17 @@ export class ModuleGraph implements ModuleGraphInterface {
 	 * module, its `_moduleProviders` entry) are deleted — `moduleDependencies`
 	 * reads both to determine what each token itself depended on.
 	 */
-	private purgeModuleIndexes(tokens: InjectionToken[]) {
+	private purgeModuleIndexes(tokens: ProviderToken[]) {
 		for (const token of tokens) {
 			for (const dependencyModule of this.moduleDependencies(token as string)) {
 				this._moduleReferrers.get(dependencyModule)?.delete(token as string);
+			}
+		}
+
+		const purged = new Set<ProviderToken>(tokens);
+		for (const [child, declarer] of this._childDeclarations) {
+			if (purged.has(declarer)) {
+				this._childDeclarations.delete(child);
 			}
 		}
 
@@ -404,11 +567,52 @@ export class ModuleGraph implements ModuleGraphInterface {
 		}
 	}
 
-	public getNode(token: InjectionToken): Node | undefined {
+	public addRuntimeDependency(
+		source: ProviderToken,
+		target: ProviderToken,
+	): void {
+		// inject() only gets here for a visible target. Recorded even when an
+		// edge already exists: a static late-bound edge to the same target
+		// (an @Optional one compiled while the target was not visible) may
+		// not be bound yet, and then recorded no referrer. Idempotent.
+		this.recordCrossModuleReferrer(source, target, true);
+		const exists = this.getEdge(source).some(
+			(edge) => edge.type === EdgeTypeEnum.DEPENDENCY && edge.target === target,
+		);
+		if (exists) {
+			// Bind it, so moduleDependencies sees it and the purge drops the
+			// referrer just recorded when either side unloads.
+			const sources = this._lateBound.get(target);
+			if (sources?.has(source)) {
+				sources.set(source, true);
+			}
+			return;
+		}
+		this.addEdge(source, {
+			type: EdgeTypeEnum.DEPENDENCY,
+			source,
+			target,
+			metadata: { inject: "runtime", unreached: false, isCircular: false },
+		});
+	}
+
+	public findChildDeclaration(
+		child: Type | LazyModule,
+	): ModuleContainerInterface | undefined {
+		const key = isLazyModule(child) ? child.id : child;
+		const declarer = this._childDeclarations.get(key);
+		if (declarer === undefined) {
+			return undefined;
+		}
+		const node = this._nodes.get(declarer);
+		return node instanceof AnalyzeModule ? node.moduleContainer : undefined;
+	}
+
+	public getNode(token: ProviderToken): Node | undefined {
 		return this._nodes.get(token);
 	}
 
-	public getEdge(token: InjectionToken) {
+	public getEdge(token: ProviderToken) {
 		return this._edges.get(token) || [];
 	}
 
@@ -426,13 +630,13 @@ export class ModuleGraph implements ModuleGraphInterface {
 		strictTokens: boolean,
 	): Promise<{
 		moduleTokens: string[];
-		providerTokens: InjectionToken[];
+		providerTokens: ProviderToken[];
 		lazyTokens: symbol[];
 	}> {
 		const moduleTokens: string[] = [];
-		const providerTokens: InjectionToken[] = [];
+		const providerTokens: ProviderToken[] = [];
 		const lazyTokens: symbol[] = [];
-		const visited = new Set<InjectionToken>();
+		const visited = new Set<ProviderToken>();
 		const imports = [root];
 
 		while (imports.length) {
@@ -466,10 +670,45 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 	private async addModule(analyzeModule: AnalyzeModule) {
 		this.addNode(analyzeModule.id, analyzeModule);
+		this.indexChildren(analyzeModule);
 
 		if (analyzeModule.isGlobal) {
 			this._globalModules.set(analyzeModule.id, analyzeModule.moduleContainer);
 		}
+	}
+
+	/**
+	 * Records the module's declared children. Children are never compiled into
+	 * this graph; only the declaration is indexed. A child declared by a second
+	 * module is a graph error and keeps its first declarer.
+	 */
+	private indexChildren(analyzeModule: AnalyzeModule) {
+		for (const child of analyzeModule.moduleContainer.children) {
+			const key = isLazyModule(child) ? child.id : child;
+			const existing = this._childDeclarations.get(key);
+			if (existing === undefined) {
+				this._childDeclarations.set(key, analyzeModule.id);
+			} else if (existing !== analyzeModule.id) {
+				// A second declarer; a module meeting its own entry is only
+				// listing the child twice, which is not an error.
+				this.pushError({
+					type: "CHILD_DECLARED_TWICE",
+					child: child.name,
+					modules: [
+						this.moduleLabel(existing),
+						this.moduleLabel(analyzeModule.id),
+					],
+				});
+			}
+		}
+	}
+
+	private moduleLabel(moduleToken: string): string {
+		const node = this._nodes.get(moduleToken);
+		if (node instanceof AnalyzeModule) {
+			return getModuleLabel(node.moduleContainer.metatype);
+		}
+		return moduleToken;
 	}
 
 	/**
@@ -505,8 +744,8 @@ export class ModuleGraph implements ModuleGraphInterface {
 	private async addModuleProviders(
 		analyzeModule: AnalyzeModule,
 		strictTokens: boolean,
-	): Promise<InjectionToken[]> {
-		const added: InjectionToken[] = [];
+	): Promise<ProviderToken[]> {
+		const added: ProviderToken[] = [];
 
 		for (const provider of analyzeModule.providers) {
 			const analyzeProvider = ProviderFactory(
@@ -549,7 +788,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 	// modules analyze
 
 	// graph helpers
-	private addEdge(token: InjectionToken, edge: Edge) {
+	private addEdge(token: ProviderToken, edge: Edge) {
 		const edges: Edge[] = this._edges.get(token) || [];
 
 		edges.push(edge);
@@ -557,14 +796,11 @@ export class ModuleGraph implements ModuleGraphInterface {
 		this._edges.set(token, edges);
 	}
 
-	private addNode(token: InjectionToken, node: Node) {
+	private addNode(token: ProviderToken, node: Node) {
 		this._nodes.set(token, node);
 	}
 
-	private addModuleProvider(
-		moduleToken: string,
-		providerToken: InjectionToken,
-	) {
+	private addModuleProvider(moduleToken: string, providerToken: ProviderToken) {
 		const providers = this._moduleProviders.get(moduleToken) ?? new Set();
 		providers.add(providerToken);
 		this._moduleProviders.set(moduleToken, providers);
@@ -577,19 +813,45 @@ export class ModuleGraph implements ModuleGraphInterface {
 	}
 
 	/**
+	 * Bookkeeping for a static `DEPENDENCY` edge just added: a late-bound
+	 * edge is indexed (its referrer is recorded by `bindLateEdges` once the
+	 * target is visible), any other edge records its referrer now.
+	 */
+	private recordStaticDependency(
+		source: ProviderToken,
+		target: ProviderToken,
+		countsAsReferrer: boolean,
+		lateBound: boolean,
+	) {
+		if (!lateBound) {
+			this.recordCrossModuleReferrer(source, target, countsAsReferrer);
+			return;
+		}
+		const sources = this._lateBound.get(target) ?? new Map();
+		if (!sources.has(source)) {
+			sources.set(source, false);
+		}
+		this._lateBound.set(target, sources);
+	}
+
+	/**
 	 * Records that `consumerToken` (a provider) keeps `dependencyToken`'s
 	 * declaring module alive, when the two providers are declared in
 	 * different modules. Called after every `DEPENDENCY` edge is added,
 	 * regardless of how the dependency was resolved (own module, import, or
 	 * `@Global()` fallback) — the edge already reflects that, so this needs
 	 * no help from `isProviderExported`.
+	 *
+	 * @param countsAsReferrer - False for an edge that keeps nothing in this
+	 *   graph alive: an unreached dependency, or an external one (resolved
+	 *   through the parent link, so its target lives in another container).
 	 */
 	private recordCrossModuleReferrer(
-		consumerToken: InjectionToken,
-		dependencyToken: InjectionToken,
-		isExported: boolean,
+		consumerToken: ProviderToken,
+		dependencyToken: ProviderToken,
+		countsAsReferrer: boolean,
 	) {
-		if (!isExported) {
+		if (!countsAsReferrer) {
 			return;
 		}
 
@@ -614,8 +876,8 @@ export class ModuleGraph implements ModuleGraphInterface {
 	// graph helpers
 
 	// providers dependencies
-	private async addDependencies(providerTokens: InjectionToken[]) {
-		const visited = new Set<InjectionToken>();
+	private async addDependencies(providerTokens: ProviderToken[]) {
+		const visited = new Set<ProviderToken>();
 
 		for (const token of providerTokens) {
 			const node = this._nodes.get(token);
@@ -637,7 +899,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 	}
 
 	private async addClassDependency(
-		token: InjectionToken,
+		token: ProviderToken,
 		node: AnalyzeFunctionProvider,
 	) {
 		const constructorDependencies = this.getConstructorDependencies(
@@ -649,16 +911,18 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 		for (const [index, dependency] of constructorDependencies.entries()) {
 			const isLazy = isForwardRef(dependency.param);
-			const dependencyToken: InjectionToken = isLazy
+			const dependencyToken: ProviderToken = isLazy
 				? ((
 						dependency.param as unknown as ForwardRef
-					).forwardRef() as InjectionToken)
+					).forwardRef() as ProviderToken)
 				: getDependencyToken(dependency.param);
-			const isExported =
-				optionalDependency.includes(index) ||
-				(await this.isProviderExported(node.moduleContainer, dependencyToken));
+			const { reachable, external, lateBound } = await this.reachDependency(
+				node.moduleContainer,
+				dependencyToken,
+				optionalDependency.includes(index),
+			);
 
-			if (!isExported) {
+			if (!reachable) {
 				this.pushError({
 					type: "UNREACHED_DEP_CONSTRUCTOR",
 					token: node.label,
@@ -672,7 +936,9 @@ export class ModuleGraph implements ModuleGraphInterface {
 				source: token,
 				target: dependencyToken,
 				metadata: {
-					unreached: !isExported,
+					unreached: !reachable,
+					...(external && { external: true }),
+					...(lateBound && { lateBound: true }),
 					isCircular: false,
 					lazy: isLazy,
 					index: dependency.index,
@@ -681,7 +947,12 @@ export class ModuleGraph implements ModuleGraphInterface {
 			};
 
 			this.addEdge(token, newEdge);
-			this.recordCrossModuleReferrer(token, dependencyToken, isExported);
+			this.recordStaticDependency(
+				token,
+				dependencyToken,
+				reachable && !external,
+				lateBound,
+			);
 		}
 
 		const propertiesDependencies = this.getPropertiesDependencies(
@@ -693,11 +964,13 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 		for (const dependency of propertiesDependencies) {
 			const dependencyToken = getDependencyToken(dependency.type);
-			const isExported =
-				optionalProperties.includes(dependency.key) ||
-				(await this.isProviderExported(node.moduleContainer, dependencyToken));
+			const { reachable, external, lateBound } = await this.reachDependency(
+				node.moduleContainer,
+				dependencyToken,
+				optionalProperties.includes(dependency.key),
+			);
 
-			if (!isExported) {
+			if (!reachable) {
 				this.pushError({
 					type: "UNREACHED_DEP_PROPERTY",
 					token: node.label,
@@ -711,7 +984,9 @@ export class ModuleGraph implements ModuleGraphInterface {
 				source: token,
 				target: dependencyToken,
 				metadata: {
-					unreached: !isExported,
+					unreached: !reachable,
+					...(external && { external: true }),
+					...(lateBound && { lateBound: true }),
 					isCircular: false,
 					key: dependency.key,
 					inject: "property",
@@ -719,12 +994,17 @@ export class ModuleGraph implements ModuleGraphInterface {
 			};
 
 			this.addEdge(token, newEdge);
-			this.recordCrossModuleReferrer(token, dependencyToken, isExported);
+			this.recordStaticDependency(
+				token,
+				dependencyToken,
+				reachable && !external,
+				lateBound,
+			);
 		}
 	}
 
 	private async addClassProviderDependency(
-		token: InjectionToken,
+		token: ProviderToken,
 		node: AnalyzeClassProvider,
 	) {
 		const Class = node.useClass;
@@ -733,16 +1013,18 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 		for (const [index, dependency] of constructorDependencies.entries()) {
 			const isLazy = isForwardRef(dependency.param);
-			const dependencyToken: InjectionToken = isLazy
+			const dependencyToken: ProviderToken = isLazy
 				? ((
 						dependency.param as unknown as ForwardRef
-					).forwardRef() as InjectionToken)
+					).forwardRef() as ProviderToken)
 				: getDependencyToken(dependency.param);
-			const isExported =
-				optionalDependency.includes(index) ||
-				(await this.isProviderExported(node.moduleContainer, dependencyToken));
+			const { reachable, external, lateBound } = await this.reachDependency(
+				node.moduleContainer,
+				dependencyToken,
+				optionalDependency.includes(index),
+			);
 
-			if (!isExported) {
+			if (!reachable) {
 				this.pushError({
 					type: "UNREACHED_DEP_CONSTRUCTOR",
 					token: node.label,
@@ -756,7 +1038,9 @@ export class ModuleGraph implements ModuleGraphInterface {
 				source: token,
 				target: dependencyToken,
 				metadata: {
-					unreached: !isExported,
+					unreached: !reachable,
+					...(external && { external: true }),
+					...(lateBound && { lateBound: true }),
 					isCircular: false,
 					lazy: isLazy,
 					index: dependency.index,
@@ -765,7 +1049,12 @@ export class ModuleGraph implements ModuleGraphInterface {
 			};
 
 			this.addEdge(token, newEdge);
-			this.recordCrossModuleReferrer(token, dependencyToken, isExported);
+			this.recordStaticDependency(
+				token,
+				dependencyToken,
+				reachable && !external,
+				lateBound,
+			);
 		}
 
 		const propertiesDependencies = this.getPropertiesDependencies(Class);
@@ -773,11 +1062,13 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 		for (const dependency of propertiesDependencies) {
 			const dependencyToken = getDependencyToken(dependency.type);
-			const isExported =
-				optionalProperty.includes(dependency.key) ||
-				(await this.isProviderExported(node.moduleContainer, dependencyToken));
+			const { reachable, external, lateBound } = await this.reachDependency(
+				node.moduleContainer,
+				dependencyToken,
+				optionalProperty.includes(dependency.key),
+			);
 
-			if (!isExported) {
+			if (!reachable) {
 				this.pushError({
 					type: "UNREACHED_DEP_PROPERTY",
 					token: node.label,
@@ -791,18 +1082,25 @@ export class ModuleGraph implements ModuleGraphInterface {
 				source: token,
 				target: dependencyToken,
 				metadata: {
-					unreached: !isExported,
+					unreached: !reachable,
+					...(external && { external: true }),
+					...(lateBound && { lateBound: true }),
 					isCircular: false,
 					key: dependency.key,
 					inject: "property",
 				},
 			});
-			this.recordCrossModuleReferrer(token, dependencyToken, isExported);
+			this.recordStaticDependency(
+				token,
+				dependencyToken,
+				reachable && !external,
+				lateBound,
+			);
 		}
 	}
 
 	private async addFactoryProviderDependency(
-		token: InjectionToken,
+		token: ProviderToken,
 		node: AnalyzeFactoryProvider,
 	) {
 		const dependencies = node.inject || [];
@@ -810,16 +1108,17 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 		for (const dependency of dependencies) {
 			const isLazy = isForwardRef(dependency);
-			const dependencyToken: InjectionToken = isLazy
-				? ((dependency as ForwardRef).forwardRef() as InjectionToken)
-				: (dependency as InjectionToken);
+			const dependencyToken: ProviderToken = isLazy
+				? ((dependency as ForwardRef).forwardRef() as ProviderToken)
+				: (dependency as ProviderToken);
 
-			const isExported = await this.isProviderExported(
+			const { reachable, external, lateBound } = await this.reachDependency(
 				node.moduleContainer,
 				dependencyToken,
+				false,
 			);
 
-			if (!isExported) {
+			if (!reachable) {
 				this.pushError({
 					type: "UNREACHED_DEP_FACTORY",
 					token: node.label,
@@ -833,7 +1132,9 @@ export class ModuleGraph implements ModuleGraphInterface {
 				source: token,
 				target: dependencyToken,
 				metadata: {
-					unreached: !isExported,
+					unreached: !reachable,
+					...(external && { external: true }),
+					...(lateBound && { lateBound: true }),
 					isCircular: false,
 					lazy: isLazy,
 					index: index++,
@@ -842,14 +1143,40 @@ export class ModuleGraph implements ModuleGraphInterface {
 			};
 
 			this.addEdge(token, factoryDependency);
-			this.recordCrossModuleReferrer(token, dependencyToken, isExported);
+			this.recordStaticDependency(
+				token,
+				dependencyToken,
+				reachable && !external,
+				lateBound,
+			);
 		}
+	}
+	/**
+	 * How a dependency of a provider declared in `moduleContainer` is
+	 * satisfied: locally (own module, imports, globals), by the parent
+	 * container chain, or not at all. Optional dependencies count as
+	 * satisfied; a parent that can provide one is still preferred. An
+	 * optional dependency satisfied only by being optional is `lateBound`:
+	 * the resolver injects it only once it exists and is visible.
+	 */
+	private async reachDependency(
+		moduleContainer: ModuleContainerInterface,
+		token: ProviderToken,
+		optional: boolean,
+	): Promise<{ reachable: boolean; external: boolean; lateBound: boolean }> {
+		if (await this.isProviderExported(moduleContainer, token)) {
+			return { reachable: true, external: false, lateBound: false };
+		}
+		if (this.options.externalLookup?.(token)) {
+			return { reachable: true, external: true, lateBound: false };
+		}
+		return { reachable: optional, external: false, lateBound: optional };
 	}
 	// providers dependencies
 
 	public async isProviderExported(
 		moduleContainer: ModuleContainerInterface,
-		dependencyToken: InjectionToken,
+		dependencyToken: ProviderToken,
 	): Promise<boolean> {
 		await moduleContainer.imports;
 		return this.isProviderVisible(moduleContainer, dependencyToken);
@@ -857,19 +1184,18 @@ export class ModuleGraph implements ModuleGraphInterface {
 
 	public isProviderVisible(
 		moduleContainer: ModuleContainerInterface,
-		dependencyToken: InjectionToken,
+		dependencyToken: ProviderToken,
 	): boolean {
-		// check globals
+		// globals, including what they re-export through a module class
+		const globalExports: (ProviderToken | Type)[] = [];
 		for (const globalModule of this._globalModules.values()) {
-			if (
-				globalModule.exports.some((provider) => provider === dependencyToken)
-			) {
-				return true;
-			}
+			globalExports.push(...globalModule.exports);
 		}
-		// check globals
+		if (this.exportsReach(globalExports, dependencyToken)) {
+			return true;
+		}
 
-		// check internals
+		// own providers
 		if (
 			moduleContainer.providers.some(
 				(provider) => getProviderToken(provider) === dependencyToken,
@@ -878,15 +1204,27 @@ export class ModuleGraph implements ModuleGraphInterface {
 			return true;
 		}
 
-		// externals
+		// imports
 		const containerImports = moduleContainer.resolvedImports;
 		if (!containerImports) {
 			throw new Error("Module imports are not resolved yet");
 		}
-		const visitedModules = new Set<InjectionToken | Type>();
-		const queue = containerImports.flatMap(
-			(firstLevelContainer) => firstLevelContainer.exports,
+		return this.exportsReach(
+			containerImports.flatMap((imported) => imported.exports),
+			dependencyToken,
 		);
+	}
+
+	/**
+	 * Whether `dependencyToken` is among `exports`, following module-class
+	 * re-exports through the modules' own exports.
+	 */
+	private exportsReach(
+		exports: (ProviderToken | Type)[],
+		dependencyToken: ProviderToken,
+	): boolean {
+		const visitedModules = new Set<ProviderToken | Type>();
+		const queue = [...exports];
 
 		while (queue.length) {
 			const currentExportToken = queue.shift();
@@ -923,16 +1261,16 @@ export class ModuleGraph implements ModuleGraphInterface {
 	}
 
 	private async detectCircularDependencies(
-		startTokens: InjectionToken[],
+		startTokens: ProviderToken[],
 	): Promise<void> {
 		const visit = (
-			nodeId: InjectionToken,
-			path: InjectionToken[],
-			visited: Set<InjectionToken>,
-			stack: Set<InjectionToken>,
+			nodeId: ProviderToken,
+			path: ProviderToken[],
+			visited: Set<ProviderToken>,
+			stack: Set<ProviderToken>,
 		): boolean => {
 			if (stack.has(nodeId)) {
-				const cyclePath: [InjectionToken, InjectionToken][] = path.map(
+				const cyclePath: [ProviderToken, ProviderToken][] = path.map(
 					(node, index) => [node, path[index + 1] || nodeId],
 				);
 
@@ -978,8 +1316,15 @@ export class ModuleGraph implements ModuleGraphInterface {
 			stack.add(nodeId);
 			path.push(nodeId);
 
+			// Runtime (inject()) edges are followed too. That is safe: one is
+			// recorded only after inject() returned its target, and a cycle
+			// through inject() throws CircularInjectionError during creation
+			// before the edge is recorded. So runtime edges only mirror
+			// dependencies that were actually created without a cycle.
 			const edges = this.getEdge(nodeId) || [];
 			for (const edge of edges) {
+				// An external edge ends here: its target lives in the parent chain.
+				if (edge.metadata.external) continue;
 				visit(edge.target, path, visited, stack);
 			}
 
@@ -989,16 +1334,16 @@ export class ModuleGraph implements ModuleGraphInterface {
 		};
 
 		for (const nodeId of new Set(startTokens)) {
-			visit(nodeId, [], new Set<InjectionToken>(), new Set<InjectionToken>());
+			visit(nodeId, [], new Set<ProviderToken>(), new Set<ProviderToken>());
 		}
 	}
 
 	private async detectCircularImports(startTokens: string[]): Promise<void> {
 		const visit = (
-			nodeId: InjectionToken,
-			path: InjectionToken[],
-			visited: Set<InjectionToken>,
-			stack: Set<InjectionToken>,
+			nodeId: ProviderToken,
+			path: ProviderToken[],
+			visited: Set<ProviderToken>,
+			stack: Set<ProviderToken>,
 		): void => {
 			if (stack.has(nodeId)) {
 				const cycleStartIndex = path.indexOf(nodeId);
@@ -1046,7 +1391,7 @@ export class ModuleGraph implements ModuleGraphInterface {
 		};
 
 		for (const nodeId of new Set(startTokens)) {
-			visit(nodeId, [], new Set<InjectionToken>(), new Set<InjectionToken>());
+			visit(nodeId, [], new Set<ProviderToken>(), new Set<ProviderToken>());
 		}
 	}
 

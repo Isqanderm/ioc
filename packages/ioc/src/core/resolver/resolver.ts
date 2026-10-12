@@ -1,9 +1,20 @@
+import { CircularInjectionError } from "../../errors/injection-errors";
 import {
+	AsyncFactoryError,
+	ContainerClosedError,
+	ProviderNotFoundError,
+	ProviderNotInstantiatedError,
+	ProviderUnloadedError,
+} from "../../errors/provider-errors";
+import {
+	type Edge,
 	EdgeTypeEnum,
-	type InjectionToken,
 	type ModuleGraphInterface,
 	type Node,
 	NodeTypeEnum,
+	type ParentLink,
+	type Provider,
+	type ProviderToken,
 	Scope,
 	type Type,
 } from "../../interfaces";
@@ -13,34 +24,112 @@ import {
 	isValueProvider,
 } from "../../utils/helpers";
 import type { AnalyzeProvider } from "../graph/analyze-provider";
+import {
+	type InjectionContext,
+	type InjectOptions,
+	withInjectionContext,
+} from "../injection/injection-context";
 import { ProvidersContainer } from "./providers-container";
+import { ResolutionContext } from "./resolution-context";
 
-// Type & { dependencyName: InjectionToken }
+// Type & { dependencyName: ProviderToken }
 type CircularDependencyFn = () => typeof Proxy;
 function isCircularDependencyFn(
-	fn: CircularDependencyFn | InjectionToken,
+	fn: CircularDependencyFn | ProviderToken,
 ): fn is CircularDependencyFn {
 	// @ts-expect-error
 	return !!(typeof fn === "function" && fn.dependencyName);
 }
 
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+	return (
+		value !== null &&
+		(typeof value === "object" || typeof value === "function") &&
+		typeof (value as { then?: unknown }).then === "function"
+	);
+}
+
 export class Resolver {
 	private readonly providersContainer = new ProvidersContainer();
-	private readonly initializationOrder: InjectionToken[] = [];
+	private readonly initializationOrder: ProviderToken[] = [];
+	/** `lateBoundVisible` results, valid while the graph version matches. */
+	private readonly lateBoundMemo = new WeakMap<
+		Edge,
+		{ version: number; visible: boolean }
+	>();
+	/**
+	 * Singletons created by inject() whose onModuleInit (or the wait on
+	 * inits queued before them) has not settled yet. Other resolution trees
+	 * that hit such a cached singleton wait on this promise, so they never
+	 * see it half-initialised or keep it after a failed init evicted it.
+	 */
+	private readonly inFlightInits = new Map<ProviderToken, Promise<unknown>>();
+	/**
+	 * Singletons that resolveProvider is creating (construction through
+	 * onModuleInit), not yet in the cache. Concurrent callers await the same
+	 * promise, so each singleton is created once. An entry is removed when
+	 * its creation settles: after the commit on success, so a token is always
+	 * in the cache or here; on failure, so the next resolve retries.
+	 */
+	private readonly inFlightCreations = new Map<
+		ProviderToken,
+		Promise<unknown>
+	>();
+	/**
+	 * Set once close() starts. From then on nothing new is created or
+	 * cached: creations still in flight are destroyed when they finish
+	 * (close() does not wait for them, see commitCreation), and inject()
+	 * in a resolution tree that outlived close() throws instead of creating.
+	 */
+	private closed = false;
 
-	constructor(private readonly graph: ModuleGraphInterface) {}
+	/**
+	 * @param link - The parent chain of a child container. Edges marked
+	 *   `external` resolve through it; their results are never cached here.
+	 */
+	constructor(
+		private readonly graph: ModuleGraphInterface,
+		private readonly link: ParentLink | null = null,
+	) {}
+
+	/**
+	 * The link that satisfies an external edge. The graph marks an edge
+	 * external only when a link can provide its target, so a missing link
+	 * is an internal error, reported as not found rather than `undefined`.
+	 */
+	private linkFor(edge: Edge): ParentLink {
+		if (!this.link) {
+			throw new ProviderNotFoundError(edge.target, edge.source);
+		}
+		return this.link;
+	}
 
 	/** Cached singleton lookup; never creates. Uses has() so falsy values count. */
 	public getInstantiated(
-		token: InjectionToken,
+		token: ProviderToken,
 	): { found: true; instance: unknown } | { found: false } {
-		if (!this.providersContainer.has(token)) {
+		// A singleton inject() created is cached before its async init settles;
+		// like the async path, it counts as instantiated only after the init.
+		if (!this.providersContainer.has(token) || this.inFlightInits.has(token)) {
 			return { found: false };
 		}
 		return { found: true, instance: this.providersContainer.get(token) };
 	}
 
+	/**
+	 * Marks the resolver closed without destroying anything; used when the
+	 * container was closed before this resolver existed.
+	 */
+	public markClosed(): void {
+		this.closed = true;
+		// Every creation still in flight is now stale (see commitCreation).
+		this.inFlightCreations.clear();
+	}
+
 	public async close(): Promise<void> {
+		// Before the first await: a creation that finishes while the hooks
+		// below run must not be cached behind the destroy pass.
+		this.markClosed();
 		const errors: unknown[] = [];
 		for (const token of [...this.initializationOrder].reverse()) {
 			const instance = this.providersContainer.get(token);
@@ -54,6 +143,8 @@ export class Resolver {
 		}
 		this.providersContainer.clear();
 		this.initializationOrder.length = 0;
+		this.inFlightInits.clear();
+		this.inFlightCreations.clear();
 		if (errors.length > 0) {
 			throw new AggregateError(
 				errors,
@@ -67,17 +158,31 @@ export class Resolver {
 	 * initialization order, then removed from the cache and from
 	 * `initializationOrder`. A token that was never instantiated (never
 	 * resolved, or `Transient`/non-singleton scope) is silently skipped.
+	 * Like `close()`, every hook runs even if some throw, the cleanup always
+	 * completes, and the failures are thrown afterwards as one
+	 * `AggregateError`.
 	 */
-	public async destroy(tokens: InjectionToken[]): Promise<void> {
+	public async destroy(tokens: ProviderToken[]): Promise<void> {
 		const dead = new Set(tokens);
+		// Before the first await: a creation of a dead token still in flight
+		// is stale from now on and is destroyed, not cached, when it finishes.
+		for (const token of dead) {
+			this.inFlightInits.delete(token);
+			this.inFlightCreations.delete(token);
+		}
 		const orderedDead = this.initializationOrder.filter((token) =>
 			dead.has(token),
 		);
 
+		const errors: unknown[] = [];
 		for (const token of [...orderedDead].reverse()) {
 			const instance = this.providersContainer.get(token);
 			if (instance?.onModuleDestroy) {
-				await instance.onModuleDestroy();
+				try {
+					await instance.onModuleDestroy();
+				} catch (error) {
+					errors.push(error);
+				}
 			}
 			this.providersContainer.delete(token);
 		}
@@ -87,13 +192,23 @@ export class Resolver {
 		);
 		this.initializationOrder.length = 0;
 		this.initializationOrder.push(...survivors);
+		if (errors.length > 0) {
+			throw new AggregateError(
+				errors,
+				"One or more onModuleDestroy hooks failed",
+			);
+		}
 	}
 
 	public async resolveProvider<T>(
-		token: InjectionToken,
-		resolveCache: ProvidersContainer = new ProvidersContainer(),
+		token: ProviderToken,
+		ctx: ResolutionContext = new ResolutionContext(),
 		isCircularDependency = false,
 	): Promise<T | undefined> {
+		if (this.closed) {
+			throw new ContainerClosedError();
+		}
+
 		const node = this.graph.getNode(token);
 
 		if (!node) {
@@ -111,146 +226,519 @@ export class Resolver {
 
 		// For Transient scope, always create a new instance (no caching at all)
 		if (scope === Scope.Transient) {
-			const [instance] = await this.createInstance(
-				node,
-				resolveCache,
-				isCircularDependency,
-			);
-			return instance as T;
+			return (await this.createInstance(node, ctx, isCircularDependency)) as T;
 		}
 
 		// For Singleton scope, check global cache first
 		if (scope === Scope.Singleton && this.providersContainer.has(token)) {
-			return this.providersContainer.get(token);
+			const cached = this.providersContainer.get(token);
+			const inFlight = this.inFlightInits.get(token);
+			if (inFlight) {
+				// Created by inject() in another tree; its init is still running.
+				// On failure it was evicted, so the error propagates.
+				await inFlight;
+			}
+			return cached;
 		}
 
-		// For Request and Singleton scopes, check resolve cache (within current resolution tree)
-		if (resolveCache.has(token)) {
-			return resolveCache.get(token);
+		const inFlight = this.inFlightCreations.get(token);
+		if (inFlight) {
+			// Defensive: this tree is creating the token itself, so awaiting its
+			// own creation would never settle. Static cycles are marked circular
+			// by the graph and never get here.
+			if (ctx.isConstructing(token)) {
+				throw new CircularInjectionError([...ctx.path, token]);
+			}
+			return (await inFlight) as T;
 		}
 
-		const [instance, saveInCache] = await this.createInstance(
+		const creation: Promise<unknown> = this.createInstance(
 			node,
-			resolveCache,
+			ctx,
 			isCircularDependency,
-		);
+		).then((instance) => this.commitCreation(node, creation, instance));
+		this.inFlightCreations.set(token, creation);
+		const clear = () => {
+			// close()/destroy() may have dropped it, or a retry replaced it.
+			if (this.inFlightCreations.get(token) === creation) {
+				this.inFlightCreations.delete(token);
+			}
+		};
+		creation.then(clear, clear);
+		return (await creation) as T;
+	}
 
-		// Add to resolve cache for current resolution context (for Request and Singleton)
-		// This ensures same instance is used within a single dependency resolution tree
-		if (scope === Scope.Singleton || scope === Scope.Scoped) {
-			resolveCache.set(token, instance);
+	/**
+	 * Caches what `creation` produced, unless the creation went stale while
+	 * it ran: close() or destroy() (an unload) dropped its in-flight entry.
+	 * A stale instance is never cached. Its onModuleDestroy is called (best
+	 * effort: a failure there is ignored, since the caller already gets the
+	 * rejection below and nothing else holds the instance), and the caller
+	 * gets ContainerClosedError after a close, ProviderUnloadedError after
+	 * an unload.
+	 */
+	private async commitCreation(
+		node: AnalyzeProvider,
+		creation: Promise<unknown>,
+		instance: unknown,
+	): Promise<unknown> {
+		if (this.inFlightCreations.get(node.id) === creation) {
+			this.commitInstance(node, instance);
+			return instance;
 		}
-
-		// Only save to global cache for Singleton scope
-		if (saveInCache) {
-			this.providersContainer.set(token, instance);
-			this.initializationOrder.push(token);
+		const stale = instance as { onModuleDestroy?: () => unknown } | null;
+		try {
+			await stale?.onModuleDestroy?.();
+		} catch {
+			// Best effort; see above.
 		}
+		throw this.closed
+			? new ContainerClosedError()
+			: new ProviderUnloadedError(node.id);
+	}
 
-		return instance as T;
+	/**
+	 * Caching rules shared by the async and sync paths: Singletons go into the
+	 * global cache and the destroy order. Nothing else is cached.
+	 */
+	private commitInstance(node: AnalyzeProvider, instance: unknown): void {
+		if (node.scope !== Scope.Singleton) {
+			return;
+		}
+		// First writer wins if concurrent creations race for the same token.
+		if (!this.providersContainer.has(node.id)) {
+			this.providersContainer.set(node.id, instance);
+			this.initializationOrder.push(node.id);
+		}
+	}
+
+	/** Undoes commitInstance for `instance`, if it is still the cached one. */
+	private evictInstance(node: AnalyzeProvider, instance: unknown): void {
+		const token = node.id;
+		if (
+			this.providersContainer.has(token) &&
+			this.providersContainer.get(token) === instance
+		) {
+			this.providersContainer.delete(token);
+			const index = this.initializationOrder.lastIndexOf(token);
+			if (index !== -1) {
+				this.initializationOrder.splice(index, 1);
+			}
+		}
 	}
 
 	private async createInstance(
 		node: AnalyzeProvider,
-		resolveCache: ProvidersContainer,
+		ctx: ResolutionContext,
 		isCircularDependency = false,
-	): Promise<[Type, boolean]> {
-		const provider = node.metatype;
-		const dependencyEdges = this.graph
-			.getEdge(node.id)
-			.filter(
-				(edge) =>
-					edge.type === EdgeTypeEnum.DEPENDENCY &&
-					edge.metadata.inject === "constructor" &&
-					edge.metadata.unreached === false,
+	): Promise<unknown> {
+		ctx.enter(node.id);
+		try {
+			return await this.createInstanceInContext(
+				node,
+				ctx,
+				isCircularDependency,
 			);
+		} finally {
+			ctx.leave(node.id);
+		}
+	}
+
+	private async createInstanceInContext(
+		node: AnalyzeProvider,
+		ctx: ResolutionContext,
+		isCircularDependency: boolean,
+	): Promise<unknown> {
+		const provider = node.metatype;
+		const dependencyEdges = this.constructorEdges(node).filter(
+			(edge) => edge.metadata.unreached === false,
+		);
 
 		const resolvedDependencies: (CircularDependencyFn | unknown)[] = [];
 		for (const edge of dependencyEdges) {
+			// An external target lives in the parent chain. Branch before any
+			// local lookup: the child graph may have no node for it (which would
+			// read as undefined) or a hidden one the requester must not get.
+			if (edge.metadata.external) {
+				resolvedDependencies.push(
+					await this.linkFor(edge).resolve(edge.target),
+				);
+				continue;
+			}
+			if (edge.metadata.lateBound && !this.lateBoundVisible(edge, node)) {
+				resolvedDependencies.push(undefined);
+				continue;
+			}
 			if (edge.metadata.isCircular) {
-				if (isCircularDependency) {
+				// A circular target that another tree is creating gets the proxy
+				// too: awaiting it could deadlock, since that tree may be waiting
+				// on this one through the same cycle.
+				if (
+					isCircularDependency ||
+					(this.inFlightCreations.has(edge.target) &&
+						!this.providersContainer.has(edge.target))
+				) {
 					const circularResolver = () =>
 						new Proxy(
 							{},
 							{
 								get: (_, prop) => {
-									const instance = resolveCache.get(edge.target);
+									const instance = this.providersContainer.get(edge.target);
 									return instance?.[prop];
 								},
 							},
 						);
 					(
 						circularResolver as unknown as {
-							dependencyName: InjectionToken;
+							dependencyName: ProviderToken;
 						}
 					).dependencyName = edge.target;
 					resolvedDependencies.push(circularResolver as CircularDependencyFn);
 					continue;
 				}
 				resolvedDependencies.push(
-					await this.resolveProvider(edge.target, resolveCache, true),
+					await this.resolveProvider(edge.target, ctx, true),
 				);
 				continue;
 			}
-			resolvedDependencies.push(
-				await this.resolveProvider(edge.target, resolveCache),
-			);
+			resolvedDependencies.push(await this.resolveProvider(edge.target, ctx));
 		}
 
 		const deps = resolvedDependencies.map((dep) =>
-			isCircularDependencyFn(dep as InjectionToken | CircularDependencyFn)
+			isCircularDependencyFn(dep as ProviderToken | CircularDependencyFn)
 				? (dep as CircularDependencyFn)()
 				: dep,
 		);
 
 		// biome-ignore lint/suspicious/noExplicitAny: instance creation
 		let instance: any;
-		let saveInCache = true;
-		const scope = node.scope;
+		const injectionContext = this.contextFor(node, ctx);
 
 		if (isClassProvider(provider)) {
-			instance = new provider.useClass(...deps);
-			await this.injectPropertyDependencies(instance, node, resolveCache);
-			saveInCache = scope === Scope.Singleton;
+			instance = withInjectionContext(
+				injectionContext,
+				() => new provider.useClass(...deps),
+			);
+			await this.injectPropertyDependencies(instance, node, ctx);
 		} else if (isValueProvider(provider)) {
 			instance = provider.useValue;
-			saveInCache = true;
 		} else if (isFactoryProvider(provider)) {
-			instance = await provider.useFactory(...deps);
-			saveInCache = scope === Scope.Singleton;
+			instance = this.callFactory(node, provider, deps, injectionContext);
 		} else {
-			instance = new (provider as Type)(...deps);
-			await this.injectPropertyDependencies(instance, node, resolveCache);
-			saveInCache = scope === Scope.Singleton;
+			instance = withInjectionContext(
+				injectionContext,
+				() => new (provider as Type)(...deps),
+			);
+			await this.injectPropertyDependencies(instance, node, ctx);
 		}
+
+		// onModuleInit of providers created via inject() must finish before
+		// this instance's own onModuleInit runs.
+		await ctx.drainPendingInits();
 
 		if (instance?.onModuleInit) {
 			try {
 				await instance.onModuleInit();
 			} catch (error) {
-				const providerName =
-					typeof provider === "function"
-						? provider.name
-						: ((provider as { provide?: InjectionToken }).provide?.toString() ??
-							"Unknown");
-				const errorMessage = `Failed to initialize provider "${providerName}": ${error instanceof Error ? error.message : String(error)}`;
-				const wrappedError = new Error(errorMessage);
-				if (error instanceof Error && error.stack) {
-					wrappedError.stack = `${wrappedError.stack}\nCaused by: ${error.stack}`;
-				}
-				throw wrappedError;
+				throw this.wrapInitError(provider, error);
 			}
 		}
 
-		return [instance, saveInCache];
+		return instance;
 	}
 
-	private async injectPropertyDependencies(
-		instance: Type,
-		node: Node,
-		resolveCache: ProvidersContainer,
-	) {
-		const dependencies = this.graph
+	/**
+	 * inject() entry point: resolves `token` synchronously for `requester`.
+	 * The token must be visible from the requester's module, the same rule
+	 * as `@Inject`.
+	 */
+	public resolveSync(
+		token: ProviderToken,
+		ctx: ResolutionContext,
+		requester: AnalyzeProvider,
+		options: InjectOptions,
+	): unknown {
+		const node = this.graph.getNode(token);
+		const visible =
+			node?.type === NodeTypeEnum.PROVIDER &&
+			this.graph.isProviderVisible(requester.moduleContainer, token);
+		if (!visible) {
+			// Not visible locally: the parent chain may provide it. `link.get`
+			// returns only an existing parent singleton (never creates one) and
+			// throws for a parent Transient, a not-yet-created singleton or a
+			// closed parent, even with `optional`. The dependency crosses
+			// containers, so no runtime edge is recorded and nothing is cached.
+			if (this.link?.canProvide(token)) {
+				return this.link.get(token);
+			}
+			if (options.optional) {
+				return undefined;
+			}
+			throw new ProviderNotFoundError(token, requester.id);
+		}
+		const instance = this.resolveProviderSync(node as AnalyzeProvider, ctx);
+		// Idempotent; covers cached and freshly created instances alike.
+		this.graph.addRuntimeDependency(requester.id, (node as AnalyzeProvider).id);
+		return instance;
+	}
+
+	/**
+	 * Synchronous counterpart of resolveProvider for a provider node whose
+	 * reachability was already established (visibility check or graph edge).
+	 */
+	private resolveProviderSync(
+		node: AnalyzeProvider,
+		ctx: ResolutionContext,
+	): unknown {
+		const token = node.id;
+		if (ctx.isConstructing(token)) {
+			throw new CircularInjectionError([...ctx.path, token]);
+		}
+		if (node.scope === Scope.Singleton && this.providersContainer.has(token)) {
+			const inFlight = this.inFlightInits.get(token);
+			if (inFlight) {
+				// The requester's own init and eviction chain wait on it.
+				ctx.addPendingInit(inFlight);
+			}
+			return this.providersContainer.get(token);
+		}
+		if (node.scope === Scope.Singleton && this.inFlightCreations.has(token)) {
+			// resolveProvider is creating it in another tree. This path is
+			// synchronous and cannot wait, and creating it here would make a
+			// second instance.
+			throw new ProviderNotInstantiatedError(token, "creation-in-flight");
+		}
+		return this.createInstanceSync(node, ctx);
+	}
+
+	/** Resolves a static @Inject edge of `requester` on the synchronous path. */
+	private resolveEdgeSync(
+		edge: Edge,
+		requester: AnalyzeProvider,
+		ctx: ResolutionContext,
+	): unknown {
+		// External first, before any node lookup (see createInstanceInContext).
+		if (edge.metadata.external) {
+			return this.linkFor(edge).get(edge.target);
+		}
+		if (edge.metadata.isCircular) {
+			throw new CircularInjectionError([...ctx.path, edge.target]);
+		}
+		// Unreached edges resolve to undefined, as on the async path. Reached
+		// edges were checked by the graph, so there is no second visibility
+		// check, except for a late-bound one (see lateBoundVisible); a missing
+		// (@Optional) node resolves to undefined.
+		if (edge.metadata.unreached) {
+			return undefined;
+		}
+		if (edge.metadata.lateBound && !this.lateBoundVisible(edge, requester)) {
+			return undefined;
+		}
+		const target = this.graph.getNode(edge.target);
+		if (!target || target.type !== NodeTypeEnum.PROVIDER) {
+			return undefined;
+		}
+		return this.resolveProviderSync(target, ctx);
+	}
+
+	/**
+	 * Synchronous mirror of createInstance + resolveProvider caching, used
+	 * when inject() reaches a provider that does not exist yet.
+	 */
+	private createInstanceSync(
+		node: AnalyzeProvider,
+		ctx: ResolutionContext,
+	): unknown {
+		// A resolution tree that outlived close() (it was awaiting something
+		// when close() ran) must not create and cache anything: the destroy
+		// pass is over. Refused before construction, so there is nothing to
+		// destroy. No unload counterpart is needed: this path always reads
+		// the live graph, so it never creates an instance of an unloaded node.
+		if (this.closed) {
+			throw new ContainerClosedError();
+		}
+		ctx.enter(node.id);
+		try {
+			const provider = node.metatype;
+			const deps = this.constructorEdges(node).map((edge) =>
+				this.resolveEdgeSync(edge, node, ctx),
+			);
+			const injectionContext = this.contextFor(node, ctx);
+
+			// biome-ignore lint/suspicious/noExplicitAny: instance creation
+			let instance: any;
+			if (isValueProvider(provider)) {
+				instance = provider.useValue;
+			} else if (isFactoryProvider(provider)) {
+				instance = this.callFactory(node, provider, deps, injectionContext);
+			} else {
+				const Class = isClassProvider(provider)
+					? provider.useClass
+					: (provider as Type);
+				instance = withInjectionContext(
+					injectionContext,
+					() => new Class(...deps),
+				);
+				this.injectPropertyDependenciesSync(instance, node, ctx);
+			}
+
+			// onModuleInit is not part of creation: it runs with no injection
+			// context, so inject() there throws InjectionContextError.
+			const runInit = () =>
+				withInjectionContext(null, () => this.callInitSync(provider, instance));
+			// Conservatively wait on every init queued before this instance (it
+			// may hold some of those instances, created here or via cache hits),
+			// even without its own onModuleInit, so a failure there evicts this
+			// instance too. No deadlock: each entry only waits on earlier ones.
+			const earlier = [...ctx.pendingInits];
+			let pendingInit: Promise<unknown> | undefined;
+			if (earlier.length > 0) {
+				const afterEarlier = Promise.all(earlier);
+				pendingInit = instance?.onModuleInit
+					? afterEarlier.then(runInit)
+					: afterEarlier;
+			} else if (instance?.onModuleInit) {
+				pendingInit = runInit();
+			}
+
+			this.commitInstance(node, instance);
+			if (pendingInit) {
+				// A failed init (own or earlier) must not leave a broken cached
+				// instance. The eviction is chained here, not in a drain, so it
+				// also happens when the requester's constructor throws later.
+				const settled = pendingInit.catch((error) => {
+					this.evictInstance(node, instance);
+					throw error;
+				});
+				ctx.addPendingInit(settled);
+				this.trackInFlightInit(node.id, instance, settled);
+			}
+			return instance;
+		} finally {
+			ctx.leave(node.id);
+		}
+	}
+
+	/** Runs a factory; factories must be synchronous. */
+	private callFactory(
+		node: AnalyzeProvider,
+		provider: Extract<Provider, { useFactory: unknown }>,
+		deps: unknown[],
+		injectionContext: InjectionContext,
+	): unknown {
+		const result = withInjectionContext(injectionContext, () =>
+			provider.useFactory(...deps),
+		);
+		if (isThenable(result)) {
+			// Never leave a rejected promise unhandled. A foreign thenable's
+			// then() is user code with unknown effects, so it is not called.
+			if (result instanceof Promise) {
+				result.catch(() => {});
+			}
+			throw new AsyncFactoryError(node.id);
+		}
+		return result;
+	}
+
+	/** Registers `init` as the in-flight init of a just-committed singleton. */
+	private trackInFlightInit(
+		token: ProviderToken,
+		instance: unknown,
+		init: Promise<unknown>,
+	): void {
+		if (
+			!this.providersContainer.has(token) ||
+			this.providersContainer.get(token) !== instance
+		) {
+			return; // not the global singleton (lost a race)
+		}
+		this.inFlightInits.set(token, init);
+		const clear = () => {
+			if (this.inFlightInits.get(token) === init) {
+				this.inFlightInits.delete(token);
+			}
+		};
+		init.then(clear, clear);
+	}
+
+	/**
+	 * Calls onModuleInit synchronously. A synchronous throw is wrapped and
+	 * rethrown; an async result is returned with its rejection wrapped.
+	 */
+	private callInitSync(
+		provider: Provider,
+		instance: { onModuleInit: () => unknown },
+	): Promise<unknown> | undefined {
+		let result: unknown;
+		try {
+			result = instance.onModuleInit();
+		} catch (error) {
+			throw this.wrapInitError(provider, error);
+		}
+		if (isThenable(result)) {
+			return Promise.resolve(result).catch((error) => {
+				throw this.wrapInitError(provider, error);
+			});
+		}
+		return undefined;
+	}
+
+	private wrapInitError(provider: Provider, error: unknown): Error {
+		const providerName =
+			typeof provider === "function"
+				? provider.name
+				: ((provider as { provide?: ProviderToken }).provide?.toString() ??
+					"Unknown");
+		const errorMessage = `Failed to initialize provider "${providerName}": ${error instanceof Error ? error.message : String(error)}`;
+		const wrappedError: Error & { cause?: unknown } = new Error(errorMessage);
+		// Assigned rather than passed as ErrorOptions: the build targets ES2021.
+		wrappedError.cause = error;
+		if (error instanceof Error && error.stack) {
+			wrappedError.stack = `${wrappedError.stack}\nCaused by: ${error.stack}`;
+		}
+		return wrappedError;
+	}
+
+	private contextFor(
+		node: AnalyzeProvider,
+		ctx: ResolutionContext,
+	): InjectionContext {
+		return {
+			inject: (token, options) => this.resolveSync(token, ctx, node, options),
+		};
+	}
+
+	/**
+	 * Whether a late-bound edge's target may be injected into `requester`:
+	 * it exists now and is visible from the requester's module. The graph
+	 * records the referrer (keeping the target's module alive) under the
+	 * same rule, so injection and unload bookkeeping agree.
+	 */
+	private lateBoundVisible(edge: Edge, requester: AnalyzeProvider): boolean {
+		const version = this.graph.version;
+		const memo = this.lateBoundMemo.get(edge);
+		if (memo?.version === version) {
+			return memo.visible;
+		}
+		const visible =
+			this.graph.getNode(edge.target)?.type === NodeTypeEnum.PROVIDER &&
+			this.graph.isProviderVisible(requester.moduleContainer, edge.target);
+		this.lateBoundMemo.set(edge, { version, visible });
+		return visible;
+	}
+
+	private constructorEdges(node: Node): Edge[] {
+		return this.graph
+			.getEdge(node.id)
+			.filter(
+				(edge) =>
+					edge.type === EdgeTypeEnum.DEPENDENCY &&
+					edge.metadata.inject === "constructor",
+			);
+	}
+
+	private propertyEdges(node: Node): Edge[] {
+		return this.graph
 			.getEdge(node.id)
 			.filter(
 				(edge) =>
@@ -259,11 +747,35 @@ export class Resolver {
 					edge.metadata.unreached === false &&
 					edge.metadata.isCircular === false,
 			);
+	}
 
-		for (const edge of dependencies) {
+	private injectPropertyDependenciesSync(
+		instance: Type,
+		node: Node,
+		ctx: ResolutionContext,
+	): void {
+		for (const edge of this.propertyEdges(node)) {
 			(instance as unknown as Record<string, unknown>)[
 				edge.metadata.key as string
-			] = await this.resolveProvider(edge.target, resolveCache);
+			] = this.resolveEdgeSync(edge, node as AnalyzeProvider, ctx);
+		}
+	}
+
+	private async injectPropertyDependencies(
+		instance: Type,
+		node: Node,
+		ctx: ResolutionContext,
+	) {
+		for (const edge of this.propertyEdges(node)) {
+			// External first, before resolveProvider's node lookup.
+			(instance as unknown as Record<string, unknown>)[
+				edge.metadata.key as string
+			] = edge.metadata.external
+				? await this.linkFor(edge).resolve(edge.target)
+				: edge.metadata.lateBound &&
+						!this.lateBoundVisible(edge, node as AnalyzeProvider)
+					? undefined
+					: await this.resolveProvider(edge.target, ctx);
 		}
 	}
 }

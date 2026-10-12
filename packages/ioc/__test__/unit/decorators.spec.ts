@@ -48,14 +48,6 @@ describe("Decorators", () => {
 			expect(options).toEqual({ scope: Scope.Transient });
 		});
 
-		it("should support Request scope", () => {
-			@Injectable({ scope: Scope.Scoped })
-			class TestService {}
-
-			const options = Reflect.getMetadata(INJECTABLE_OPTIONS, TestService);
-			expect(options).toEqual({ scope: Scope.Scoped });
-		});
-
 		it("should work without options", () => {
 			@Injectable()
 			class TestService {}

@@ -123,8 +123,9 @@ export class JsonFormatter {
 				providers.push(this.formatProvider(provider, module));
 			}
 
-			// Queue imported modules
+			// Queue imported modules, then declared child modules
 			modulesToVisit.push(...module.imports.map((entry) => entry.id));
+			modulesToVisit.push(...(module.children ?? []).map((entry) => entry.id));
 		}
 
 		// Create metadata
@@ -205,8 +206,7 @@ export class JsonFormatter {
 				output.analysis.scopeAnalysis = {
 					totalProviders: analysis.totalProviders,
 					singletonProviders: analysis.singletonProviders,
-					scopedProviders: analysis.scopedProviders,
-					scopeMismatches: analysis.scopeMismatches,
+					transientProviders: analysis.transientProviders,
 					providerScopes: analysis.providerScopes,
 				};
 			}
@@ -219,7 +219,7 @@ export class JsonFormatter {
 	 * Format a module as ModuleInfo
 	 */
 	private formatModule(module: GraphModuleNode): ModuleInfo {
-		return {
+		const moduleInfo: ModuleInfo = {
 			name: module.name,
 			path: module.path,
 			imports: module.imports.map(toModuleReferenceInfo),
@@ -227,6 +227,17 @@ export class JsonFormatter {
 			providers: module.providers.map((provider) => provider.token),
 			isGlobal: module.isGlobal,
 		};
+
+		if (module.scope !== undefined) {
+			moduleInfo.scope =
+				this.graphModel.modules.get(module.scope)?.name ?? module.scope;
+		}
+
+		if (module.children && module.children.length > 0) {
+			moduleInfo.children = module.children.map(toModuleReferenceInfo);
+		}
+
+		return moduleInfo;
 	}
 
 	/**
@@ -240,17 +251,14 @@ export class JsonFormatter {
 			token: provider.token,
 			type: provider.type,
 			module: { name: module.name, path: module.path },
-			dependencies: provider.dependencies.map(({ token, optional }) => ({
-				token,
-				optional,
-			})),
+			dependencies: provider.dependencies.map(
+				({ token, optional, crossScope }) =>
+					crossScope ? { token, optional, crossScope } : { token, optional },
+			),
 		};
 
 		if (provider.scope) {
-			providerInfo.scope = provider.scope as
-				| "Singleton"
-				| "Scoped"
-				| "Transient";
+			providerInfo.scope = provider.scope as "Singleton" | "Transient";
 		}
 
 		if (provider.type === "UseClass" && provider.useClass) {

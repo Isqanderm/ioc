@@ -21,7 +21,10 @@ export type {
 	NexusResolvedDependency,
 	NexusUnresolvedDependency,
 } from "./analysis/nexus-application-graph-model";
-export type { NexusApplication } from "./analysis/nexus-application-model";
+export type {
+	NexusApplication,
+	NexusScope,
+} from "./analysis/nexus-application-model";
 export { findApplicationEntryPoint } from "./analysis/nexus-entry-point";
 export type {
 	NexusClass,
@@ -29,6 +32,7 @@ export type {
 	NexusDecoratorKind,
 	NexusDependency,
 	NexusModule,
+	NexusModuleChild,
 	NexusModuleExport,
 	NexusModuleImport,
 	NexusProvider,
@@ -63,6 +67,7 @@ export {
 } from "./parsers/inject.parser";
 export { InjectableParser } from "./parsers/injectable.parser";
 export {
+	type ChildType,
 	type ExportType,
 	type ImportType,
 	type ModuleDeclaration,

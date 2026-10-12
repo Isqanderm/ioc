@@ -1,10 +1,12 @@
 import { ContainerNotCompiledError } from "@nexus-ioc/shared";
 import { ContainerClosedError, ProviderNotFoundError } from "../errors";
 import type {
+	CreateChildOptions,
+	DynamicModule,
 	GetOptions,
-	InjectionToken,
 	LazyModule,
 	NexusApplicationInterface,
+	ProviderToken,
 	ScannerPluginInterface,
 	Type,
 	UnloadResult,
@@ -22,7 +24,6 @@ export class NexusApplicationBrowser implements NexusApplicationInterface {
 	private readonly hashUtil = new HashUtilBrowser();
 	private readonly scannerPlugins: ScannerPluginInterface[] = [];
 	private readonly container = new Container(this.hashUtil);
-	private _parentContainer: NexusApplicationInterface | null = null;
 	private closePromise: Promise<void> | null = null;
 
 	private constructor(private readonly rootModule: Type) {}
@@ -49,23 +50,20 @@ export class NexusApplicationBrowser implements NexusApplicationInterface {
 		return this;
 	}
 
-	public get<T>(token: InjectionToken): T;
+	public get<T>(token: ProviderToken<T>): T;
 	public get<T>(
-		token: InjectionToken,
+		token: ProviderToken<T>,
 		options: { optional: true },
 	): T | undefined;
-	public get<T>(token: InjectionToken, options: { optional?: false }): T;
-	public get<T>(token: InjectionToken, options: GetOptions): T | undefined;
+	public get<T>(token: ProviderToken<T>, options: { optional?: false }): T;
+	public get<T>(token: ProviderToken<T>, options: GetOptions): T | undefined;
 	public get<T>(
-		token: InjectionToken,
+		token: ProviderToken<T>,
 		options: GetOptions = {},
 	): T | undefined {
 		this.assertUsable();
 		if (this.container.hasProvider(token)) {
 			return this.container.get<T>(token);
-		}
-		if (this._parentContainer) {
-			return this._parentContainer.get<T>(token, options);
 		}
 		if (options.optional) {
 			return undefined;
@@ -73,29 +71,26 @@ export class NexusApplicationBrowser implements NexusApplicationInterface {
 		throw new ProviderNotFoundError(token);
 	}
 
-	public resolve<T>(token: InjectionToken): Promise<T>;
+	public resolve<T>(token: ProviderToken<T>): Promise<T>;
 	public resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken<T>,
 		options: { optional: true },
 	): Promise<T | undefined>;
 	public resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken<T>,
 		options: { optional?: false },
 	): Promise<T>;
 	public resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken<T>,
 		options: GetOptions,
 	): Promise<T | undefined>;
 	public async resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken<T>,
 		options: GetOptions = {},
 	): Promise<T | undefined> {
 		this.assertUsable();
 		if (this.container.hasProvider(token)) {
 			return this.container.resolve<T>(token);
-		}
-		if (this._parentContainer) {
-			return this._parentContainer.resolve<T>(token, options);
 		}
 		if (options.optional) {
 			return undefined;
@@ -122,9 +117,7 @@ export class NexusApplicationBrowser implements NexusApplicationInterface {
 
 	public close(): Promise<void> {
 		if (!this.closePromise) {
-			this.closePromise = this.container.close().finally(() => {
-				this._parentContainer = null;
-			});
+			this.closePromise = this.container.close();
 		}
 		return this.closePromise;
 	}
@@ -146,8 +139,12 @@ export class NexusApplicationBrowser implements NexusApplicationInterface {
 		}
 	}
 
-	public setParent(parentContainer: NexusApplicationInterface) {
-		this._parentContainer = parentContainer;
-		return this;
+	public async createChild(
+		_child: Type | DynamicModule | LazyModule,
+		_options?: CreateChildOptions,
+	): Promise<NexusApplicationInterface> {
+		throw new Error(
+			"createChild is not supported by the deprecated NexusApplicationBrowser/Server; use NexusApplication",
+		);
 	}
 }

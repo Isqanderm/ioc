@@ -13,10 +13,11 @@ import type {
 	DynamicModule,
 	GraphSegment,
 	HashUtilInterface,
-	InjectionToken,
 	LazyModule,
 	ModuleContainerInterface,
 	ModuleGraphInterface,
+	ParentLink,
+	ProviderToken,
 	Type,
 	UnloadResult,
 } from "../../interfaces";
@@ -25,6 +26,19 @@ import { isDynamicModule } from "../../utils/helpers";
 import { ModuleGraph } from "../graph/module-graph";
 import { Resolver } from "../resolver/resolver";
 import { ModulesContainer } from "./modules-container";
+
+/**
+ * Called by `Container.unload` with the module tokens about to be destroyed.
+ * Reports how many child applications it closed and, if any of them failed
+ * to close, the error to rethrow once the unload has finished.
+ */
+export type UnloadingHook = (
+	destroyedModules: string[],
+) => Promise<{ closed: number; error?: unknown }>;
+
+function errorList(error: unknown): unknown[] {
+	return error instanceof AggregateError ? [...error.errors] : [error];
+}
 
 /**
  * Container is the core IoC (Inversion of Control) container that manages
@@ -51,6 +65,8 @@ export class Container implements ContainerInterface {
 
 	private _graph: ModuleGraphInterface | null = null;
 	private moduleGraphResolver: Resolver | null = null;
+	/** The parent chain of a child container; kept for runtime resolution. */
+	private link: ParentLink | null = null;
 	private closed = false;
 	private readonly segments = new Map<symbol, Promise<GraphSegment>>();
 	/**
@@ -64,6 +80,8 @@ export class Container implements ContainerInterface {
 	 * but the graph mutation that follows each of them runs one at a time.
 	 */
 	private compileQueue: Promise<unknown> = Promise.resolve();
+	/** See `onUnloading`. */
+	private unloadingHook: UnloadingHook | null = null;
 
 	/**
 	 * Creates a new Container instance.
@@ -139,7 +157,7 @@ export class Container implements ContainerInterface {
 	/**
 	 * True iff the graph has a provider node for the token.
 	 */
-	public hasProvider(token: InjectionToken): boolean {
+	public hasProvider(token: ProviderToken): boolean {
 		return this._graph?.getNode(token)?.type === NodeTypeEnum.PROVIDER;
 	}
 
@@ -147,7 +165,7 @@ export class Container implements ContainerInterface {
 	 * Synchronously returns an already-created singleton.
 	 *
 	 * @throws {ProviderNotFoundError} If no provider has this token
-	 * @throws {ProviderScopeError} If the provider is Transient or Scoped
+	 * @throws {ProviderScopeError} If the provider is Transient
 	 * @throws {ProviderNotInstantiatedError} If the singleton is not created yet
 	 *
 	 * @example
@@ -156,7 +174,7 @@ export class Container implements ContainerInterface {
 	 * const userService = container.get(UserService);
 	 * ```
 	 */
-	public get<T>(token: InjectionToken): T {
+	public get<T>(token: ProviderToken<T>): T {
 		this.assertOpen();
 		if (!this._graph || !this.moduleGraphResolver) {
 			throw new ContainerNotCompiledError();
@@ -185,7 +203,7 @@ export class Container implements ContainerInterface {
 	 * const userService = await container.resolve(UserService);
 	 * ```
 	 */
-	public async resolve<T>(token: InjectionToken): Promise<T> {
+	public async resolve<T>(token: ProviderToken<T>): Promise<T> {
 		this.assertOpen();
 		if (!this._graph || !this.moduleGraphResolver) {
 			throw new ContainerNotCompiledError();
@@ -206,7 +224,7 @@ export class Container implements ContainerInterface {
 	 * @throws {ContainerNotCompiledError} If run() has not been called yet
 	 */
 	public async instantiateSingletons(
-		tokens: Iterable<InjectionToken>,
+		tokens: Iterable<ProviderToken>,
 	): Promise<void> {
 		if (!this._graph || !this.moduleGraphResolver) {
 			throw new ContainerNotCompiledError();
@@ -237,6 +255,8 @@ export class Container implements ContainerInterface {
 	 * @param rootModule - The root module of the application
 	 * @param internalModules - Framework-provided global modules compiled before
 	 *   the user root, so their exports are visible to every user module
+	 * @param options.link - The parent chain of a child container. Dependencies
+	 *   not visible locally but provided by the link compile as external edges.
 	 * @returns A promise that resolves when initialization is complete
 	 * @throws {Error} If there are circular dependencies or missing providers
 	 *
@@ -248,17 +268,29 @@ export class Container implements ContainerInterface {
 	 * ```
 	 */
 	public async run(
-		rootModule: Type,
+		rootModule: Type | DynamicModule,
 		internalModules: DynamicModule[] = [],
+		options: { link?: ParentLink } = {},
 	): Promise<void> {
 		const root = await this.modulesContainer.addModule(rootModule);
 		const internals = await Promise.all(
 			internalModules.map((module) => this.modulesContainer.addModule(module)),
 		);
 
-		this._graph = new ModuleGraph(root, internals);
+		this.link = options.link ?? null;
+		const link = this.link;
+		this._graph = new ModuleGraph(
+			root,
+			internals,
+			link ? { externalLookup: (token) => link.canProvide(token) } : {},
+		);
 
-		this.moduleGraphResolver = new Resolver(this._graph);
+		this.moduleGraphResolver = new Resolver(this._graph, link);
+		if (this.closed) {
+			// close() ran before there was a resolver to close: nothing may be
+			// created from here on (a warm-up would otherwise outlive it).
+			this.moduleGraphResolver.markClosed();
+		}
 
 		await this._graph.compile();
 	}
@@ -374,13 +406,21 @@ export class Container implements ContainerInterface {
 		const inFlight = this.segments.get(lazyModule.id);
 
 		if (!inFlight) {
-			return { destroyedModules: [], destroyedProviders: [] };
+			return {
+				destroyedModules: [],
+				destroyedProviders: [],
+				closedChildren: 0,
+			};
 		}
 
 		await inFlight.catch(() => undefined);
 
 		if (!this.loadedSegments.has(lazyModule.id)) {
-			return { destroyedModules: [], destroyedProviders: [] };
+			return {
+				destroyedModules: [],
+				destroyedProviders: [],
+				closedChildren: 0,
+			};
 		}
 
 		return this.enqueueCompile(async () => {
@@ -394,17 +434,58 @@ export class Container implements ContainerInterface {
 
 			const result = this.graph.unloadSegment(lazyModule, protectedRoots);
 
-			await this.moduleGraphResolver?.destroy(result.destroyedProviders);
+			// The graph has dropped the segment, so whatever fails below, the
+			// container forgets it too (see the finally); otherwise the ref
+			// could never be loaded again.
+			try {
+				// Children declared by a destroyed module go first, while the
+				// providers they hold through their link are still alive. Their
+				// failures are reported after the unload has finished.
+				let closedChildren = 0;
+				let childFailure: unknown;
+				if (this.unloadingHook && result.destroyedModules.length > 0) {
+					const closing = await this.unloadingHook(result.destroyedModules);
+					closedChildren = closing.closed;
+					childFailure = closing.error;
+				}
 
-			for (const moduleToken of result.destroyedModules) {
-				this.modulesContainer.removeModule(moduleToken);
+				try {
+					// Runs every hook and empties the cache even if some throw.
+					await this.moduleGraphResolver?.destroy(result.destroyedProviders);
+				} catch (error) {
+					if (childFailure === undefined) {
+						throw error;
+					}
+					// Neither failure is dropped.
+					throw new AggregateError(
+						[...errorList(childFailure), ...errorList(error)],
+						"Unloading failed: child applications and onModuleDestroy hooks",
+					);
+				}
+
+				if (childFailure !== undefined) {
+					throw childFailure;
+				}
+				return { ...result, closedChildren };
+			} finally {
+				for (const moduleToken of result.destroyedModules) {
+					this.modulesContainer.removeModule(moduleToken);
+				}
+				this.segments.delete(lazyModule.id);
+				this.loadedSegments.delete(lazyModule.id);
 			}
-
-			this.segments.delete(lazyModule.id);
-			this.loadedSegments.delete(lazyModule.id);
-
-			return result;
 		});
+	}
+
+	/**
+	 * Registers the hook `unload` calls once the graph has dropped a segment
+	 * and before that segment's providers are destroyed, with the tokens of
+	 * the modules being destroyed. The application closes the child
+	 * applications those modules declared there. One hook per container; a
+	 * later call replaces it.
+	 */
+	public onUnloading(hook: UnloadingHook): void {
+		this.unloadingHook = hook;
 	}
 
 	/**

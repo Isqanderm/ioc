@@ -17,34 +17,36 @@ describe("ProviderScopeAnalyzer", () => {
 				},
 			});
 
-			const analyzer = new ProviderScopeAnalyzer(graphModel);
-			const result = analyzer.analyze();
+			const result = new ProviderScopeAnalyzer(graphModel).analyze();
 
 			expect(result.hasScopeAnalysis).toBe(true);
 			expect(result.totalProviders).toBe(2);
 			expect(result.singletonProviders).toBe(2);
-			expect(result.scopedProviders).toBe(0);
+			expect(result.transientProviders).toBe(0);
 		});
 
-		it("should detect scoped providers", () => {
+		it("should detect transient providers", () => {
 			const graphModel = buildGraphModel("AppModule", {
 				AppModule: {
 					providers: [
-						provider("ScopedService", {
+						provider("TransientService", {
 							type: "UseClass",
-							scope: "Scope.SCOPED",
+							scope: "Scope.Transient",
 						}),
-						provider("AnotherScopedService", { scope: "Scope.Scoped" }),
+						provider("AnotherTransientService", { scope: "Scope.Transient" }),
 					],
 				},
 			});
 
-			const analyzer = new ProviderScopeAnalyzer(graphModel);
-			const result = analyzer.analyze();
+			const result = new ProviderScopeAnalyzer(graphModel).analyze();
 
 			expect(result.totalProviders).toBe(2);
 			expect(result.singletonProviders).toBe(0);
-			expect(result.scopedProviders).toBe(2);
+			expect(result.transientProviders).toBe(2);
+			expect(result.providerScopes.map((p) => p.scope)).toEqual([
+				"Transient",
+				"Transient",
+			]);
 		});
 
 		it("should handle mixed scopes", () => {
@@ -52,109 +54,49 @@ describe("ProviderScopeAnalyzer", () => {
 				AppModule: {
 					providers: [
 						provider("SingletonService"),
-						provider("ScopedService", { scope: "Scope.SCOPED" }),
+						provider("TransientService", { scope: "Scope.Transient" }),
 						provider("CONFIG", { type: "UseValue" }),
 					],
 				},
 			});
 
-			const analyzer = new ProviderScopeAnalyzer(graphModel);
-			const result = analyzer.analyze();
+			const result = new ProviderScopeAnalyzer(graphModel).analyze();
 
 			expect(result.totalProviders).toBe(3);
 			expect(result.singletonProviders).toBe(2);
-			expect(result.scopedProviders).toBe(1);
+			expect(result.transientProviders).toBe(1);
+		});
+
+		it("should treat an explicit Scope.Singleton as Singleton", () => {
+			const graphModel = buildGraphModel("AppModule", {
+				AppModule: {
+					providers: [provider("S", { scope: "Scope.Singleton" })],
+				},
+			});
+
+			const result = new ProviderScopeAnalyzer(graphModel).analyze();
+
+			expect(result.providerScopes[0].scope).toBe("Singleton");
 		});
 	});
 
-	describe("Scope Mismatch Detection", () => {
-		it("should detect singleton depending on scoped provider", () => {
+	describe("No scope mismatch rule", () => {
+		it("a Singleton depending on a Transient produces no issue", () => {
 			const graphModel = buildGraphModel("AppModule", {
 				AppModule: {
 					providers: [
 						provider("SingletonService", {
-							dependencies: [{ token: "ScopedService", optional: false }],
+							dependencies: [{ token: "TransientService", optional: false }],
 						}),
-						provider("ScopedService", { scope: "Scope.SCOPED" }),
+						provider("TransientService", { scope: "Scope.Transient" }),
 					],
 				},
 			});
 
-			const analyzer = new ProviderScopeAnalyzer(graphModel);
-			const result = analyzer.analyze();
+			const result = new ProviderScopeAnalyzer(graphModel).analyze();
 
-			expect(result.scopeMismatches).toHaveLength(1);
-			expect(result.scopeMismatches[0]).toMatchObject({
-				provider: "SingletonService",
-				providerScope: "Singleton",
-				dependency: "ScopedService",
-				dependencyScope: "Scoped",
-				severity: "error",
-			});
-			expect(result.scopeMismatches[0].message).toContain("memory leaks");
-			expect(result.scopeMismatches[0].suggestions).toHaveLength(3);
-		});
-
-		it("should not flag scoped depending on singleton", () => {
-			const graphModel = buildGraphModel("AppModule", {
-				AppModule: {
-					providers: [
-						provider("ScopedService", {
-							scope: "Scope.SCOPED",
-							dependencies: [{ token: "SingletonService", optional: false }],
-						}),
-						provider("SingletonService"),
-					],
-				},
-			});
-
-			const analyzer = new ProviderScopeAnalyzer(graphModel);
-			const result = analyzer.analyze();
-
-			expect(result.scopeMismatches).toHaveLength(0);
-		});
-
-		it("should detect multiple scope mismatches", () => {
-			const graphModel = buildGraphModel("AppModule", {
-				AppModule: {
-					providers: [
-						provider("ServiceA", {
-							dependencies: [{ token: "ScopedService1", optional: false }],
-						}),
-						provider("ServiceB", {
-							dependencies: [{ token: "ScopedService2", optional: false }],
-						}),
-						provider("ScopedService1", { scope: "Scope.SCOPED" }),
-						provider("ScopedService2", { scope: "Scope.SCOPED" }),
-					],
-				},
-			});
-
-			const analyzer = new ProviderScopeAnalyzer(graphModel);
-			const result = analyzer.analyze();
-
-			expect(result.scopeMismatches).toHaveLength(2);
-			expect(result.scopeMismatches[0].provider).toBe("ServiceA");
-			expect(result.scopeMismatches[1].provider).toBe("ServiceB");
-		});
-
-		it("should ignore optional dependencies in scope mismatch detection", () => {
-			const graphModel = buildGraphModel("AppModule", {
-				AppModule: {
-					providers: [
-						provider("SingletonService", {
-							dependencies: [{ token: "ScopedService", optional: true }],
-						}),
-						provider("ScopedService", { scope: "Scope.SCOPED" }),
-					],
-				},
-			});
-
-			const analyzer = new ProviderScopeAnalyzer(graphModel);
-			const result = analyzer.analyze();
-
-			// Optional dependencies should not cause scope mismatches
-			expect(result.scopeMismatches).toHaveLength(0);
+			expect(result).not.toHaveProperty("scopeMismatches");
+			expect(result.providerScopes).toHaveLength(2);
 		});
 	});
 
@@ -165,39 +107,17 @@ describe("ProviderScopeAnalyzer", () => {
 					providers: [
 						provider("FACTORY_TOKEN", {
 							type: "UseFactory",
-							scope: "Scope.SCOPED",
+							scope: "Scope.Transient",
 							dependencies: [{ token: "ConfigService", optional: false }],
 						}),
 					],
 				},
 			});
 
-			const analyzer = new ProviderScopeAnalyzer(graphModel);
-			const result = analyzer.analyze();
+			const result = new ProviderScopeAnalyzer(graphModel).analyze();
 
-			expect(result.scopedProviders).toBe(1);
-			expect(result.providerScopes[0].scope).toBe("Scoped");
-		});
-
-		it("should detect scope mismatch with UseFactory dependencies", () => {
-			const graphModel = buildGraphModel("AppModule", {
-				AppModule: {
-					providers: [
-						provider("FACTORY_TOKEN", {
-							type: "UseFactory",
-							dependencies: [{ token: "ScopedService", optional: false }],
-						}),
-						provider("ScopedService", { scope: "Scope.SCOPED" }),
-					],
-				},
-			});
-
-			const analyzer = new ProviderScopeAnalyzer(graphModel);
-			const result = analyzer.analyze();
-
-			expect(result.scopeMismatches).toHaveLength(1);
-			expect(result.scopeMismatches[0].provider).toBe("FACTORY_TOKEN");
-			expect(result.scopeMismatches[0].dependency).toBe("ScopedService");
+			expect(result.transientProviders).toBe(1);
+			expect(result.providerScopes[0].scope).toBe("Transient");
 		});
 	});
 
@@ -205,29 +125,10 @@ describe("ProviderScopeAnalyzer", () => {
 		it("should handle empty graph", () => {
 			const graphModel = buildGraphModel("AppModule", {});
 
-			const analyzer = new ProviderScopeAnalyzer(graphModel);
-			const result = analyzer.analyze();
+			const result = new ProviderScopeAnalyzer(graphModel).analyze();
 
 			expect(result.hasScopeAnalysis).toBe(true);
 			expect(result.totalProviders).toBe(0);
-			expect(result.scopeMismatches).toHaveLength(0);
-		});
-
-		it("should handle providers without dependencies", () => {
-			const graphModel = buildGraphModel("AppModule", {
-				AppModule: {
-					providers: [
-						provider("ServiceA"),
-						provider("ServiceB", { scope: "Scope.SCOPED" }),
-					],
-				},
-			});
-
-			const analyzer = new ProviderScopeAnalyzer(graphModel);
-			const result = analyzer.analyze();
-
-			expect(result.totalProviders).toBe(2);
-			expect(result.scopeMismatches).toHaveLength(0);
 		});
 
 		it("should handle dependency on non-existent provider", () => {
@@ -241,12 +142,9 @@ describe("ProviderScopeAnalyzer", () => {
 				},
 			});
 
-			const analyzer = new ProviderScopeAnalyzer(graphModel);
-			const result = analyzer.analyze();
+			const result = new ProviderScopeAnalyzer(graphModel).analyze();
 
-			// Should not crash, just no scope mismatch detected
 			expect(result.totalProviders).toBe(1);
-			expect(result.scopeMismatches).toHaveLength(0);
 		});
 	});
 });

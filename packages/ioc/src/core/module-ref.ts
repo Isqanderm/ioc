@@ -1,7 +1,9 @@
+import { ContainerNotCompiledError } from "@nexus-ioc/shared";
+import { ContainerClosedError } from "../errors";
 import type {
 	ContainerInterface,
 	GraphSegment,
-	InjectionToken,
+	ProviderToken,
 	Type,
 	UnloadResult,
 } from "../interfaces";
@@ -46,7 +48,7 @@ export class ModuleRef {
 	}
 
 	public get<T>(
-		token: InjectionToken,
+		token: ProviderToken<T>,
 		options: ModuleRefGetOptions = {},
 	): T | undefined {
 		if (!this.canSee(token, options)) {
@@ -56,7 +58,7 @@ export class ModuleRef {
 	}
 
 	public async resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken<T>,
 		options: ModuleRefGetOptions = {},
 	): Promise<T | undefined> {
 		if (!this.canSee(token, options)) {
@@ -65,7 +67,7 @@ export class ModuleRef {
 		return this.container.resolve<T>(token);
 	}
 
-	private canSee(token: InjectionToken, options: ModuleRefGetOptions): boolean {
+	private canSee(token: ProviderToken, options: ModuleRefGetOptions): boolean {
 		if (!this._loaded) {
 			return false;
 		}
@@ -88,11 +90,28 @@ export class ModuleRef {
 	 */
 	public async unload(): Promise<UnloadResult> {
 		if (!this._loaded) {
-			return { destroyedModules: [], destroyedProviders: [] };
+			return {
+				destroyedModules: [],
+				destroyedProviders: [],
+				closedChildren: 0,
+			};
 		}
 
-		const result = await this.container.unload(this.segment.lazyModule);
-		this._loaded = false;
-		return result;
+		try {
+			const result = await this.container.unload(this.segment.lazyModule);
+			this._loaded = false;
+			return result;
+		} catch (error) {
+			// A closed or not-compiled container refuses before unloading
+			// anything. Any other failure (an onModuleDestroy hook, a child's
+			// close) comes after the segment was dropped, so it is unloaded.
+			if (
+				!(error instanceof ContainerClosedError) &&
+				!(error instanceof ContainerNotCompiledError)
+			) {
+				this._loaded = false;
+			}
+			throw error;
+		}
 	}
 }

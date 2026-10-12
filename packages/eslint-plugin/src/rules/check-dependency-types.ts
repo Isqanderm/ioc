@@ -39,8 +39,13 @@ export default createRule<Options, MessageIds>({
 				if (!tsNode || !ts.isClassDeclaration(tsNode)) return;
 
 				const model = tsContext.analyzer.getClassModel(tsNode);
+				// Only `@Inject` decorators are this rule's concern; `inject()`
+				// calls (location "inject") carry no decorator metadata.
+				const usesInjectDecorator = model.dependencies.some(
+					(dependency) => dependency.location !== "inject",
+				);
 				if (
-					model.dependencies.length > 0 &&
+					usesInjectDecorator &&
 					!isInjectableClass(tsContext.analyzer, tsNode)
 				) {
 					context.report({

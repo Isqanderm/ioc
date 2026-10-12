@@ -2,13 +2,13 @@ import {
 	type DynamicModule,
 	type GetOptions,
 	type GraphError,
-	type InjectionToken,
 	type LazyModule,
 	type ModuleContainerInterface,
 	Module as ModuleDecorator,
 	type ModuleMetadata,
 	ModuleRef,
 	ProviderNotFoundError,
+	type ProviderToken,
 	type ScannerPluginInterface,
 	type Type,
 	type UnloadResult,
@@ -64,18 +64,21 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 		metatypeToReplace: Type,
 		newMetatype: Type,
 	): Promise<ModuleContainerInterface> {
+		if (this.containerCompiled || this._moduleContainer) {
+			throw new Error("replaceModule must be called before compile()");
+		}
 		return this.container.replaceModule(metatypeToReplace, newMetatype);
 	}
 
-	public get<T>(token: InjectionToken): T;
+	public get<T>(token: ProviderToken<T>): T;
 	public get<T>(
-		token: InjectionToken,
+		token: ProviderToken<T>,
 		options: { optional: true },
 	): T | undefined;
-	public get<T>(token: InjectionToken, options: { optional?: false }): T;
-	public get<T>(token: InjectionToken, options: GetOptions): T | undefined;
+	public get<T>(token: ProviderToken<T>, options: { optional?: false }): T;
+	public get<T>(token: ProviderToken<T>, options: GetOptions): T | undefined;
 	public get<T>(
-		token: InjectionToken,
+		token: ProviderToken<T>,
 		options: GetOptions = {},
 	): T | undefined {
 		if (!this.containerCompiled) {
@@ -90,21 +93,21 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 		return this.container.get<T>(token);
 	}
 
-	public resolve<T>(token: InjectionToken): Promise<T>;
+	public resolve<T>(token: ProviderToken<T>): Promise<T>;
 	public resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken<T>,
 		options: { optional: true },
 	): Promise<T | undefined>;
 	public resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken<T>,
 		options: { optional?: false },
 	): Promise<T>;
 	public resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken<T>,
 		options: GetOptions,
 	): Promise<T | undefined>;
 	public async resolve<T>(
-		token: InjectionToken,
+		token: ProviderToken<T>,
 		options: GetOptions = {},
 	): Promise<T | undefined> {
 		if (!this.containerCompiled) {

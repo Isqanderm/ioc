@@ -1,6 +1,6 @@
-import type { GraphError, InjectionToken } from "../interfaces";
+import type { GraphError, ProviderToken } from "../interfaces";
 
-function tokenToStr(token: InjectionToken): string {
+function tokenToStr(token: ProviderToken): string {
 	return typeof token === "function" ? token.name : String(token);
 }
 
@@ -22,6 +22,14 @@ function formatError(error: GraphError): string {
 			return `  Missing provider "${error.dependency}" in ${error.token} (inject[${error.key}])`;
 		case "PROVIDER_TOKEN_CONFLICT":
 			return `  Provider token "${error.token}" in ${error.module} is already registered by ${error.existingModule}`;
+		case "CHILD_DECLARED_TWICE": {
+			const [first, second] = error.modules;
+			const declarers =
+				first === second
+					? `two module instances of ${first} (e.g. different forX() variants of it)`
+					: `both ${first} and ${second}`;
+			return `  Module "${error.child}" is declared as a child by ${declarers}; a child may be declared by at most one module`;
+		}
 	}
 }
 

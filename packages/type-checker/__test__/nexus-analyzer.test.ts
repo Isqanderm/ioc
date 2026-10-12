@@ -1,7 +1,11 @@
 import * as path from "node:path";
 import * as ts from "typescript/lib/tsserverlibrary";
 import { describe, expect, it } from "vitest";
-import { createNexusAnalyzer } from "../src";
+import {
+	createNexusAnalyzer,
+	createNexusApplicationAnalyzer,
+	createNexusApplicationGraphBuilder,
+} from "../src";
 
 const SOURCE = `
 import {
@@ -361,7 +365,7 @@ describe("NexusAnalyzer", () => {
 		expectSourceSpan(sourceFile, injectable.source, "@Service()");
 	});
 
-	it("returns semantic tokens for every InjectionToken variant", () => {
+	it("returns semantic tokens for every ProviderToken variant", () => {
 		const { program, sourceFile } = createProgram();
 		const analyzer = createNexusAnalyzer(program);
 
@@ -719,5 +723,530 @@ describe("NexusAnalyzer", () => {
 			service.undeclaredDependencies.some((item) => item.name === "primitive"),
 		).toBe(false);
 		expect(service.undeclaredDependencies).toHaveLength(3);
+	});
+});
+
+function createMultiFileProgram(files: Map<string, string>): ts.Program {
+	const options: ts.CompilerOptions = {
+		target: ts.ScriptTarget.ES2022,
+		module: ts.ModuleKind.CommonJS,
+		moduleResolution: ts.ModuleResolutionKind.NodeJs,
+		experimentalDecorators: true,
+		strict: true,
+		skipLibCheck: true,
+	};
+	const nexusCoreTypes = path.resolve(
+		process.cwd(),
+		"../ioc/dist/types/index.d.ts",
+	);
+	const defaultHost = ts.createCompilerHost(options, true);
+	const host: ts.CompilerHost = {
+		...defaultHost,
+		fileExists: (fileName) =>
+			files.has(fileName) || defaultHost.fileExists(fileName),
+		readFile: (fileName) =>
+			files.get(fileName) ?? defaultHost.readFile(fileName),
+		getSourceFile: (fileName, languageVersion) => {
+			const text = files.get(fileName);
+			if (text !== undefined) {
+				return ts.createSourceFile(fileName, text, languageVersion, true);
+			}
+			return defaultHost.getSourceFile(fileName, languageVersion);
+		},
+		resolveModuleNames: (moduleNames, containingFile) =>
+			moduleNames.map((moduleName) => {
+				if (moduleName === "@nexus-ioc/core") {
+					return {
+						resolvedFileName: nexusCoreTypes,
+						extension: ts.Extension.Dts,
+						isExternalLibraryImport: true,
+					};
+				}
+				if (moduleName.startsWith(".")) {
+					const resolvedFileName = `${path.posix.join(
+						path.posix.dirname(containingFile),
+						moduleName,
+					)}.ts`;
+					if (files.has(resolvedFileName)) {
+						return {
+							resolvedFileName,
+							extension: ts.Extension.Ts,
+							isExternalLibraryImport: false,
+						};
+					}
+				}
+				return ts.resolveModuleName(moduleName, containingFile, options, host)
+					.resolvedModule;
+			}),
+	};
+	return ts.createProgram([...files.keys()], options, host);
+}
+
+describe("InjectionToken identity", () => {
+	it("gives the same id to @Inject(CONFIG) and { provide: CONFIG } across a re-export", () => {
+		const program = createMultiFileProgram(
+			new Map([
+				[
+					"/app/tokens.ts",
+					`import { InjectionToken } from "@nexus-ioc/core";
+export const CONFIG = new InjectionToken<{ url: string }>("CONFIG");
+`,
+				],
+				["/app/index.ts", `export { CONFIG } from "./tokens";\n`],
+				[
+					"/app/app.module.ts",
+					`import { Module } from "@nexus-ioc/core";
+import { CONFIG } from "./index";
+import { Svc } from "./svc";
+
+@Module({ providers: [Svc, { provide: CONFIG, useValue: { url: "x" } }] })
+export class AppModule {}
+`,
+				],
+				[
+					"/app/svc.ts",
+					`import { Inject, Injectable } from "@nexus-ioc/core";
+import { CONFIG } from "./tokens";
+
+@Injectable()
+export class Svc {
+  constructor(@Inject(CONFIG) cfg: { url: string }) {}
+}
+`,
+				],
+			]),
+		);
+		const analyzer = createNexusAnalyzer(program);
+		const moduleFile = program.getSourceFile("/app/app.module.ts");
+		const svcFile = program.getSourceFile("/app/svc.ts");
+		if (!moduleFile || !svcFile) throw new Error("Source files not created");
+
+		const appModule = analyzer.getClass(getClass(moduleFile, "AppModule"));
+		const svc = analyzer.getClass(getClass(svcFile, "Svc"));
+
+		const providerToken = appModule.module?.providers[1].provide;
+		const dependencyToken = svc.dependencies[0].token;
+		expect(providerToken?.kind).toBe("reference");
+		expect(dependencyToken?.kind).toBe("reference");
+		if (
+			providerToken?.kind !== "reference" ||
+			dependencyToken?.kind !== "reference"
+		) {
+			throw new Error("InjectionToken was not resolved to a reference");
+		}
+		expect(providerToken.symbol.getName()).toBe("CONFIG");
+		expect(dependencyToken.id).toBe(providerToken.id);
+		expect(dependencyToken.id).toContain("/app/tokens.ts:");
+
+		const application = createNexusApplicationAnalyzer(analyzer).analyze(
+			getClass(moduleFile, "AppModule"),
+		);
+		const graph =
+			createNexusApplicationGraphBuilder(analyzer).build(application);
+		expect(graph.unresolved).toEqual([]);
+		const edge = graph.resolved.find(
+			(entry) => entry.class.name === "Svc" && entry.dependencyName === "cfg",
+		);
+		expect(edge).toBeDefined();
+		const provide = edge?.provider.provide;
+		expect(provide?.kind).toBe("reference");
+		if (provide?.kind === "reference") {
+			expect(provide.symbol.getName()).toBe("CONFIG");
+		}
+	});
+
+	it("gives different ids to two InjectionTokens with the same description", () => {
+		const program = createMultiFileProgram(
+			new Map([
+				[
+					"/app/tokens.ts",
+					`import { InjectionToken } from "@nexus-ioc/core";
+export const A = new InjectionToken<string>("SAME");
+export const B = new InjectionToken<string>("SAME");
+`,
+				],
+				[
+					"/app/svc.ts",
+					`import { Inject, Injectable } from "@nexus-ioc/core";
+import { A, B } from "./tokens";
+
+@Injectable()
+export class Svc {
+  constructor(@Inject(A) a: string, @Inject(B) b: string) {}
+}
+`,
+				],
+			]),
+		);
+		const analyzer = createNexusAnalyzer(program);
+		const svcFile = program.getSourceFile("/app/svc.ts");
+		if (!svcFile) throw new Error("Source file not created");
+
+		const svc = analyzer.getClass(getClass(svcFile, "Svc"));
+		const [a, b] = svc.dependencies.map((dependency) => dependency.token);
+		if (a?.kind !== "reference" || b?.kind !== "reference") {
+			throw new Error("InjectionToken was not resolved to a reference");
+		}
+		expect(a.id).not.toBe(b.id);
+	});
+});
+
+describe("inject() dependencies", () => {
+	const TOKENS = `import { InjectionToken } from "@nexus-ioc/core";
+export const CONFIG = new InjectionToken<{ url: string }>("CONFIG");
+export class Http {}
+export class X {}
+export class Late {}
+`;
+
+	function analyze(source: string, extra: [string, string][] = []) {
+		const program = createMultiFileProgram(
+			new Map([["/app/tokens.ts", TOKENS], ...extra, ["/app/svc.ts", source]]),
+		);
+		const analyzer = createNexusAnalyzer(program);
+		const file = program.getSourceFile("/app/svc.ts");
+		const tokensFile = program.getSourceFile("/app/tokens.ts");
+		if (!file || !tokensFile) throw new Error("Source files not created");
+		const idOf = (name: string) => {
+			const statement = tokensFile.statements.find(
+				(item) =>
+					(ts.isClassDeclaration(item) && item.name?.text === name) ||
+					(ts.isVariableStatement(item) &&
+						item.declarationList.declarations.some(
+							(declaration) =>
+								ts.isIdentifier(declaration.name) &&
+								declaration.name.text === name,
+						)),
+			);
+			if (!statement) throw new Error(`${name} not found`);
+			const node = ts.isVariableStatement(statement)
+				? statement.declarationList.declarations[0]
+				: statement;
+			const { line, character } = ts.getLineAndCharacterOfPosition(
+				tokensFile,
+				node.getStart(),
+			);
+			return `/app/tokens.ts:${line + 1}:${character + 1}`;
+		};
+		return { analyzer, file, idOf };
+	}
+
+	const tokenId = (token: unknown) =>
+		(token as { id?: string } | undefined)?.id;
+
+	it("reports a field-initializer inject() as a dependency named after the field", () => {
+		const { analyzer, file, idOf } =
+			analyze(`import { inject, Injectable } from "@nexus-ioc/core";
+import { Http } from "./tokens";
+
+@Injectable()
+export class Api {
+  readonly http: Http = inject(Http);
+}
+`);
+		const api = analyzer.getClass(getClass(file, "Api"));
+		expect(api.dependencies).toHaveLength(1);
+		const [dependency] = api.dependencies;
+		expect(dependency.location).toBe("inject");
+		expect(dependency.name).toBe("http");
+		expect(dependency.index).toBeUndefined();
+		expect(dependency.optional).toBe(false);
+		expect(dependency.token?.kind).toBe("reference");
+		expect(tokenId(dependency.token)).toBe(idOf("Http"));
+		expectSourceSpan(file, dependency.source, "inject(Http)");
+		// Typed + initialised by inject() must not be flagged as missing @Inject.
+		expect(api.undeclaredDependencies).toEqual([]);
+	});
+
+	it("reports a constructor-body inject() with optional: true", () => {
+		const { analyzer, file, idOf } =
+			analyze(`import { inject as get, Injectable } from "@nexus-ioc/core";
+import { CONFIG } from "./tokens";
+
+@Injectable()
+export class Api {
+  private cfg: { url: string } | undefined;
+  constructor() {
+    this.cfg = get(CONFIG, { optional: true });
+  }
+}
+`);
+		const api = analyzer.getClass(getClass(file, "Api"));
+		expect(api.dependencies).toHaveLength(1);
+		const [dependency] = api.dependencies;
+		expect(dependency.location).toBe("inject");
+		expect(dependency.name).toBe("constructor");
+		expect(dependency.optional).toBe(true);
+		expect(tokenId(dependency.token)).toBe(idOf("CONFIG"));
+	});
+
+	it("treats a non-literal or false optional flag as not optional", () => {
+		const { analyzer, file } =
+			analyze(`import { inject, Injectable } from "@nexus-ioc/core";
+import { Http, X } from "./tokens";
+const opts = { optional: true };
+
+@Injectable()
+export class Api {
+  a = inject(Http, { optional: false });
+  b = inject(X, opts);
+}
+`);
+		const api = analyzer.getClass(getClass(file, "Api"));
+		expect(api.dependencies.map((item) => item.optional)).toEqual([
+			false,
+			false,
+		]);
+	});
+
+	it("does not report inject() in methods, lifecycle hooks, nested functions or static fields", () => {
+		const { analyzer, file } =
+			analyze(`import { inject, Injectable } from "@nexus-ioc/core";
+import { Http, X } from "./tokens";
+
+@Injectable()
+export class Api {
+  static shared = inject(X);
+  lazy = () => inject(X);
+  nested = { get: function () { return inject(X); } };
+  run() { inject(X); }
+  onModuleInit() { inject(X); }
+  get value() { return inject(X); }
+  http = inject(Http);
+  constructor() {
+    setTimeout(() => inject(X));
+  }
+}
+`);
+		const api = analyzer.getClass(getClass(file, "Api"));
+		expect(api.dependencies.map((item) => item.name)).toEqual(["http"]);
+	});
+
+	it("reports inject() in a constructor parameter default under the parameter name", () => {
+		const { analyzer, file, idOf } =
+			analyze(`import { inject, Injectable } from "@nexus-ioc/core";
+import { Http } from "./tokens";
+
+@Injectable()
+export class Api {
+  constructor(private readonly http: Http = inject(Http)) {}
+}
+`);
+		const api = analyzer.getClass(getClass(file, "Api"));
+		expect(api.dependencies.map((item) => [item.location, item.name])).toEqual([
+			["inject", "http"],
+		]);
+		expect(tokenId(api.dependencies[0].token)).toBe(idOf("Http"));
+		expect(api.undeclaredDependencies).toEqual([]);
+	});
+
+	it("does not report a local function named inject", () => {
+		const { analyzer, file } =
+			analyze(`import { Injectable } from "@nexus-ioc/core";
+import { Http } from "./tokens";
+function inject<T>(token: unknown): T { return undefined as T; }
+
+@Injectable()
+export class Api {
+  http = inject<Http>(Http);
+}
+`);
+		const api = analyzer.getClass(getClass(file, "Api"));
+		expect(api.dependencies).toEqual([]);
+	});
+
+	it("recognises inject imported through a re-export of @nexus-ioc/core", () => {
+		const { analyzer, file, idOf } = analyze(
+			`import { Injectable } from "@nexus-ioc/core";
+import { inject } from "./di";
+import { Http } from "./tokens";
+
+@Injectable()
+export class Api {
+  http = inject(Http);
+}
+`,
+			[["/app/di.ts", `export { inject } from "@nexus-ioc/core";\n`]],
+		);
+		const api = analyzer.getClass(getClass(file, "Api"));
+		expect(api.dependencies).toHaveLength(1);
+		expect(tokenId(api.dependencies[0].token)).toBe(idOf("Http"));
+	});
+
+	it("keeps @Inject dependencies first and in their original order", () => {
+		const { analyzer, file } =
+			analyze(`import { Inject, inject, Injectable } from "@nexus-ioc/core";
+import { Http, X } from "./tokens";
+
+@Injectable()
+export class Api {
+  http = inject(Http);
+  constructor(@Inject(X) readonly x: X) {}
+}
+`);
+		const api = analyzer.getClass(getClass(file, "Api"));
+		expect(
+			api.dependencies.map((item) => [item.location, item.name, item.index]),
+		).toEqual([
+			["constructor", "x", 0],
+			["inject", "http", undefined],
+		]);
+	});
+
+	it("adds a useFactory's synchronous inject() calls to factoryInject, stopping at the first unconditional await", () => {
+		const { analyzer, file, idOf } =
+			analyze(`import { inject, Module } from "@nexus-ioc/core";
+import { CONFIG, Http, Late, X } from "./tokens";
+
+@Module({
+  providers: [
+    {
+      provide: "A",
+      useFactory: (cfg: unknown) => ({ cfg, http: inject(Http) }),
+      inject: [CONFIG],
+    },
+    {
+      provide: "B",
+      useFactory: async () => {
+        const x = inject(X);
+        if (Math.random() > 0.5) {
+          await Promise.resolve();
+        }
+        const cfg = inject(CONFIG);
+        await load(inject(Http));
+        const late = inject(Late);
+        return { x, cfg, late };
+      },
+    },
+  ],
+})
+export class AppModule {}
+
+async function load(value: unknown) { return value; }
+`);
+		const module = analyzer.getClass(getClass(file, "AppModule")).module;
+		const ids = (index: number) =>
+			module?.providers[index].factoryInject.map((token) => tokenId(token));
+		expect(ids(0)).toEqual([idOf("CONFIG"), idOf("Http")]);
+		expect(ids(1)).toEqual([idOf("X"), idOf("CONFIG"), idOf("Http")]);
+	});
+});
+
+describe("module children", () => {
+	const PROFILE = `import { Injectable, Module } from "@nexus-ioc/core";
+
+@Injectable()
+export class ProfileStore {}
+
+@Module({ providers: [ProfileStore] })
+export class ProfileModule {}
+`;
+
+	function analyzeModule(source: string) {
+		const program = createMultiFileProgram(
+			new Map([
+				["/app/profile.module.ts", PROFILE],
+				["/app/app.module.ts", source],
+			]),
+		);
+		const analyzer = createNexusAnalyzer(program);
+		const file = program.getSourceFile("/app/app.module.ts");
+		const profileFile = program.getSourceFile("/app/profile.module.ts");
+		if (!file || !profileFile) throw new Error("Source files not created");
+		const profileModule = profileFile.statements.find(
+			(item): item is ts.ClassDeclaration =>
+				ts.isClassDeclaration(item) && item.name?.text === "ProfileModule",
+		);
+		if (!profileModule) throw new Error("ProfileModule not found");
+		const profileModuleId = analyzer.getClass(profileModule).id;
+		const module = analyzer.getClass(getClass(file, "AppModule")).module;
+		return { module, profileModuleId };
+	}
+
+	const childId = (child: { module?: unknown }) =>
+		(child.module as { id?: string } | undefined)?.id;
+
+	it("gives a module without children an empty children list", () => {
+		const { module } = analyzeModule(`import { Module } from "@nexus-ioc/core";
+
+@Module({})
+export class AppModule {}
+`);
+		expect(module?.children).toEqual([]);
+	});
+
+	it("parses a direct child class reference", () => {
+		const { module, profileModuleId } =
+			analyzeModule(`import { Module } from "@nexus-ioc/core";
+import { ProfileModule } from "./profile.module";
+
+@Module({ children: [ProfileModule] })
+export class AppModule {}
+`);
+		expect(module?.children).toHaveLength(1);
+		expect(module?.children[0].isLazy).toBe(false);
+		expect(module?.children[0].module?.kind).toBe("reference");
+		expect(childId(module?.children[0] ?? {})).toBe(profileModuleId);
+		expect(module?.children[0].diagnostic).toBeUndefined();
+	});
+
+	it("resolves lazy(() => import(...).then((m) => m.X)) to the module class", () => {
+		const { module, profileModuleId } =
+			analyzeModule(`import { lazy, Module } from "@nexus-ioc/core";
+
+@Module({
+  children: [lazy(() => import("./profile.module").then((m) => m.ProfileModule))],
+})
+export class AppModule {}
+`);
+		expect(module?.children).toHaveLength(1);
+		expect(module?.children[0].isLazy).toBe(true);
+		expect(childId(module?.children[0] ?? {})).toBe(profileModuleId);
+		expect(module?.children[0].diagnostic).toBeUndefined();
+	});
+
+	it("resolves lazy(async () => (await import(...)).X) to the module class", () => {
+		const { module, profileModuleId } =
+			analyzeModule(`import { lazy, Module } from "@nexus-ioc/core";
+
+@Module({
+  children: [lazy(async () => (await import("./profile.module")).ProfileModule)],
+})
+export class AppModule {}
+`);
+		expect(module?.children[0].isLazy).toBe(true);
+		expect(childId(module?.children[0] ?? {})).toBe(profileModuleId);
+	});
+
+	it("follows a const that holds a lazy() ref", () => {
+		const { module, profileModuleId } =
+			analyzeModule(`import { lazy, Module } from "@nexus-ioc/core";
+
+export const ProfileLazy = lazy(() =>
+  import("./profile.module").then((m) => m.ProfileModule),
+);
+
+@Module({ children: [ProfileLazy] })
+export class AppModule {}
+`);
+		expect(module?.children[0].isLazy).toBe(true);
+		expect(childId(module?.children[0] ?? {})).toBe(profileModuleId);
+	});
+
+	it("gives an unknown lazy shape module: undefined and a diagnostic, without throwing", () => {
+		const { module } =
+			analyzeModule(`import { lazy, Module } from "@nexus-ioc/core";
+
+declare function load(): Promise<any>;
+
+@Module({ children: [lazy(() => load())] })
+export class AppModule {}
+`);
+		expect(module?.children).toHaveLength(1);
+		expect(module?.children[0].isLazy).toBe(true);
+		expect(module?.children[0].module).toBeUndefined();
+		expect(module?.children[0].diagnostic).toBe(
+			"Child module of lazy() could not be resolved statically",
+		);
 	});
 });

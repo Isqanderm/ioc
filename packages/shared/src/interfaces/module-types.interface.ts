@@ -1,5 +1,5 @@
 import type { ForwardRef } from "./forward-ref.interface";
-import type { InjectionToken } from "./injection-token.interface";
+import type { ProviderToken } from "./injection-token.interface";
 import type { Scope } from "./scope.interface";
 import type { Type } from "./type.interface";
 
@@ -13,22 +13,23 @@ export type Provider<T = any> =
 
 // biome-ignore lint/suspicious/noExplicitAny: Generic type parameter allows any class type
 export interface ClassProvider<T = any> {
-	provide: InjectionToken;
+	provide: ProviderToken;
 	useClass: Type<T>;
 	scope?: Scope;
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: Generic type parameter allows any value type
 export interface ValueProvider<T = any> {
-	provide: InjectionToken;
+	provide: ProviderToken;
 	useValue: T;
 }
 
 // biome-ignore lint/suspicious/noExplicitAny: Generic type parameter allows any factory return type
 export interface FactoryProvider<T = any> {
-	provide: InjectionToken;
+	provide: ProviderToken;
+	/** Must return synchronously; a returned promise throws AsyncFactoryError. */
 	// biome-ignore lint/suspicious/noExplicitAny: Factory arguments can be of any type from DI container
-	useFactory: (...args: any[]) => T | Promise<T>;
-	inject?: (InjectionToken | ForwardRef)[];
+	useFactory: (...args: any[]) => T;
+	inject?: (ProviderToken | ForwardRef)[];
 	scope?: Scope;
 }

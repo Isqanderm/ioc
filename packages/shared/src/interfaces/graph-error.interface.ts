@@ -1,4 +1,4 @@
-import type { InjectionToken } from "./injection-token.interface";
+import type { ProviderToken } from "./injection-token.interface";
 
 export type GraphError =
 	| {
@@ -7,7 +7,7 @@ export type GraphError =
 	  }
 	| {
 			type: "CD_PROVIDERS";
-			path: [InjectionToken, InjectionToken][];
+			path: [ProviderToken, ProviderToken][];
 	  }
 	| {
 			type: "UNREACHED_DEP_CONSTRUCTOR";
@@ -32,4 +32,9 @@ export type GraphError =
 			token: string;
 			module: string;
 			existingModule: string;
+	  }
+	| {
+			type: "CHILD_DECLARED_TWICE";
+			child: string;
+			modules: [string, string];
 	  };

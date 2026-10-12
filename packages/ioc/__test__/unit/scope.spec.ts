@@ -1,8 +1,23 @@
 import "reflect-metadata";
 import { Test } from "@nexus-ioc/testing";
-import { Inject, Injectable, Scope } from "../../src";
+import {
+	Inject,
+	Injectable,
+	InvalidScopeError,
+	Module,
+	NexusApplication,
+	Scope,
+} from "../../src";
 
 describe("Scope Management", () => {
+	it("has no Scoped member (Singleton and Transient only)", () => {
+		expect(Object.keys(Scope).filter((k) => Number.isNaN(Number(k)))).toEqual([
+			"Singleton",
+			"Transient",
+		]);
+		expect(Scope.Transient).toBe(2);
+	});
+
 	describe("Singleton Scope", () => {
 		it("should return same instance for singleton scope", async () => {
 			@Injectable({ scope: Scope.Singleton })
@@ -210,72 +225,6 @@ describe("Scope Management", () => {
 		});
 	});
 
-	describe("Request Scope", () => {
-		it("should not cache request-scoped providers globally", async () => {
-			@Injectable({ scope: Scope.Scoped })
-			class RequestService {
-				id = Math.random();
-			}
-
-			const container = await Test.createModule({
-				providers: [RequestService],
-			}).compile();
-
-			const instance1 = await container.resolve<RequestService>(RequestService);
-			const instance2 = await container.resolve<RequestService>(RequestService);
-
-			// Request scope should create new instances for each request (each get() call)
-			expect(instance1?.id).not.toBe(instance2?.id);
-		});
-
-		it("should work with class providers", async () => {
-			@Injectable()
-			class ImplementationService {
-				id = Math.random();
-			}
-
-			const container = await Test.createModule({
-				providers: [
-					{
-						provide: "SERVICE",
-						useClass: ImplementationService,
-						scope: Scope.Scoped,
-					},
-				],
-			}).compile();
-
-			const instance1 =
-				await container.resolve<ImplementationService>("SERVICE");
-			const instance2 =
-				await container.resolve<ImplementationService>("SERVICE");
-
-			expect(instance1?.id).not.toBe(instance2?.id);
-		});
-
-		it("should inject request-scoped dependencies", async () => {
-			@Injectable({ scope: Scope.Scoped })
-			class RequestService {
-				id = Math.random();
-			}
-
-			@Injectable()
-			class ConsumerService {
-				constructor(@Inject(RequestService) public request: RequestService) {}
-			}
-
-			const container = await Test.createModule({
-				providers: [RequestService, ConsumerService],
-			}).compile();
-
-			const consumer1 = await container.get<ConsumerService>(ConsumerService);
-			const consumer2 = await container.get<ConsumerService>(ConsumerService);
-
-			// Each consumer should get the same singleton instance
-			// but the request service should be different
-			expect(consumer1).toBe(consumer2);
-		});
-	});
-
 	describe("Mixed Scopes", () => {
 		it("should handle different scopes in same module", async () => {
 			@Injectable({ scope: Scope.Singleton })
@@ -359,6 +308,59 @@ describe("Scope Management", () => {
 			expect(singleton1).toBe(singleton2);
 			// And it should have the same transient instance
 			expect(singleton1?.transient.id).toBe(singleton2?.transient.id);
+		});
+	});
+
+	describe("Scope validation", () => {
+		it("rejects a scope value that is not a Scope member at bootstrap", async () => {
+			// 1 was the value of the removed Scope.Scoped
+			@Injectable({ scope: 1 as unknown as Scope })
+			class Legacy {}
+			@Module({ providers: [Legacy] })
+			class M {}
+			const error = await NexusApplication.create(M)
+				.bootstrap()
+				.catch((e) => e);
+			expect(error).toBeInstanceOf(InvalidScopeError);
+			expect(error.message).toContain(
+				'Invalid scope 1 for provider "Legacy"; valid scopes are Singleton and Transient',
+			);
+		});
+
+		it("rejects an invalid scope on a factory provider at bootstrap", async () => {
+			@Module({
+				providers: [
+					{
+						provide: "cfg",
+						useFactory: () => ({}),
+						scope: 7 as unknown as Scope,
+					},
+				],
+			})
+			class M {}
+			await expect(NexusApplication.create(M).bootstrap()).rejects.toThrow(
+				'Invalid scope 7 for provider "cfg"; valid scopes are Singleton and Transient',
+			);
+		});
+
+		it("treats scope: undefined as Singleton", async () => {
+			let created = 0;
+			@Injectable({ scope: undefined })
+			class S {
+				id = ++created;
+			}
+			@Module({
+				providers: [
+					S,
+					{ provide: "f", useFactory: () => ({}), scope: undefined },
+				],
+			})
+			class M {}
+			const app = await NexusApplication.create(M).bootstrap();
+			expect(await app.resolve(S)).toBe(await app.resolve(S));
+			expect(app.get(S)).toBe(await app.resolve(S));
+			expect(app.get("f")).toBe(await app.resolve("f"));
+			expect(created).toBe(1);
 		});
 	});
 });

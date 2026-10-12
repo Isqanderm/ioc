@@ -1,7 +1,7 @@
 {
 	"name": "@nexus-ioc/graph-analyzer",
 	"version": "0.1.0",
-	"description": "Static analysis and visualization tool for Nexus IoC dependency injection graphs. Detect circular dependencies, unused providers, scope mismatches, and visualize your architecture with interactive HTML graphs.",
+	"description": "Static analysis and visualization tool for Nexus IoC dependency injection graphs. Detect circular dependencies, unused providers, provider scopes, and visualize your architecture with interactive HTML graphs.",
 	"keywords": [
 		"nexus-ioc",
 		"dependency-injection",

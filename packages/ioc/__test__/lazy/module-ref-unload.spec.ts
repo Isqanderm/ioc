@@ -40,6 +40,7 @@ describe("ModuleRef.unload", () => {
 		await expect(ref.unload()).resolves.toEqual({
 			destroyedModules: [],
 			destroyedProviders: [],
+			closedChildren: 0,
 		});
 	});
 });

@@ -6,12 +6,17 @@ import type {
 	ModuleGraphInterface,
 	UnloadResult,
 } from "./module-graph.interface";
+import type { ParentLink } from "./parent-link.interface";
 
 export type { ContainerBaseInterface } from "@nexus-ioc/shared";
 
 // Extend base interface with strongly-typed graph property
 export interface ContainerInterface extends ContainerBaseInterface {
-	run(rootModule: Type, internalModules?: DynamicModule[]): Promise<void>;
+	run(
+		rootModule: Type | DynamicModule,
+		internalModules?: DynamicModule[],
+		options?: { link?: ParentLink },
+	): Promise<void>;
 	load(lazyModule: LazyModule): Promise<GraphSegment>;
 	unload(lazyModule: LazyModule): Promise<UnloadResult>;
 	graph: ModuleGraphInterface;

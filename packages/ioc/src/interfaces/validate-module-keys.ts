@@ -2,6 +2,7 @@ export const MODULE_METADATA = {
 	IMPORTS: "imports",
 	PROVIDERS: "providers",
 	EXPORTS: "exports",
+	CHILDREN: "children",
 };
 
 export const INVALID_MODULE_CONFIG_MESSAGE = (
@@ -13,6 +14,7 @@ const metadataKeys = [
 	MODULE_METADATA.IMPORTS,
 	MODULE_METADATA.EXPORTS,
 	MODULE_METADATA.PROVIDERS,
+	MODULE_METADATA.CHILDREN,
 ];
 
 export function validateModuleKeys(keys: string[]) {

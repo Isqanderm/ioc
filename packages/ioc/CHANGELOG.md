@@ -7,16 +7,50 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ### BREAKING CHANGES
 
-- `NexusApplication.get()` is synchronous and returns bootstrapped singletons. It throws `ProviderNotFoundError`, `ProviderScopeError` (Transient/Scoped), `ProviderNotInstantiatedError` (lazy mode or not yet loaded), `ContainerClosedError` or `ContainerNotCompiledError` (before `bootstrap()`); pass `{ optional: true }` to get `undefined` for unknown tokens.
+- `useFactory` must return synchronously. A factory that returns a promise (any thenable) throws `AsyncFactoryError`, which names the token, at `bootstrap()`, at lazy `resolve()` and from `inject()`; move async setup into an `onModuleInit` (of the provided class, or of the object the factory returns), or create the value before bootstrap and register it with `useValue`. Singletons are created in declaration order.
+- `AsyncProviderInjectionError` is removed, because an async factory can no longer be created.
+- `Scope.Scoped` is removed. Only `Singleton` and `Transient` remain; `Transient` keeps the numeric value 2. Use `Transient`, or a child container (`createChild`) for per-request state. A scope value that is not a `Scope` member (such as `1`, the old `Scoped`) throws the new `InvalidScopeError` at bootstrap.
+- `NexusApplication.get()` is synchronous and returns bootstrapped singletons. It throws `ProviderNotFoundError`, `ProviderScopeError` (Transient), `ProviderNotInstantiatedError` (lazy mode or not yet loaded), `ContainerClosedError` or `ContainerNotCompiledError` (before `bootstrap()`); pass `{ optional: true }` to get `undefined` for unknown tokens.
 - `ModuleRef.get()` is synchronous too. It returns `undefined` for tokens the module cannot see (strict by default) and after `unload()`; for visible tokens it throws the same errors as `NexusApplication.get()`.
-- New async `resolve()` on `NexusApplication` and `ModuleRef` creates Transient, Scoped and lazy-mode providers on demand.
+- New async `resolve()` on `NexusApplication` and `ModuleRef` creates Transient and lazy-mode providers on demand.
 - `@nexus-ioc/testing`: `Test.compile()` instantiates singletons and runs `onModuleInit`; `Test.get` is sync, `Test.resolve` is async.
 - The module container returned by `Test.compile()` has a sync `get()` (same contract as `Test.get`, throws `ProviderNotFoundError` for unknown tokens unless `{ optional: true }`) and a new async `resolve()`.
 - `NexusApplication.get()`/`resolve()` before `bootstrap()` throw `ContainerNotCompiledError` (previously `ProviderNotFoundError` or a parent lookup).
+- The `InjectionToken` type is renamed to `ProviderToken<T>` with no alias; `InjectionToken` is now a class (see Features).
+- `get()`/`resolve()` infer the result type from the token. For string and symbol tokens the result is `unknown` unless you pass `<T>` or the expected type supplies it.
+- `ProviderToken<T>` no longer includes `Function`, and `Abstract<T>` is now an abstract construct signature (`abstract new (...args) => T`). A plain function, or a class unrelated to `T` (`get<Foo>(Bar)`), is a compile error instead of inferring `any`.
+- Classes with a `private` or `protected` constructor can no longer be used as tokens, because the container cannot construct them. Use an `InjectionToken` instead.
+- `NexusApplication.setParent()`, `getParent()` and the parent fallback they enabled are removed. The only way to get a child container is `parent.createChild(...)`. Migrate `NexusApplication.create(X).setParent(app).bootstrap()` by declaring `X` in `children` of the module that owns it and calling `await app.createChild(X)`. A child now sees what its declaring module sees in the parent, not the whole parent.
+- `close()` now closes the live child containers first (newest first, their errors join the `AggregateError`); it no longer leaves them running. Unloading a lazy module closes the children declared by the modules it destroys, and `UnloadResult` has a new `closedChildren` count.
+
+### Changed
+
+- An `@Optional()` static dependency is injected only when its provider is visible from the consumer's module (own providers, imports, or a `@Global()` module). A provider in a module the consumer cannot see, whether present at bootstrap or loaded later, used to be injected anyway; it is now `undefined`, as with `inject(token, { optional: true })`.
+- New public `Edge.metadata.lateBound` field: marks a static `@Optional()` edge whose target did not exist (or was not visible) when it was compiled. It is injected only while the target exists and is visible, and then pins the target's module on unload.
 
 ### Features
 
+- New `@Module({ children })` and `app.createChild(child, { providers })`: child containers with their own singletons and lifetime, created from a class, a `DynamicModule` (`ProfileModule.forProfile(id)`) or a `lazy()` ref declared in `children`. A child sees what its declaring module sees in the parent, recursively; its own providers win. `@Inject` of a parent Transient gives a new parent-created instance, and `inject()` of one throws `ProviderScopeError`. A child may be declared by one module only (`CHILD_DECLARED_TWICE` otherwise). New errors: `ChildModuleNotDeclaredError`; `createChild` also throws `ContainerNotCompiledError`, `ContainerClosedError` and `LazyModuleLoadError`. See the README section "Child containers".
+- `@nexus-ioc/type-checker` and `@nexus-ioc/graph-analyzer` follow `children`, and the language service accounts for child scopes when reporting missing dependencies.
+- New `inject(token)`, `inject(token, { optional: true })` and `inject(token, options)` in `@nexus-ioc/core`, usable synchronously while the container creates a provider (field initializers, constructor, a synchronous factory). Outside that it throws `InjectionContextError`; cycles throw `CircularInjectionError`. `inject()` dependencies are runtime graph edges (they protect lazy-module unload), and the type-checker and graph-analyzer report them with `location: "inject"`. `ProviderNotFoundError` has an optional `requestedBy`.
+- New `InjectionToken<T>` class: `new InjectionToken<Config>("CONFIG")`. Tokens are compared by identity and work with `useValue`/`useFactory`/`useClass`, `@Inject`, `@Optional` and module `exports`. Error messages and graph labels use `toString()` (`InjectionToken CONFIG`).
+- `get()`/`resolve()` on `NexusApplication`, `ModuleRef`, `Test` and the `Test.compile()` result infer `T` from class tokens (including abstract classes) and `InjectionToken<T>`.
+- The type-checker and graph-analyzer treat an `InjectionToken` constant as one token across re-exports.
 - `close()` is idempotent and error-tolerant: it runs `onModuleDestroy` in reverse creation order, throws one `AggregateError` if hooks fail, detaches the parent, and makes `get`/`resolve`/`load`/`unload` throw `ContainerClosedError` from the moment it is called (a `ModuleRef` throws it for visible tokens and still returns `undefined` for tokens it cannot see), while in-flight lazy loads still finish and are destroyed.
+
+### Fixed
+
+- `Container.replaceModule(Old, New)` is remembered, so it also replaces `Old` when `Old` is not registered yet (it used to store `New` as an orphan). Later `addModule`/`getModule` of `Old`, or of a `DynamicModule` of `Old`, resolve to `New`; chains are followed and cycles stop. A module that re-exports a replaced module class exports the replacement, and replacements apply to everything that container adds later, lazy modules included. Call it before `run()`/`bootstrap()`: replacing after `run()` and then loading a lazy module that imports the original fails with a duplicate-token error.
+- Unloading a lazy module no longer destroys a provider that an eager or earlier-loaded consumer holds through a static `@Optional() @Inject()` edge compiled before the provider was visible to it. Loading the module that makes it visible now records the consumer's module as a referrer, so the provider's module stays alive until the consumer's module unloads, as with `inject()`. The result no longer depends on load order.
+- A `@Global()` module that re-exports a module class (`@Global() @Module({ imports: [Inner], exports: [Inner] })`) now exposes `Inner`'s exports to every module, as a direct export does.
+
+### Notes
+
+- New `ProviderUnloadedError`: a `resolve()` that is still creating a singleton when an unload destroys its module rejects with it; the new instance is destroyed (its `onModuleDestroy` is called on a best-effort basis) instead of cached. After `close()` the same case rejects with `ContainerClosedError`.
+- Unloading a lazy module runs every `onModuleDestroy` even if some throw and rejects with one `AggregateError`, like `close()`. The module is unloaded anyway (`ref.loaded` is `false`) and can be loaded again; previously a throwing hook left it impossible to reload.
+- `NexusApplication.create(root, { hashFn })` now uses the given hash class (it was ignored) and passes it on to child containers.
+- Concurrent `resolve()` of the same singleton creates it once. Under `.lazy()`, or while a `load()` warm-up is still creating a singleton, `inject()` of it throws `ProviderNotInstantiatedError`.
+- Async `onModuleInit` is still supported: it is awaited at bootstrap, `inject()`ed dependencies finish their init before the requester's `onModuleInit`, a singleton whose init fails is evicted, `get()` throws `ProviderNotInstantiatedError` while an init is in flight, and a wrapped init error has `.cause`.
 
 ### Deprecations
 

@@ -49,7 +49,7 @@ describe("forFeature/forFeatureAsync", () => {
 						providers: [
 							{
 								provide: "FEATURE_FACTORY",
-								useFactory: async (configService: ConfigService) => {
+								useFactory: (configService: ConfigService) => {
 									return { feature: configService.featureEnabled };
 								},
 								inject: [ConfigService],

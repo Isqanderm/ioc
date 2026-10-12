@@ -3,10 +3,7 @@ import type {
 	DepthLevel,
 	ModuleDepthInfo,
 } from "../analyzer/module-depth-analyzer";
-import type {
-	ProviderScopeInfo,
-	ScopeMismatch,
-} from "../analyzer/provider-scope-analyzer";
+import type { ProviderScopeInfo } from "../analyzer/provider-scope-analyzer";
 import type { UnusedProvider } from "../analyzer/unused-provider-detector";
 import type { GraphUndeclaredDependency } from "../graph/nexus-graph-model";
 
@@ -61,10 +58,8 @@ export interface GraphAnalysis {
 		totalProviders: number;
 		/** Number of singleton providers */
 		singletonProviders: number;
-		/** Number of scoped providers */
-		scopedProviders: number;
-		/** Scope mismatches detected */
-		scopeMismatches: ScopeMismatch[];
+		/** Number of transient providers */
+		transientProviders: number;
 		/** All provider scope information */
 		providerScopes: ProviderScopeInfo[];
 	};
@@ -112,6 +107,13 @@ export interface ModuleReferenceInfo {
 export interface DependencyInfo {
 	token: string;
 	optional: boolean;
+	/** `true` when the provider lives in a child scope and this dependency
+	 * comes from an ancestor scope. Present only when `true`.
+	 *
+	 * Approximate: computed from which scope registers the token, not from
+	 * full imports/exports visibility. The type-checker's
+	 * `NexusResolvedDependency.fromParentScope` is the precise value. */
+	crossScope?: boolean;
 }
 
 /**
@@ -132,6 +134,12 @@ export interface ModuleInfo {
 	providers: string[];
 	/** Whether this module is marked as global */
 	isGlobal: boolean;
+	/** Name of the root module of the container scope this module belongs
+	 * to. Present only when the application declares child scopes via
+	 * `@Module({ children })`. */
+	scope?: string;
+	/** Modules declared in `@Module({ children })`, present only when non-empty. */
+	children?: ModuleReferenceInfo[];
 }
 
 /**
@@ -148,7 +156,7 @@ export interface ProviderInfo {
 	/** The module that registers this provider */
 	module: ModuleReferenceInfo;
 	/** Lifecycle scope of the provider (only for class providers) */
-	scope?: "Singleton" | "Scoped" | "Transient";
+	scope?: "Singleton" | "Transient";
 	/** Dependencies required by this provider */
 	dependencies: DependencyInfo[];
 	/** Constructor parameters/properties that look like dependencies but have

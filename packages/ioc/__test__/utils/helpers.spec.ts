@@ -210,9 +210,9 @@ describe("Helpers", () => {
 			const provider = {
 				provide: "TOKEN",
 				useFactory: () => ({}),
-				scope: Scope.Scoped,
+				scope: Scope.Transient,
 			};
-			expect(getProviderScope(provider)).toBe(Scope.Scoped);
+			expect(getProviderScope(provider)).toBe(Scope.Transient);
 		});
 
 		it("should return Singleton for class providers without scope", () => {
@@ -228,9 +228,9 @@ describe("Helpers", () => {
 			const provider = {
 				provide: "TOKEN",
 				useClass: TestService,
-				scope: Scope.Scoped,
+				scope: Scope.Transient,
 			};
-			expect(getProviderScope(provider)).toBe(Scope.Scoped);
+			expect(getProviderScope(provider)).toBe(Scope.Transient);
 		});
 
 		it("should return Singleton for value providers", () => {
@@ -245,9 +245,9 @@ describe("Helpers", () => {
 		});
 
 		it("should return specified scope for function providers with @Injectable scope", () => {
-			@Injectable({ scope: Scope.Scoped })
+			@Injectable({ scope: Scope.Transient })
 			class TestService {}
-			expect(getProviderScope(TestService)).toBe(Scope.Scoped);
+			expect(getProviderScope(TestService)).toBe(Scope.Transient);
 		});
 	});
 });

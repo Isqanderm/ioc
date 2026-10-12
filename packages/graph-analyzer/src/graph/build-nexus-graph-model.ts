@@ -9,9 +9,11 @@ import type {
 	GraphModuleReference,
 	GraphProviderDependency,
 	GraphProviderNode,
+	GraphScope,
 	GraphUndeclaredDependency,
 	NexusGraphModel,
 } from "./nexus-graph-model";
+import { GraphScopeIndex } from "./scope-resolution";
 
 /**
  * Builds the `NexusGraphModel` the analyzers in this package operate on,
@@ -49,10 +51,81 @@ export function buildNexusGraphModel(
 		});
 	}
 
-	return {
+	const graphModel: NexusGraphModel = {
 		entryModuleId: application.classes[0]?.id ?? "",
 		modules,
 	};
+
+	const scopes = application.scopes ?? [];
+	if (scopes.length > 1) {
+		applyScopes(graphModel, application, classesById);
+	}
+
+	return graphModel;
+}
+
+/**
+ * Adds child-scope information to a graph built from an application that
+ * declares `children`: `scopes`, each module's `scope` and `children`, and
+ * `crossScope` on dependencies a child-scope provider gets from an ancestor
+ * scope. A module present in several scopes is tagged with the first one.
+ */
+function applyScopes(
+	graphModel: NexusGraphModel,
+	application: NexusApplication,
+	classesById: Map<string, NexusClass>,
+): void {
+	const { modules } = graphModel;
+	graphModel.scopes = application.scopes.map((scope): GraphScope => {
+		const graphScope: GraphScope = {
+			rootId: scope.rootId,
+			moduleIds: scope.classIds.filter((id) => modules.has(id)),
+		};
+		if (scope.declaredInId !== undefined) {
+			graphScope.declaredInId = scope.declaredInId;
+		}
+		if (scope.parentRootId !== undefined) {
+			graphScope.parentRootId = scope.parentRootId;
+		}
+		return graphScope;
+	});
+
+	for (const scope of graphModel.scopes) {
+		for (const moduleId of scope.moduleIds) {
+			const module = modules.get(moduleId);
+			if (module && module.scope === undefined) module.scope = scope.rootId;
+		}
+	}
+
+	for (const nexusClass of application.classes) {
+		const module = modules.get(nexusClass.id);
+		const children = (nexusClass.module?.children ?? []).filter(
+			(child) => child.module !== undefined,
+		);
+		if (module && children.length > 0) {
+			module.children = children.map((child) =>
+				buildModuleReference(child.module, classesById),
+			);
+		}
+	}
+
+	const scopeIndex = new GraphScopeIndex(graphModel);
+	for (const module of modules.values()) {
+		const scope = module.scope;
+		if (scope === undefined) continue;
+		for (const provider of module.providers) {
+			for (const dependency of provider.dependencies) {
+				if (!dependency.tokenId) continue;
+				const providingScope = scopeIndex.providingScope(
+					scope,
+					dependency.tokenId,
+				);
+				if (providingScope !== undefined && providingScope !== scope) {
+					dependency.crossScope = true;
+				}
+			}
+		}
+	}
 }
 
 function moduleName(nexusClass: NexusClass | undefined): string {

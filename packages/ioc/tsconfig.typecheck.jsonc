@@ -1,0 +1,16 @@
+{
+	"extends": "./tsconfig.build.json",
+	"compilerOptions": {
+		"rootDir": ".",
+		"composite": false,
+		"incremental": false,
+		"noEmit": true,
+		"types": ["node", "vitest/globals"]
+	},
+	"include": [
+		"__test__/children/create-child.spec.ts",
+		"__test__/unit/get-resolve.spec.ts",
+		"__test__/unit/token-inference.spec.ts",
+		"__test__/unit/injection-token.spec.ts"
+	]
+}
