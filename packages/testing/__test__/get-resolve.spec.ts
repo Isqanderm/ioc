@@ -142,8 +142,8 @@ describe("compile() result (ModuleContainer) get / resolve", () => {
 		expectTypeOf(
 			moduleRef.get<string>("nope", { optional: true }),
 		).toEqualTypeOf<string | undefined>();
-		expectTypeOf(moduleRef.resolve<string>("nope")).toEqualTypeOf<
-			Promise<string>
-		>();
+		const rejected = moduleRef.resolve<string>("nope");
+		await expect(rejected).rejects.toThrow(ProviderNotFoundError);
+		expectTypeOf(rejected).toEqualTypeOf<Promise<string>>();
 	});
 });
