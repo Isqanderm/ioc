@@ -225,7 +225,7 @@ const FEATURES = new InjectionToken<string[]>('FEATURES');
     {
       provide: FEATURES,
       useFactory: () => {
-        const logger = inject(Logger); // ok: before the first await
+        const logger = inject(Logger); // ok: inside a factory function
         return logger ? ['a', 'b'] : [];
       },
     },
@@ -251,28 +251,37 @@ message names the requester (`requested by "Y" via inject()`; the error has a
 ### Async providers
 
 A `useFactory` must return its value synchronously. A factory that returns a
-promise (any thenable) throws `AsyncFactoryError`, which names the token,
-when the provider is created: at `bootstrap()`, on `resolve()` in lazy mode, or
-from `inject()`. The returned promise never becomes an unhandled rejection. Move async setup into
-`onModuleInit` of the provided class, or create the value before bootstrap and
-register it with `useValue`.
+promise (any thenable) throws `AsyncFactoryError`, which names the token, when
+the provider is created: at `bootstrap()`, on `resolve()` in lazy mode, or from
+`inject()`. A returned promise never becomes an unhandled rejection. Move async
+setup into an `onModuleInit` (of the provided class, or of the object the
+factory returns), or create the value before bootstrap and register it with
+`useValue`.
 
 An `onModuleInit` of an injected dependency may be async: it completes before
 the requester's own `onModuleInit` runs. A singleton whose async init fails is
-not left cached, and neither is a provider that holds it; the wrapped error
-has the original as `.cause`. Another resolution
-(for example a concurrent `resolve()`) that meets the singleton while its init
-is still running waits for it.
+not left cached, and neither is a provider that holds it; the wrapped error has
+the original as `.cause`. When a singleton was created by `inject()`, another
+resolution (for example a concurrent `resolve()`) that meets it while its init
+is still running waits for that init.
+
+Known limitation: in `.lazy()` mode, concurrent `resolve()` calls that reach
+the same singleton before it exists (directly or through `@Inject`) can each
+construct it, so it may be created twice. This is being fixed.
 
 A dependency obtained with `inject()` may still be completing its async
 `onModuleInit` while your constructor or factory body runs; it is guaranteed to
 be done only before your own `onModuleInit`. For a dependency you must use in
 the constructor or factory body after its async init, use `@Inject` (or the
-factory's `inject: [...]`), which resolves it fully first. Until that init
-settles, `app.get()` of such a singleton throws `ProviderNotInstantiatedError`,
-just as for a singleton still being created by `resolve()`. Don't resolve
-providers that depend on a provider from that provider's own `onModuleInit`:
-the resolution waits for the init that is waiting for it, and never settles.
+factory's `inject: [...]`): when the requester is created by `bootstrap()` or
+`resolve()`, that resolves the dependency fully first. When the requester is
+itself created through `inject()`, its `@Inject` dependencies get the same
+guarantee as `inject()` ones: done only before its own `onModuleInit`. Until
+that init settles, `app.get()` of such a singleton throws
+`ProviderNotInstantiatedError`, just as for a singleton still being created by
+`resolve()`. Don't resolve providers that depend on a provider from that
+provider's own `onModuleInit`: the resolution waits for the init that is
+waiting for it, and never settles.
 
 ### Cycles
 

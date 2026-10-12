@@ -160,7 +160,7 @@ Usage: graph-analyzer [options] <entry-file>
        graph-analyzer --init [json|js]
 
 Statically analyzes Nexus IoC dependency injection graphs and reports
-circular dependencies, unused providers, module depth metrics, and provider
+circular dependencies, unused providers, module depth metrics, and
 provider scopes as JSON.
 
 For PNG or interactive HTML visualization of the graph, use the separate
