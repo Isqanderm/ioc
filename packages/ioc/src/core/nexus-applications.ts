@@ -1,4 +1,8 @@
-import { BootstrapError, ProviderNotFoundError } from "../errors";
+import {
+	BootstrapError,
+	ContainerClosedError,
+	ProviderNotFoundError,
+} from "../errors";
 import {
 	type BootstrapOptions,
 	type GetOptions,
@@ -40,6 +44,8 @@ export class NexusApplication implements NexusApplicationInterface {
 	private readonly container = new Container(this.hashUtil);
 	private readonly scannerPlugins: ScannerPluginInterface[] = [];
 	private _parentContainer: NexusApplicationInterface | null = null;
+	private closePromise: Promise<void> | null = null;
+	private readonly pendingLoads = new Set<Promise<unknown>>();
 	private readonly lazyModuleLoader = new LazyModuleLoader(
 		(lazyModule) => this.load(lazyModule),
 		(ref) => this.unload(ref),
@@ -143,7 +149,18 @@ export class NexusApplication implements NexusApplicationInterface {
 	/**
 	 * Closes the application and cleans up resources.
 	 *
+	 * - The closed flag is set synchronously: from this call on, `get`,
+	 *   `resolve` and `load` throw `ContainerClosedError`.
+	 * - Waits for in-flight lazy loads, then runs on the compile queue so it
+	 *   never interleaves with `load`/`unload`.
+	 * - Calls every `onModuleDestroy` in reverse creation order, even if some
+	 *   throw; failures are collected into a single `AggregateError`.
+	 * - Idempotent: later calls return the same promise.
+	 * - Detaches the parent. Child applications are NOT closed; services that
+	 *   subscribed to parent services must unsubscribe in `onModuleDestroy`.
+	 *
 	 * @returns A promise that resolves when the application is closed
+	 * @throws {AggregateError} If one or more `onModuleDestroy` hooks failed
 	 *
 	 * @example
 	 * ```typescript
@@ -151,8 +168,33 @@ export class NexusApplication implements NexusApplicationInterface {
 	 * await app.close();
 	 * ```
 	 */
-	public async close(): Promise<void> {
+	public close(): Promise<void> {
+		if (!this.closePromise) {
+			this.closePromise = this.drainAndClose().finally(() => {
+				this._parentContainer = null;
+			});
+		}
+		return this.closePromise;
+	}
+
+	/**
+	 * Waits for in-flight `load()` calls (including their singleton warm-up)
+	 * so nothing is instantiated after the destroy pass, then closes.
+	 */
+	private async drainAndClose(): Promise<void> {
+		await Promise.allSettled([...this.pendingLoads]);
 		await this.container.close();
+	}
+
+	/** True once `close()` has been called (the app may still be closing). */
+	public get isClosed(): boolean {
+		return this.closePromise !== null;
+	}
+
+	private assertOpen(): void {
+		if (this.closePromise) {
+			throw new ContainerClosedError();
+		}
 	}
 
 	/**
@@ -208,6 +250,7 @@ export class NexusApplication implements NexusApplicationInterface {
 		token: InjectionToken,
 		options: GetOptions = {},
 	): T | undefined {
+		this.assertOpen();
 		if (this.container.hasProvider(token)) {
 			return this.container.get<T>(token);
 		}
@@ -243,6 +286,7 @@ export class NexusApplication implements NexusApplicationInterface {
 		token: InjectionToken,
 		options: GetOptions = {},
 	): Promise<T | undefined> {
+		this.assertOpen();
 		if (this.container.hasProvider(token)) {
 			return this.container.resolve<T>(token);
 		}
@@ -264,6 +308,17 @@ export class NexusApplication implements NexusApplicationInterface {
 	 * @throws {LazyModuleGraphError} if the module's dependency graph is invalid
 	 */
 	public async load(lazyModule: LazyModule): Promise<ModuleRef> {
+		this.assertOpen();
+		const loading = this.loadAndWarmUp(lazyModule);
+		this.pendingLoads.add(loading);
+		try {
+			return await loading;
+		} finally {
+			this.pendingLoads.delete(loading);
+		}
+	}
+
+	private async loadAndWarmUp(lazyModule: LazyModule): Promise<ModuleRef> {
 		const segment = await this.container.load(lazyModule);
 		await this.warmUpSingletons(segment.providerTokens);
 		return new ModuleRef(this.container, segment);

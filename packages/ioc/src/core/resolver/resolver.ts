@@ -41,14 +41,25 @@ export class Resolver {
 	}
 
 	public async close(): Promise<void> {
+		const errors: unknown[] = [];
 		for (const token of [...this.initializationOrder].reverse()) {
 			const instance = this.providersContainer.get(token);
 			if (instance?.onModuleDestroy) {
-				await instance.onModuleDestroy();
+				try {
+					await instance.onModuleDestroy();
+				} catch (error) {
+					errors.push(error);
+				}
 			}
 		}
 		this.providersContainer.clear();
 		this.initializationOrder.length = 0;
+		if (errors.length > 0) {
+			throw new AggregateError(
+				errors,
+				"One or more onModuleDestroy hooks failed",
+			);
+		}
 	}
 
 	/**

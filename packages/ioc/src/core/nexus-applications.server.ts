@@ -1,4 +1,4 @@
-import { ProviderNotFoundError } from "../errors";
+import { ContainerClosedError, ProviderNotFoundError } from "../errors";
 import type {
 	GetOptions,
 	InjectionToken,
@@ -22,6 +22,7 @@ export class NexusApplicationServer implements NexusApplicationInterface {
 	private readonly container = new Container(this.hashUtil);
 	private readonly scannerPlugins: ScannerPluginInterface[] = [];
 	private _parentContainer: NexusApplicationInterface | null = null;
+	private closePromise: Promise<void> | null = null;
 
 	private constructor(private readonly rootModule: Type) {}
 
@@ -53,6 +54,7 @@ export class NexusApplicationServer implements NexusApplicationInterface {
 		token: InjectionToken,
 		options: GetOptions = {},
 	): T | undefined {
+		this.assertOpen();
 		if (this.container.hasProvider(token)) {
 			return this.container.get<T>(token);
 		}
@@ -74,6 +76,7 @@ export class NexusApplicationServer implements NexusApplicationInterface {
 		token: InjectionToken,
 		options: GetOptions = {},
 	): Promise<T | undefined> {
+		this.assertOpen();
 		if (this.container.hasProvider(token)) {
 			return this.container.resolve<T>(token);
 		}
@@ -91,6 +94,7 @@ export class NexusApplicationServer implements NexusApplicationInterface {
 	}
 
 	public async load(lazyModule: LazyModule): Promise<ModuleRef> {
+		this.assertOpen();
 		return new ModuleRef(this.container, await this.container.load(lazyModule));
 	}
 
@@ -102,8 +106,23 @@ export class NexusApplicationServer implements NexusApplicationInterface {
 		return this;
 	}
 
-	public async close(): Promise<void> {
-		await this.container.close();
+	public close(): Promise<void> {
+		if (!this.closePromise) {
+			this.closePromise = this.container.close().finally(() => {
+				this._parentContainer = null;
+			});
+		}
+		return this.closePromise;
+	}
+
+	public get isClosed(): boolean {
+		return this.closePromise !== null;
+	}
+
+	private assertOpen(): void {
+		if (this.closePromise) {
+			throw new ContainerClosedError();
+		}
 	}
 
 	public setParent(parentContainer: NexusApplicationInterface) {

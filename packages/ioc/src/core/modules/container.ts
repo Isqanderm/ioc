@@ -427,6 +427,13 @@ export class Container implements ContainerInterface {
 	 * @returns A promise that resolves when the container is closed
 	 */
 	public async close(): Promise<void> {
-		await this.moduleGraphResolver?.close();
+		await Promise.all(
+			[...this.segments.values()].map((segment) =>
+				segment.catch(() => undefined),
+			),
+		);
+		await this.enqueueCompile(async () => {
+			await this.moduleGraphResolver?.close();
+		});
 	}
 }
