@@ -210,8 +210,8 @@ Rules:
 
 `ModuleRef.get()` is synchronous and `ModuleRef.resolve()` is async, with the
 same split as on the application: `get()` for singletons, `resolve()` for
-`Transient`, `Scoped` and lazy-mode providers. Both are strict by default: it sees the module's own providers and
-what its imports (and global modules) export to it, and returns `undefined`
+`Transient`, `Scoped` and lazy-mode providers. Both are strict by default: they see the module's own providers and
+what its imports (and global modules) export to them, and return `undefined`
 for every other token — including tokens that do exist elsewhere in the
 container. Pass `{ strict: false }` to look the token up in the whole
 container instead. Either way the result is `T | undefined`, so check it
@@ -275,7 +275,8 @@ const { destroyedModules, destroyedProviders } = await app.unload(ref);
   `undefined` for every token afterward — the ref does not come back to life; loading the
   same `lazy()` ref again returns a new `ModuleRef`.
 - Unloading a ref that was never loaded, or unloading it twice, is a no-op:
-  `{ destroyedModules: [], destroyedProviders: [] }`.
+  `{ destroyedModules: [], destroyedProviders: [] }`. After `app.close()`,
+  unloading rejects with `ContainerClosedError`.
 - Not handled: an instance obtained via `app.get()` or `ref.get()` and held
   outside the container (for example in a closure) keeps working as a plain
   object after its module is destroyed — the same contract as an Angular

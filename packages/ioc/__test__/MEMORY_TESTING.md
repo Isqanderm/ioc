@@ -247,7 +247,7 @@ it("should not leak memory when doing X", async () => {
   const iterations = 100;
   for (let i = 0; i < iterations; i++) {
     const container = await Test.createModule(MyModule).compile();
-    const instance = await container.get(MyService);
+    const instance = container.get(MyService);
     if (instance) {
       weakRefs.push(new WeakRef(instance));
     }
