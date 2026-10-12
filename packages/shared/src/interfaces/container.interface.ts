@@ -12,7 +12,9 @@ export interface ContainerBaseInterface {
 		newModule: Module,
 	): Promise<ModuleContainerInterface>;
 	getModule(module: Module): Promise<ModuleContainerInterface | undefined>;
-	get<T>(token: InjectionToken): Promise<T | undefined>;
+	get<T>(token: InjectionToken): T;
+	resolve<T>(token: InjectionToken): Promise<T>;
+	hasProvider(token: InjectionToken): boolean;
 	errors: GraphError[];
 }
 

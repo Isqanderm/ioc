@@ -30,7 +30,9 @@ describe("Container.load", () => {
 		const container = await ready(FeatureLazy);
 		const segment = await container.load(FeatureLazy);
 		expect(segment.moduleContainer.metatype).toBe(FeatureModule);
-		expect(await container.get(FeatureService)).toBeInstanceOf(FeatureService);
+		expect(await container.resolve(FeatureService)).toBeInstanceOf(
+			FeatureService,
+		);
 	});
 
 	it("runs the loader once for concurrent and repeated loads", async () => {
@@ -61,7 +63,7 @@ describe("Container.load", () => {
 		const ConfigLazy = lazy(async () => ConfigModule.forRoot("prod"));
 		const container = await ready(ConfigLazy);
 		await container.load(ConfigLazy);
-		expect(await container.get("CONFIG")).toBe("prod");
+		expect(await container.resolve("CONFIG")).toBe("prod");
 	});
 
 	it("throws LazyModuleLoadError when the loader returns a non-module", async () => {

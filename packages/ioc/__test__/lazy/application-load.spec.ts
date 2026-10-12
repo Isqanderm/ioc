@@ -6,6 +6,7 @@ import {
 	Module,
 	ModuleRef,
 	NexusApplication,
+	ProviderNotFoundError,
 } from "../../src";
 
 describe("NexusApplication.load", () => {
@@ -94,7 +95,7 @@ describe("NexusApplication.load", () => {
 		@Module({ imports: [PostsLazy] })
 		class AppModule {}
 		const app = await NexusApplication.create(AppModule).bootstrap();
-		expect(await app.get(PostsService)).toBeUndefined();
+		expect(() => app.get(PostsService)).toThrow(ProviderNotFoundError);
 		await app.load(PostsLazy);
 		expect(await app.get(PostsService)).toBeInstanceOf(PostsService);
 		await app.close();
@@ -137,7 +138,7 @@ describe("NexusApplication.load", () => {
 		const app = await NexusApplication.create(AppModule).bootstrap();
 
 		await app.load(ReportsLazy);
-		expect(await app.get(AnalyticsService)).toBeUndefined();
+		expect(() => app.get(AnalyticsService)).toThrow(ProviderNotFoundError);
 		const analytics = await app.load(AnalyticsLazy);
 		expect(await analytics.get(AnalyticsService)).toBeInstanceOf(
 			AnalyticsService,
@@ -145,20 +146,20 @@ describe("NexusApplication.load", () => {
 		await app.close();
 	});
 
-	it("get() returns undefined for non-provider tokens instead of throwing", async () => {
+	it("get() throws ProviderNotFoundError for non-provider tokens", async () => {
 		const PostsLazy = lazy(async () => PostsModule, { name: "Posts" });
 		@Module({ imports: [PostsLazy] })
 		class AppModule {}
 
 		const app = await NexusApplication.create(AppModule).bootstrap();
 
-		expect(await app.get(PostsLazy.id)).toBeUndefined();
-		expect(await app.get(AppModule)).toBeUndefined();
+		expect(() => app.get(PostsLazy.id)).toThrow(ProviderNotFoundError);
+		expect(() => app.get(AppModule)).toThrow(ProviderNotFoundError);
 
 		await app.load(PostsLazy);
 
-		expect(await app.get(PostsLazy.id)).toBeUndefined();
-		expect(await app.get(PostsModule)).toBeUndefined();
+		expect(() => app.get(PostsLazy.id)).toThrow(ProviderNotFoundError);
+		expect(() => app.get(PostsModule)).toThrow(ProviderNotFoundError);
 
 		await app.close();
 	});

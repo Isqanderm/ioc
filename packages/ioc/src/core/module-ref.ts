@@ -63,7 +63,7 @@ export class ModuleRef {
 			return undefined;
 		}
 
-		return this.container.get<T>(token);
+		return this.container.resolve<T>(token).catch(() => undefined);
 	}
 
 	/**

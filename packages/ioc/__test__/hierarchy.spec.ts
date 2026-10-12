@@ -1,4 +1,4 @@
-import { Module, NexusApplication } from "../src";
+import { Module, NexusApplication, ProviderNotFoundError } from "../src";
 
 describe("Hierarchy of containers", () => {
 	@Module({
@@ -44,10 +44,8 @@ describe("Hierarchy of containers", () => {
 		thirdApp.setParent(secondApp);
 		// secondApp.setParent(firstApp);
 
-		const firstModuleProvider = await secondApp.get<string>(
-			"first-module-provider",
+		expect(() => secondApp.get<string>("first-module-provider")).toThrow(
+			ProviderNotFoundError,
 		);
-
-		expect(firstModuleProvider).toEqual(undefined);
 	});
 });

@@ -11,8 +11,12 @@ export { Module } from "./decorators/module";
 export { Optional } from "./decorators/optional";
 export {
 	BootstrapError,
+	ContainerClosedError,
 	LazyModuleGraphError,
 	LazyModuleLoadError,
+	ProviderNotFoundError,
+	ProviderNotInstantiatedError,
+	ProviderScopeError,
 } from "./errors";
 export * from "./interfaces";
 export type { ForwardRef } from "./utils/forward-ref";

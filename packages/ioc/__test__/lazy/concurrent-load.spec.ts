@@ -6,6 +6,7 @@ import {
 	lazy,
 	Module,
 	NexusApplication,
+	ProviderNotFoundError,
 } from "../../src";
 
 describe("concurrent lazy loads", () => {
@@ -55,7 +56,7 @@ describe("concurrent lazy loads", () => {
 
 		expect(app.errors).toEqual([]);
 		expect(await app.get(GoodService)).toBeInstanceOf(GoodService);
-		expect(await app.get(BrokenService)).toBeUndefined();
+		expect(() => app.get(BrokenService)).toThrow(ProviderNotFoundError);
 
 		await app.close();
 	});

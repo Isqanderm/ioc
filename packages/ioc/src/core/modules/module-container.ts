@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import { ProviderNotFoundError } from "../../errors";
 import type {
 	ContainerBaseInterface,
 	DynamicModule,
@@ -76,8 +77,15 @@ export class ModuleContainer implements ModuleContainerInterface {
 		return Reflect.getMetadata(MODULE_METADATA.EXPORTS, this.metatype) || [];
 	}
 
-	public get<T>(token: InjectionToken): Promise<T | undefined> {
-		return this.container.get(token);
+	public async get<T>(token: InjectionToken): Promise<T | undefined> {
+		try {
+			return await this.container.resolve<T>(token);
+		} catch (error) {
+			if (error instanceof ProviderNotFoundError) {
+				return undefined;
+			}
+			throw error;
+		}
 	}
 
 	public get errors() {

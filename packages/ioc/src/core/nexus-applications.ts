@@ -1,6 +1,7 @@
-import { BootstrapError } from "../errors";
+import { BootstrapError, ProviderNotFoundError } from "../errors";
 import {
 	type BootstrapOptions,
+	type GetOptions,
 	type HashUtilInterface,
 	type InjectionToken,
 	type LazyModule,
@@ -30,7 +31,7 @@ import { Container } from "./modules/container";
  * ```typescript
  * const app = NexusApplication.create(AppModule);
  * await app.bootstrap();
- * const service = await app.get(MyService);
+ * const service = app.get(MyService);
  * ```
  */
 export class NexusApplication implements NexusApplicationInterface {
@@ -134,7 +135,7 @@ export class NexusApplication implements NexusApplicationInterface {
 				node.type === NodeTypeEnum.PROVIDER &&
 				node.scope === Scope.Singleton
 			) {
-				await this.container.get(token);
+				await this.container.resolve(token);
 			}
 		}
 	}
@@ -181,31 +182,77 @@ export class NexusApplication implements NexusApplicationInterface {
 	}
 
 	/**
-	 * Resolves and returns an instance of a provider by its injection token.
+	 * Synchronously returns an already-created singleton provider.
 	 *
-	 * If the provider is not found in this container, it will attempt to
-	 * resolve it from the parent container (if set).
+	 * If the token is not a provider of this application, the parent
+	 * application (if set) is asked. A token found locally is always answered
+	 * locally, never by the parent.
 	 *
-	 * @template T - The type of the provider to resolve
+	 * @template T - The type of the provider
 	 * @param token - The injection token (class, string, or symbol)
-	 * @returns A promise that resolves to the provider instance, or undefined if not found
+	 * @param options - `optional: true` returns undefined instead of throwing when no provider exists
+	 * @throws {ProviderNotFoundError} If no provider has this token (unless optional)
+	 * @throws {ProviderScopeError} If the provider is Transient or Scoped; use resolve()
+	 * @throws {ProviderNotInstantiatedError} If the singleton is not created yet (lazy mode); use resolve()
 	 *
 	 * @example
 	 * ```typescript
 	 * const app = await NexusApplication.create(AppModule).bootstrap();
-	 * const userService = await app.get(UserService);
-	 * const config = await app.get('CONFIG');
+	 * const userService = app.get(UserService);
+	 * const config = app.get('CONFIG', { optional: true });
 	 * ```
 	 */
-	public async get<T>(token: InjectionToken) {
-		const dependency = await this.container.get<T>(token);
-
-		// Check for undefined specifically, not falsy values (null, 0, false, etc. are valid)
-		if (dependency === undefined) {
-			return this._parentContainer?.get<T>(token);
+	public get<T>(token: InjectionToken): T;
+	public get<T>(token: InjectionToken, options: GetOptions): T | undefined;
+	public get<T>(
+		token: InjectionToken,
+		options: GetOptions = {},
+	): T | undefined {
+		if (this.container.hasProvider(token)) {
+			return this.container.get<T>(token);
 		}
+		if (this._parentContainer) {
+			return this._parentContainer.get<T>(token, options);
+		}
+		if (options.optional) {
+			return undefined;
+		}
+		throw new ProviderNotFoundError(token);
+	}
 
-		return dependency;
+	/**
+	 * Resolves a provider asynchronously, creating it according to its scope
+	 * (Transient and Scoped providers are created per call). Falls back to the
+	 * parent application when the token is not a provider of this one.
+	 *
+	 * @param token - The injection token (class, string, or symbol)
+	 * @param options - `optional: true` returns undefined instead of rejecting when no provider exists
+	 * @throws {ProviderNotFoundError} If no provider has this token (unless optional)
+	 *
+	 * @example
+	 * ```typescript
+	 * const handler = await app.resolve(RequestHandler);
+	 * ```
+	 */
+	public resolve<T>(token: InjectionToken): Promise<T>;
+	public resolve<T>(
+		token: InjectionToken,
+		options: GetOptions,
+	): Promise<T | undefined>;
+	public async resolve<T>(
+		token: InjectionToken,
+		options: GetOptions = {},
+	): Promise<T | undefined> {
+		if (this.container.hasProvider(token)) {
+			return this.container.resolve<T>(token);
+		}
+		if (this._parentContainer) {
+			return this._parentContainer.resolve<T>(token, options);
+		}
+		if (options.optional) {
+			return undefined;
+		}
+		throw new ProviderNotFoundError(token);
 	}
 
 	/**
@@ -252,8 +299,10 @@ export class NexusApplication implements NexusApplicationInterface {
 	 * Enables lazy mode for the container.
 	 *
 	 * In lazy mode, singleton providers are NOT pre-instantiated during
-	 * bootstrap. They will be created lazily on first access via get().
-	 * This can improve startup time for large applications.
+	 * bootstrap. They will be created lazily on first access via resolve();
+	 * get() throws ProviderNotInstantiatedError until then.
+	 *
+	 * @deprecated Use lazy modules (lazy()/load()) instead; in this mode get() throws ProviderNotInstantiatedError until resolve() is called.
 	 *
 	 * @returns This instance for method chaining
 	 *
@@ -262,7 +311,7 @@ export class NexusApplication implements NexusApplicationInterface {
 	 * const app = NexusApplication.create(AppModule)
 	 *   .lazy();
 	 * await app.bootstrap(); // Singletons are NOT created yet
-	 * const service = await app.get(MyService); // Created on first access
+	 * const service = await app.resolve(MyService); // Created on first access
 	 * ```
 	 */
 	public lazy(): this {

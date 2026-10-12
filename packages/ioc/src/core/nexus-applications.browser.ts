@@ -1,4 +1,6 @@
+import { ProviderNotFoundError } from "../errors";
 import type {
+	GetOptions,
 	InjectionToken,
 	LazyModule,
 	NexusApplicationInterface,
@@ -45,14 +47,43 @@ export class NexusApplicationBrowser implements NexusApplicationInterface {
 		return this;
 	}
 
-	public async get<T>(token: InjectionToken) {
-		const dependency = await this.container.get<T>(token);
-
-		if (!dependency) {
-			return this._parentContainer?.get<T>(token);
+	public get<T>(token: InjectionToken): T;
+	public get<T>(token: InjectionToken, options: GetOptions): T | undefined;
+	public get<T>(
+		token: InjectionToken,
+		options: GetOptions = {},
+	): T | undefined {
+		if (this.container.hasProvider(token)) {
+			return this.container.get<T>(token);
 		}
+		if (this._parentContainer) {
+			return this._parentContainer.get<T>(token, options);
+		}
+		if (options.optional) {
+			return undefined;
+		}
+		throw new ProviderNotFoundError(token);
+	}
 
-		return dependency;
+	public resolve<T>(token: InjectionToken): Promise<T>;
+	public resolve<T>(
+		token: InjectionToken,
+		options: GetOptions,
+	): Promise<T | undefined>;
+	public async resolve<T>(
+		token: InjectionToken,
+		options: GetOptions = {},
+	): Promise<T | undefined> {
+		if (this.container.hasProvider(token)) {
+			return this.container.resolve<T>(token);
+		}
+		if (this._parentContainer) {
+			return this._parentContainer.resolve<T>(token, options);
+		}
+		if (options.optional) {
+			return undefined;
+		}
+		throw new ProviderNotFoundError(token);
 	}
 
 	public get errors() {

@@ -66,8 +66,8 @@ describe("ModuleGraph.compileSegment", () => {
 		const mc = await container.addModule(FeatureModule);
 		await container.graph.compileSegment(mc, FeatureLazy);
 
-		const feature = await container.get<FeatureService>(FeatureService);
-		const shared = await container.get<SharedService>(SharedService);
+		const feature = await container.resolve<FeatureService>(FeatureService);
+		const shared = await container.resolve<SharedService>(SharedService);
 		expect(feature).toBeInstanceOf(FeatureService);
 		expect(feature?.shared).toBe(shared);
 	});

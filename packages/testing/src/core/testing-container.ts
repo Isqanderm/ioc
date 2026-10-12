@@ -7,6 +7,7 @@ import {
 	Module as ModuleDecorator,
 	type ModuleMetadata,
 	ModuleRef,
+	ProviderNotFoundError,
 	type ScannerPluginInterface,
 	type Type,
 	type UnloadResult,
@@ -65,12 +66,18 @@ export class Test<T extends ModuleMetadata = ModuleMetadata>
 		return this.container.replaceModule(metatypeToReplace, newMetatype);
 	}
 
+	// TEMPORARY (Task 3 replaces this): keeps the old async, undefined-on-missing behavior.
 	public get<T>(token: InjectionToken): Promise<T | undefined> {
 		if (!this.containerCompiled) {
 			throw new ContainerNotCompiledError();
 		}
 
-		return this.container.get<T>(token);
+		return this.container.resolve<T>(token).catch((error) => {
+			if (error instanceof ProviderNotFoundError) {
+				return undefined;
+			}
+			throw error;
+		});
 	}
 
 	/**
